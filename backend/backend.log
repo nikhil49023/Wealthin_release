@@ -1,0 +1,111 @@
+✅ Zoho Catalyst QuickML configured
+Warning: sarvamai SDK not installed. Run: pip install sarvamai
+Warning: sarvamai SDK not available. Install with: pip install sarvamai
+✅ Database initialized at /media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b171/wealthin_git_/wealthin_v2/wealthin_agents/services/../wealthin.db
+INFO:     127.0.0.1:44966 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50602 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50614 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42160 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47984 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47994 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48034 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48010 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48022 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47990 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48008 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48054 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48062 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48070 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48078 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48050 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48056 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48084 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48090 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53112 - "GET /transactions/ML2zCMzl5GbSBvyhPpkgBefOiUh2?limit=50&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53128 - "POST /chat HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53136 - "POST /chat HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:40548 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:40564 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40572 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40568 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40546 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40556 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44302 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41518 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48306 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48292 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48328 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48318 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48342 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48356 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48374 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48380 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48394 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48406 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48366 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48378 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48410 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48418 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50674 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50698 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50714 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50690 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50718 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50702 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50728 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50746 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50774 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50780 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50790 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50740 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50760 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50804 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50816 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56672 - "GET /transactions/ML2zCMzl5GbSBvyhPpkgBefOiUh2?limit=50&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48730 - "GET /transactions/ML2zCMzl5GbSBvyhPpkgBefOiUh2?limit=50&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48738 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48742 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48748 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48752 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48758 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42676 - "GET /transactions/ML2zCMzl5GbSBvyhPpkgBefOiUh2?limit=50&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42702 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42708 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42722 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42726 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42686 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42706 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44028 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44044 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:44068 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44078 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44090 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44030 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44056 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44114 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:44124 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44130 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44142 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44102 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44116 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44158 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44160 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34644 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34654 - "GET /transactions/ML2zCMzl5GbSBvyhPpkgBefOiUh2?limit=50&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59152 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59170 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59186 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59178 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59146 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59160 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52520 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52536 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59318 - "GET /insights/daily/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59336 - "GET /budgets/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59346 - "GET /goals/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59362 - "GET /scheduled-payments/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59306 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59324 - "GET /dashboard/ML2zCMzl5GbSBvyhPpkgBefOiUh2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51856 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51864 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51870 - "GET /health HTTP/1.1" 200 OK

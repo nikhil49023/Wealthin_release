@@ -1,0 +1,9 @@
+class: Transaction
+table: transactions
+fields:
+  amount: double
+  description: String
+  date: DateTime
+  type: String
+  category: String
+  userProfileId: int, relation(parent=user_profiles)

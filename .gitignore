@@ -1,0 +1,19 @@
+# SDKs and Tools
+flutter/
+jdk-17/
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Build artifacts are usually handled by internal gitignores, but adding root ones just in case
+build/
+.dart_tool/

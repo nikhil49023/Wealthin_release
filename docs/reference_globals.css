@@ -1,0 +1,96 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 270 100% 99%; /* Very Soft Purple-White */
+    --foreground: 258 40% 18%; /* Shadowy Blue-Black */
+    --card: 270 100% 99%;
+    --card-foreground: 258 40% 18%;
+    --popover: 270 100% 99%;
+    --popover-foreground: 258 40% 18%;
+    --primary: 259 39% 33%; /* Indigo Night */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 270 50% 95%;
+    --secondary-foreground: 259 39% 33%;
+    --muted: 270 50% 95%;
+    --muted-foreground: 258 20% 45%;
+    --accent: 0 100% 66%; /* Electric Coral */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 270 40% 90%;
+    --input: 270 40% 90%;
+    --ring: 259 39% 33%;
+    --chart-1: 259; /* Indigo Night base */
+    --chart-2: 0; /* Electric Coral base */
+    --chart-3: 175; /* Aqua Glow base */
+    --chart-4: 280;
+    --chart-5: 300;
+    --radius: 0.8rem;
+  }
+
+  .dark {
+    --background: 258 40% 8%; /* Darker version of Shadowy Blue-Black */
+    --foreground: 270 50% 95%;
+    --card: 258 40% 12%; /* Slightly Lighter Card */
+    --card-foreground: 270 50% 95%;
+    --popover: 258 40% 12%;
+    --popover-foreground: 270 50% 95%;
+    --primary: 259 39% 45%; /* Lighter Indigo Night */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 258 40% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 258 40% 16%;
+    --muted-foreground: 270 20% 65%;
+    --accent: 0 100% 66%; /* Electric Coral */
+    --accent-foreground: 258 40% 8%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 258 40% 16%;
+    --input: 258 40% 16%;
+    --ring: 0 100% 66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+    @keyframes pulse-record {
+        0%, 100% {
+            opacity: 1;
+            box-shadow: 0 0 0 0 hsl(var(--destructive) / 0.7);
+        }
+        50% {
+            opacity: 0.9;
+            box-shadow: 0 0 0 8px hsl(var(--destructive) / 0);
+        }
+    }
+    .animate-pulse-record {
+        animation: pulse-record 2s infinite;
+    }
+    .background-gradient {
+        @apply bg-gradient-to-b from-blue-100 via-blue-50 to-white dark:from-slate-900 dark:via-slate-950 dark:to-black;
+    }
+    .a4-container {
+      @apply bg-card shadow-lg mx-auto;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 1in 1in 1in 1.5in;
+    }
+}
+
+@layer components {
+  .glassmorphic {
+    @apply bg-card/80 backdrop-blur-lg border;
+  }
+}

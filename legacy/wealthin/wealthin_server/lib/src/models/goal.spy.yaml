@@ -1,0 +1,17 @@
+class: Goal
+table: goals
+fields:
+  name: String
+  targetAmount: double
+  currentAmount: double
+  deadline: DateTime?
+  status: String? # 'in_progress', 'achieved', 'paused'
+  isDefault: bool
+  userProfileId: int, relation(parent=user_profiles)
+  createdAt: DateTime?
+  updatedAt: DateTime?
+  notes: String?
+
+indexes:
+  goal_user_idx:
+    fields: userProfileId

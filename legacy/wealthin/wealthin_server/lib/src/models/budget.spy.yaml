@@ -1,0 +1,17 @@
+class: Budget
+table: budgets
+fields:
+  name: String
+  category: String?
+  amount: double
+  limit: double?
+  period: String? # 'monthly', 'weekly'
+  spent: double
+  icon: String
+  userProfileId: int, relation(parent=user_profiles)
+  createdAt: DateTime?
+  updatedAt: DateTime?
+
+indexes:
+  budget_user_category_idx:
+    fields: userProfileId, category

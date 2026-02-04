@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1078484188114",
+    "project_id": "wealthin-dfc1b",
+    "storage_bucket": "wealthin-dfc1b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1078484188114:android:59006e48f00fc14223260b",
+        "android_client_info": {
+          "package_name": "com.example.wealthin_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1078484188114-i9ljp9s8clrumn6jmiv6p7fui81h4c8a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8pZ0JPqcK-3EOLEkHBhl-QvB53MS9ARY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1078484188114-i9ljp9s8clrumn6jmiv6p7fui81h4c8a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
