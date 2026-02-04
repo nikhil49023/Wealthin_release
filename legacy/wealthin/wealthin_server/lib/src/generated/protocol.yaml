@@ -1,0 +1,82 @@
+emailIdp:
+  - login:
+  - startRegistration:
+  - verifyRegistrationCode:
+  - finishRegistration:
+  - startPasswordReset:
+  - verifyPasswordResetCode:
+  - finishPasswordReset:
+jwtRefresh:
+  - refreshAccessToken:
+agent:
+  - chat:
+  - executeAction:
+  - getPendingActions:
+aiAdvisor:
+  - askAdvisor:
+  - askWithTools:
+  - getRouteDecision:
+  - getAvailableTools:
+  - askAdvisorStructured:
+  - previewAction:
+  - confirmAction:
+brainstorm:
+  - analyzeIdea:
+budget:
+  - getBudgets:
+  - createBudget:
+  - updateBudget:
+  - deleteBudget:
+  - recalculateBudgetSpending:
+dashboard:
+  - getDashboardData:
+debt:
+  - getDebts:
+  - getActiveDebts:
+  - createDebt:
+  - updateDebt:
+  - recordPayment:
+  - deleteDebt:
+  - calculateEmi:
+  - getDebtSummary:
+goal:
+  - getGoals:
+  - createGoal:
+  - updateGoal:
+  - deleteGoal:
+  - createDefaultEmergencyFund:
+  - getSavingsProgress:
+investment:
+  - calculateSIP:
+  - calculateFD:
+  - calculateEMI:
+  - calculateRD:
+  - calculateGoalSIP:
+  - calculateCAGR:
+scheduledPayment:
+  - getScheduledPayments:
+  - getActivePayments:
+  - getUpcomingPayments:
+  - getOverduePayments:
+  - createPayment:
+  - updatePayment:
+  - markAsPaid:
+  - toggleActive:
+  - deletePayment:
+  - getPaymentSummary:
+transaction:
+  - getTransactions:
+  - addTransaction:
+transactionImport:
+  - extractFromImage:
+  - extractFromPdf:
+  - importTransactions:
+  - getImportStats:
+userProfile:
+  - getOrCreateProfile:
+  - awardCredits:
+  - markGoalCompleted:
+  - getCreditBalance:
+  - checkAndAwardSavingsBonus:
+greeting:
+  - hello:

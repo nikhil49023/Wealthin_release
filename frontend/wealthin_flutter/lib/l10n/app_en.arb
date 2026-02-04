@@ -1,0 +1,113 @@
+{
+  "@@locale": "en",
+  "@@last_modified": "2026-01-30T10:00:00+05:30",
+  
+  "appTitle": "WealthIn",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  
+  "navDashboard": "Dashboard",
+  "navTransactions": "Transactions",
+  "navAdvisor": "Advisor",
+  "navDocuments": "Documents",
+  "navIdeas": "Ideas",
+  "navProfile": "Profile",
+  
+  "greeting_morning": "Good Morning",
+  "greeting_afternoon": "Good Afternoon",
+  "greeting_evening": "Good Evening",
+  
+  "dashboard_title": "Dashboard",
+  "dashboard_netWorth": "Net Worth",
+  "dashboard_income": "Income",
+  "dashboard_expenses": "Expenses",
+  "dashboard_savingsRate": "Savings Rate",
+  "dashboard_financialHealth": "Financial Health",
+  "dashboard_quickActions": "Quick Actions",
+  "dashboard_aiFinBite": "AI FinBite",
+  
+  "action_scan": "Scan",
+  "action_advisor": "Advisor",
+  "action_brainstorm": "Brainstorm",
+  "action_addTransaction": "Add Transaction",
+  
+  "transactions_title": "Transactions",
+  "transactions_all": "All",
+  "transactions_income": "Income",
+  "transactions_expense": "Expense",
+  "transactions_noTransactions": "No transactions yet",
+  "transactions_importPdf": "Import PDF",
+  
+  "advisor_title": "AI Advisor",
+  "advisor_askQuestion": "Ask me anything about your finances...",
+  "advisor_send": "Send",
+  "advisor_thinking": "Thinking...",
+  
+  "documents_title": "Documents",
+  "documents_create": "Create Document",
+  "documents_subtitle": "Generate professional financial documents with AI assistance",
+  "documents_loanApplication": "Loan Application",
+  "documents_loanDesc": "Apply for personal, home, or vehicle loans",
+  "documents_invoice": "Invoice",
+  "documents_invoiceDesc": "Generate professional invoices for goods or services",
+  "documents_receipt": "Payment Receipt",
+  "documents_receiptDesc": "Issue receipts for payments received",
+  "documents_projectReport": "Project Report",
+  "documents_projectDesc": "Create detailed project or business reports",
+  "documents_generatePdf": "Generate PDF",
+  "documents_generating": "Generating...",
+  "documents_saved": "Document saved",
+  "documents_open": "Open",
+  
+  "brainstorm_title": "Brainstorm",
+  "brainstorm_subtitle": "AI-powered financial brainstorming",
+  
+  "profile_title": "Profile",
+  "profile_settings": "Settings",
+  "profile_language": "Language",
+  "profile_theme": "Theme",
+  "profile_notifications": "Notifications",
+  "profile_about": "About",
+  "profile_logout": "Logout",
+  "profile_version": "Version",
+  
+  "auth_login": "Login",
+  "auth_register": "Register",
+  "auth_email": "Email",
+  "auth_password": "Password",
+  "auth_confirmPassword": "Confirm Password",
+  "auth_forgotPassword": "Forgot Password?",
+  "auth_noAccount": "Don't have an account?",
+  "auth_hasAccount": "Already have an account?",
+  
+  "common_save": "Save",
+  "common_cancel": "Cancel",
+  "common_delete": "Delete",
+  "common_edit": "Edit",
+  "common_confirm": "Confirm",
+  "common_loading": "Loading...",
+  "common_error": "Error",
+  "common_success": "Success",
+  "common_required": "Required",
+  "common_amount": "Amount",
+  "common_description": "Description",
+  "common_date": "Date",
+  "common_category": "Category",
+  "common_type": "Type",
+  
+  "currency_symbol": "₹",
+  "currency_format": "₹{amount}",
+  "@currency_format": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  
+  "insight_excellent": "Excellent savings this month!",
+  "insight_onTrack": "You're on track with your goals!",
+  "insight_needsAttention": "Spending alert",
+  "insight_steady": "Steady progress"
+}

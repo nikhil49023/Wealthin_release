@@ -1,0 +1,25 @@
+nohup: ignoring input
+INFO:     Started server process [67508]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+✅ Zoho Catalyst QuickML configured
+✅ Sarvam AI initialized successfully
+AI Services Status:
+  - Sarvam AI: ✅
+  - Zoho Catalyst: ✅
+✅ Database initialized at /media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b17/wealthin_git_/wealthin_v2/wealthin_agents/services/../wealthin.db
+INFO:     127.0.0.1:57948 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57956 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56726 - "GET /trends/test_user HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59468 - "POST /insights/daily HTTP/1.1" 404 Not Found
+✅ Zoho access token obtained
+INFO:     127.0.0.1:48918 - "POST /agent/agentic-chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42938 - "POST /agent/agentic-chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33822 - "POST /insights/daily HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60348 - "OPTIONS /insights/daily HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60352 - "POST /insights/daily HTTP/1.1" 404 Not Found
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [67508]

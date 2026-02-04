@@ -1,0 +1,56 @@
+// Firestore Security Rules for WealthIn
+// Deploy these rules to Firebase Console -> Firestore Database -> Rules
+//
+// IMPORTANT: These rules ensure users can only access their own data.
+// Do NOT use permissive rules like `allow read, write: if true;` in production!
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User profiles - users can only read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow creating your own profile
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Budgets - user-scoped access
+    match /budgets/{budgetId} {
+      allow read, write: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Goals - user-scoped access
+    match /goals/{goalId} {
+      allow read, write: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Transactions - user-scoped access
+    match /transactions/{transactionId} {
+      allow read, write: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Scheduled Payments - user-scoped access
+    match /scheduled_payments/{paymentId} {
+      allow read, write: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

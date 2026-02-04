@@ -1,0 +1,33 @@
+# WealthIn Agent Service Dependencies
+# FastAPI Backend with AI Services (Sarvam + Zoho Catalyst)
+
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Environment & Configuration
+python-dotenv
+
+# Database
+aiosqlite
+
+# PDF Parsing
+pdfplumber
+
+# HTTP Client (for Zoho/Sarvam API calls)
+httpx
+
+# Pydantic (included with FastAPI, but explicit for clarity)
+pydantic
+
+# Web Search
+duckduckgo-search>=3.8.0  # Privacy-respecting search engine
+
+# PDF Parsing Enhancements
+pymupdf>=1.20.0  # Advanced PDF + OCR support
+Pillow>=9.0.0  # Image processing for OCR
+
+# Financial Calculations
+numpy>=1.21.0  # Numerical calculations
+requests

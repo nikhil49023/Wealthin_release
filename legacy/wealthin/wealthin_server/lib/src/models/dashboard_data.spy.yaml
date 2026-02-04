@@ -1,0 +1,9 @@
+class: DashboardData
+fields:
+  netWorth: double
+  totalIncome: double
+  totalExpenses: double
+  savingsRate: int
+  recentTransactions: List<Transaction>
+  financialHealthScore: int
+  aiSuggestion: String
