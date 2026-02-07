@@ -1,12 +1,17 @@
 import 'dart:ui';
 // TODO: Firebase migration - removed wealthin_client import
 // import 'package:wealthin_client/wealthin_client.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
+import '../../core/services/data_service.dart';
 // TODO: Firebase migration - removed main.dart import (was used for Serverpod client)
 // import '../../main.dart';
+
+// Data service singleton
+final dataService = DataService();
 
 /// Mock BusinessIdea class for Firebase migration
 class BusinessIdea {
@@ -89,63 +94,110 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
 
     setState(() => _isAnalyzing = true);
 
-    // TODO: Firebase migration - implement with Cloud Functions or Python sidecar
     try {
-      // Mock analysis result
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) {
+      // Call the AI agent service with brainstorm_business_idea tool
+      final response = await dataService.brainstormBusinessIdea(
+        idea: idea,
+        userId: 'user_1',
+      );
+      
+      if (mounted && response != null) {
         setState(() {
           _currentIdea = BusinessIdea(
             idea: idea,
-            score: 75,
-            estimatedInvestment: "₹5-10 Lakhs",
+            score: response['score'] ?? 70,
+            estimatedInvestment: response['budget_range'] ?? "₹5-10 Lakhs",
             timeToBreakeven: "12-18 months",
-            marketAnalysis:
-                'This idea shows good market potential in the current economic climate. '
-                'The target demographic is growing and there\'s room for differentiation.',
-            targetAudience:
-                'Urban professionals aged 25-45, middle to upper-middle class, '
-                'tech-savvy individuals who value convenience.',
-            revenueModel:
-                'Subscription-based model with tiered pricing. '
-                'Additional revenue through premium features and partnerships.',
-            strengths: [
-              'Growing market demand',
-              'Low initial capital requirement',
-              'Scalable business model',
-              'Clear value proposition',
-            ],
-            weaknesses: [
-              'Competitive market landscape',
-              'Customer acquisition costs',
-              'Building trust with new users',
-              'Operational complexity at scale',
-            ],
-            suggestions: [
-              "Add premium features",
-              "Consider B2B model",
-              "Build community around product",
-            ],
+            marketAnalysis: _extractResearchSummary(response['research'], 'market_data'),
+            targetAudience: 'Urban professionals aged 25-45, tech-savvy individuals.',
+            revenueModel: 'Subscription-based model with tiered pricing.',
+            strengths: _extractTitles(response['research'], 'market_data'),
+            weaknesses: _extractTitles(response['research'], 'competition'),
+            suggestions: _extractTitles(response['research'], 'govt_schemes'),
             nextSteps: [
               'Conduct detailed market research',
               'Create a minimum viable product (MVP)',
               'Identify potential early adopters',
               'Develop a go-to-market strategy',
             ],
-            summary:
-                'A promising idea with solid fundamentals. Focus on differentiation '
-                'and building a strong initial user base.',
+            summary: response['message'] ?? 'A promising idea with solid fundamentals.',
           );
           _isAnalyzing = false;
         });
+      } else {
+        // Fallback to mock if backend fails
+        await _mockAnalysis(idea);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isAnalyzing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error analyzing idea: $e')),
+      debugPrint('Brainstorm analysis error: $e');
+      // Fallback to mock analysis
+      await _mockAnalysis(idea);
+    }
+  }
+  
+  String _extractResearchSummary(Map<String, dynamic>? research, String key) {
+    if (research == null || research[key] == null) {
+      return 'Market research data is being gathered.';
+    }
+    final items = research[key] as List?;
+    if (items == null || items.isEmpty) return 'Data pending.';
+    return items.map((i) => i['snippet'] ?? '').take(2).join(' ');
+  }
+  
+  List<String> _extractTitles(Map<String, dynamic>? research, String key) {
+    if (research == null || research[key] == null) return [];
+    final items = research[key] as List?;
+    if (items == null) return [];
+    return items.map<String>((i) => (i['title'] ?? '') as String).take(4).toList();
+  }
+  
+  Future<void> _mockAnalysis(String idea) async {
+    await Future.delayed(const Duration(seconds: 1));
+    if (mounted) {
+      setState(() {
+        _currentIdea = BusinessIdea(
+          idea: idea,
+          score: 75,
+          estimatedInvestment: "₹5-10 Lakhs",
+          timeToBreakeven: "12-18 months",
+          marketAnalysis:
+              'This idea shows good market potential in the current economic climate. '
+              'The target demographic is growing and there\'s room for differentiation.',
+          targetAudience:
+              'Urban professionals aged 25-45, middle to upper-middle class, '
+              'tech-savvy individuals who value convenience.',
+          revenueModel:
+              'Subscription-based model with tiered pricing. '
+              'Additional revenue through premium features and partnerships.',
+          strengths: [
+            'Growing market demand',
+            'Low initial capital requirement',
+            'Scalable business model',
+            'Clear value proposition',
+          ],
+          weaknesses: [
+            'Competitive market landscape',
+            'Customer acquisition costs',
+            'Building trust with new users',
+            'Operational complexity at scale',
+          ],
+          suggestions: [
+            "Add premium features",
+            "Consider B2B model",
+            "Build community around product",
+          ],
+          nextSteps: [
+            'Conduct detailed market research',
+            'Create a minimum viable product (MVP)',
+            'Identify potential early adopters',
+            'Develop a go-to-market strategy',
+          ],
+          summary:
+              'A promising idea with solid fundamentals. Focus on differentiation '
+              'and building a strong initial user base.',
         );
-      }
+        _isAnalyzing = false;
+      });
     }
   }
 

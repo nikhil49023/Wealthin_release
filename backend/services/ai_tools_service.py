@@ -269,6 +269,28 @@ FINANCIAL_TOOLS = [
             },
             "required": ["query"]
         }
+    },
+    {
+        "name": "brainstorm_business_idea",
+        "description": "Analyze a business idea with AI-powered market research. Performs multiple web searches to gather market data, competition analysis, government schemes, and provides a comprehensive viability assessment.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "idea": {
+                    "type": "string",
+                    "description": "The business idea to analyze (e.g., 'Cloud kitchen for healthy Indian meals')"
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Target location/market (e.g., 'Bangalore', 'India', 'Tier 2 cities')"
+                },
+                "budget_range": {
+                    "type": "string",
+                    "description": "Optional investment budget range (e.g., '5-10 Lakhs')"
+                }
+            },
+            "required": ["idea"]
+        }
     }
 ]
 
@@ -674,6 +696,10 @@ Use this information to provide personalized, relevant advice. Reference specifi
         # Unified Web Search Tool
         elif function_name == "web_search":
             return await self._execute_search_tool(function_name, arguments)
+        
+        # Business Idea Brainstorming Tool
+        elif function_name == "brainstorm_business_idea":
+            return await self._brainstorm_business_idea(arguments)
             
         else:
             return {"success": False, "message": f"Unknown action: {function_name}"}
@@ -1120,6 +1146,143 @@ Popular options:
                 "recommendation": "Check your goals today.",
                 "trendIndicator": "stable"
             }
+
+    async def _brainstorm_business_idea(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Agentic business idea analysis with multi-step web search.
+        Performs research on market, competition, and government schemes.
+        """
+        from .web_search_service import web_search_service
+        
+        idea = args.get("idea", "")
+        location = args.get("location", "India")
+        budget_range = args.get("budget_range", "5-10 Lakhs")
+        
+        if not idea:
+            return {
+                "success": False,
+                "message": "Please provide a business idea to analyze."
+            }
+        
+        logger.info(f"Brainstorming business idea: {idea}")
+        
+        # Multi-step agentic research
+        research_results = {
+            "market_data": None,
+            "competition": None,
+            "govt_schemes": None,
+            "trends": None
+        }
+        
+        try:
+            # Step 1: Market size and potential
+            market_query = f"{idea} market size India 2024 2025"
+            market_results = await web_search_service.search(market_query)
+            if market_results:
+                research_results["market_data"] = [
+                    {"title": r.title, "snippet": r.snippet, "url": r.link}
+                    for r in market_results[:3]
+                ]
+            
+            # Step 2: Competition analysis
+            competition_query = f"{idea} competitors India startups"
+            competition_results = await web_search_service.search(competition_query)
+            if competition_results:
+                research_results["competition"] = [
+                    {"title": r.title, "snippet": r.snippet, "url": r.link}
+                    for r in competition_results[:3]
+                ]
+            
+            # Step 3: Government schemes and incentives
+            govt_query = f"{idea} government scheme subsidy India startup 2024"
+            govt_results = await web_search_service.search(govt_query)
+            if govt_results:
+                research_results["govt_schemes"] = [
+                    {"title": r.title, "snippet": r.snippet, "url": r.link}
+                    for r in govt_results[:3]
+                ]
+            
+            # Step 4: Industry trends
+            trends_query = f"{idea} industry trends forecast India"
+            trends_results = await web_search_service.search(trends_query)
+            if trends_results:
+                research_results["trends"] = [
+                    {"title": r.title, "snippet": r.snippet, "url": r.link}
+                    for r in trends_results[:2]
+                ]
+            
+        except Exception as e:
+            logger.warning(f"Some research steps failed: {e}")
+        
+        # Calculate viability score (heuristic based on research quality)
+        score = 60  # Base score
+        if research_results["market_data"]:
+            score += 10
+        if research_results["competition"]:
+            score += 10
+        if research_results["govt_schemes"]:
+            score += 10
+        if research_results["trends"]:
+            score += 10
+        
+        # Cap at 95 max
+        score = min(score, 95)
+        
+        # Build response message
+        message = f"## 💡 Business Idea Analysis\n\n"
+        message += f"**Idea:** {idea}\n"
+        message += f"**Location:** {location}\n"
+        message += f"**Budget Range:** {budget_range}\n\n"
+        message += f"### Viability Score: {score}/100\n\n"
+        
+        if research_results["market_data"]:
+            message += "### 📊 Market Research\n"
+            for item in research_results["market_data"]:
+                message += f"- **{item['title'][:60]}...**\n  _{item['snippet'][:100]}..._\n"
+            message += "\n"
+        
+        if research_results["competition"]:
+            message += "### 🏢 Competition\n"
+            for item in research_results["competition"]:
+                message += f"- **{item['title'][:60]}...**\n  _{item['snippet'][:100]}..._\n"
+            message += "\n"
+        
+        if research_results["govt_schemes"]:
+            message += "### 🏛️ Government Schemes\n"
+            for item in research_results["govt_schemes"]:
+                message += f"- **{item['title'][:60]}...**\n  _{item['snippet'][:100]}..._\n"
+            message += "\n"
+        
+        if research_results["trends"]:
+            message += "### 📈 Industry Trends\n"
+            for item in research_results["trends"]:
+                message += f"- **{item['title'][:60]}...**\n  _{item['snippet'][:100]}..._\n"
+            message += "\n"
+        
+        message += "\n### ✅ Recommendations\n"
+        if score >= 80:
+            message += "- Strong market potential. Consider a phased launch approach.\n"
+            message += "- Explore the government schemes mentioned above.\n"
+        elif score >= 60:
+            message += "- Moderate potential. Conduct deeper competitor analysis.\n"
+            message += "- Focus on differentiation strategy.\n"
+        else:
+            message += "- High risk. Consider pivoting the idea or reducing scope.\n"
+            message += "- Validate with potential customers first.\n"
+        
+        return {
+            "success": True,
+            "needs_confirmation": False,
+            "action": "brainstorm_business_idea",
+            "data": {
+                "idea": idea,
+                "location": location,
+                "budget_range": budget_range,
+                "score": score,
+                "research": research_results
+            },
+            "message": message
+        }
 
 
 # Singleton instance

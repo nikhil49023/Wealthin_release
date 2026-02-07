@@ -1201,6 +1201,73 @@ $emiRecommendation
     );
   }
 
+  // ==================== AI BRAINSTORMING ====================
+
+  /// Analyze a business idea with AI-powered market research
+  Future<Map<String, dynamic>?> brainstormBusinessIdea({
+    required String idea,
+    required String userId,
+    String? location,
+    String? budgetRange,
+  }) async {
+    // First try HTTP backend (for desktop)
+    if (!_isAndroid) {
+      try {
+        final response = await http.post(
+          Uri.parse('$_baseUrl/agent/chat'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'user_id': userId,
+            'query': 'Analyze this business idea and provide comprehensive market research: $idea',
+            'context': {
+              'location': location ?? 'India',
+              'budget_range': budgetRange ?? '5-10 Lakhs',
+              'force_tool': 'brainstorm_business_idea',
+            },
+          }),
+        );
+        
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          // Extract from action_data if available
+          if (data['action_data'] != null) {
+            return data['action_data'] as Map<String, dynamic>;
+          }
+          return {
+            'score': 70,
+            'message': data['response'] ?? 'Analysis complete.',
+            'research': {},
+          };
+        }
+      } catch (e) {
+        debugPrint('Brainstorm HTTP failed: $e');
+      }
+    }
+    
+    // Fallback to Python bridge (Android)
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.chat(
+          'Analyze this business idea: $idea',
+          null,
+        );
+        
+        if (result['success'] == true) {
+          final data = result['action_data'] as Map<String, dynamic>?;
+          return data ?? {
+            'score': 70,
+            'message': result['response'] ?? 'Analysis complete.',
+            'research': {},
+          };
+        }
+      } catch (e) {
+        debugPrint('Brainstorm Python bridge failed: $e');
+      }
+    }
+    
+    return null;
+  }
+
   // ==================== DOCUMENT SCANNING ====================
 
   /// Scan a receipt image using Sarvam AI Vision
@@ -1250,7 +1317,8 @@ $emiRecommendation
     return null;
   }
 
-  /// Scan a PDF bank statement
+  /// Scan a PDF bank statement - returns parsed transactions WITHOUT saving
+  /// Use saveTransactions() to persist them after user confirmation
   Future<List<TransactionModel>> scanBankStatement(String filePath) async {
     // Start with Native Parsing (Safe & Fast)
     try {
@@ -1272,6 +1340,35 @@ $emiRecommendation
     
     // Fallback? No, user requested to move away from backend PDF parsing to avoid crashes.
     return [];
+  }
+
+  /// Batch save multiple transactions to local database
+  /// Used after user confirms transactions from confirmation screen
+  Future<int> saveTransactions(List<TransactionModel> transactions, String userId) async {
+    int savedCount = 0;
+    
+    for (final tx in transactions) {
+      try {
+        final result = await createTransaction(
+          userId: userId,
+          amount: tx.amount,
+          description: tx.description,
+          category: tx.category,
+          type: tx.type,
+          date: tx.date,
+          paymentMethod: tx.paymentMethod,
+          notes: tx.notes,
+        );
+        if (result != null) {
+          savedCount++;
+        }
+      } catch (e) {
+        debugPrint('Error saving transaction: ${tx.description} - $e');
+      }
+    }
+    
+    debugPrint('Saved $savedCount of ${transactions.length} transactions');
+    return savedCount;
   }
 }
 
