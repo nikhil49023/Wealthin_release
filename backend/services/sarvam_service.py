@@ -2,49 +2,60 @@
 Sarvam AI Service - Indic Language Expert
 Provides culturally and linguistically relevant responses for Indian users
 Supports: Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali, Gujarati, Marathi
-Uses the official sarvamai SDK for chat completions.
+
+This version uses direct HTTP requests instead of the SDK for better compatibility
+with embedded Python environments (Chaquopy on Android).
 """
 
 import os
 import re
 import json
+import logging
 from typing import List, Dict, Optional, Any
 from dotenv import load_dotenv
-import httpx
+
+# Use requests (lightweight, works on Android via Chaquopy)
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
 
 load_dotenv()
 
-# Try to import sarvamai SDK
-try:
-    from sarvamai import SarvamAI
-    SARVAM_SDK_AVAILABLE = True
-except ImportError:
-    SARVAM_SDK_AVAILABLE = False
-    print("Warning: sarvamai SDK not installed. Run: pip install sarvamai")
+logger = logging.getLogger(__name__)
 
 
 class SarvamService:
     """
     Sarvam AI Service for Indic language support.
-    Used for regional language queries and local business context.
-    Uses the official sarvamai SDK.
+    Uses direct HTTP requests for maximum compatibility.
     """
+    
+    BASE_URL = "https://api.sarvam.ai"
     
     def __init__(self):
         self.api_key = os.getenv("SARVAM_API_KEY")
-        self._client = None
+        self._initialized = False
         
         if not self.api_key:
-            print("Warning: SARVAM_API_KEY not found. Indic language features disabled.")
-        elif not SARVAM_SDK_AVAILABLE:
-            print("Warning: sarvamai SDK not available. Install with: pip install sarvamai")
+            logger.warning("SARVAM_API_KEY not found. Indic language features disabled.")
+        elif not REQUESTS_AVAILABLE:
+            logger.warning("requests library not available.")
         else:
-            self._client = SarvamAI(api_subscription_key=self.api_key)
-            print("✅ Sarvam AI initialized successfully")
+            self._initialized = True
+            logger.info("✅ Sarvam AI initialized successfully")
         
     @property
     def is_configured(self) -> bool:
-        return bool(self.api_key and SARVAM_SDK_AVAILABLE and self._client)
+        return bool(self.api_key and REQUESTS_AVAILABLE and self._initialized)
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """Get standard headers for Sarvam API requests."""
+        return {
+            "api-subscription-key": self.api_key,
+            "Content-Type": "application/json",
+        }
     
     # Language detection patterns
     INDIC_PATTERNS = {
@@ -72,84 +83,196 @@ class SarvamService:
                 return lang
         return 'english'
     
+    # ==================== DOCUMENT INTELLIGENCE ====================
+    
+    def parse_document(self, file_path: str, output_format: str = "markdown") -> Dict[str, Any]:
+        """
+        Parse a PDF document using Sarvam Doc Intelligence.
+        
+        Args:
+            file_path: Path to the PDF file
+            output_format: "markdown" or "html"
+        
+        Returns:
+            Dict with parsed content and metadata
+        """
+        if not self.is_configured:
+            return {"success": False, "error": "Sarvam AI not configured"}
+        
+        try:
+            url = f"{self.BASE_URL}/parse/parsepdf"
+            
+            with open(file_path, "rb") as f:
+                files = {"file": (os.path.basename(file_path), f, "application/pdf")}
+                headers = {"api-subscription-key": self.api_key}
+                
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    files=files,
+                    timeout=120  # PDF parsing can take time
+                )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "content": data.get("parsed_content", ""),
+                    "pages": data.get("num_pages", 0),
+                    "metadata": data.get("metadata", {}),
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"API error: {response.status_code}",
+                    "details": response.text[:500]
+                }
+                
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Request timed out"}
+        except requests.exceptions.ConnectionError:
+            return {"success": False, "error": "No internet connection"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def extract_from_image(self, file_path: str) -> Dict[str, Any]:
+        """
+        Extract text from an image using Sarvam Vision OCR.
+        
+        Args:
+            file_path: Path to the image file (jpg, png, etc.)
+        
+        Returns:
+            Dict with extracted text and confidence
+        """
+        if not self.is_configured:
+            return {"success": False, "error": "Sarvam AI not configured"}
+        
+        try:
+            # Sarvam Vision endpoint for OCR
+            url = f"{self.BASE_URL}/vision/ocr"
+            
+            # Determine content type
+            ext = os.path.splitext(file_path)[1].lower()
+            content_type = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+            }.get(ext, "application/octet-stream")
+            
+            with open(file_path, "rb") as f:
+                files = {"file": (os.path.basename(file_path), f, content_type)}
+                headers = {"api-subscription-key": self.api_key}
+                
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    files=files,
+                    timeout=60
+                )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "text": data.get("extracted_text", ""),
+                    "confidence": data.get("confidence", 0.0),
+                    "language": data.get("detected_language", "unknown"),
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"API error: {response.status_code}",
+                    "details": response.text[:500]
+                }
+                
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Request timed out"}
+        except requests.exceptions.ConnectionError:
+            return {"success": False, "error": "No internet connection"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    # ==================== CHAT COMPLETIONS ====================
+    
     async def chat(
         self,
         messages: List[Dict[str, str]],
-        model: str = "sarvam-m"  # Valid models: sarvam-m, gemma-4b, gemma-12b
+        model: str = "sarvam-m"
     ) -> str:
         """
-        Chat completion using Sarvam AI SDK.
+        Chat completion using Sarvam AI via HTTP.
         Best for Indic language conversations.
         """
         if not self.is_configured:
-            raise Exception("Sarvam AI not configured or SDK not available")
+            raise Exception("Sarvam AI not configured")
         
         try:
-            # Use the sarvamai SDK - synchronous call
-            # Explicitly pass model to avoid API errors
-            response = self._client.chat.completions(
-                messages=messages,
-                model=model
+            url = f"{self.BASE_URL}/v1/chat/completions"
+            
+            payload = {
+                "model": model,
+                "messages": messages,
+            }
+            
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json=payload,
+                timeout=60
             )
             
-            # Extract the response content
-            if hasattr(response, 'choices') and response.choices:
-                return response.choices[0].message.content
-            elif isinstance(response, dict):
-                return response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if response.status_code == 200:
+                data = response.json()
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content", "")
+                return ""
             else:
-                return str(response)
+                raise Exception(f"API error: {response.status_code} - {response.text[:200]}")
                 
         except Exception as e:
-            # If standard model fails, try fallback (e.g. if API expects specific 'sarvam-m')
-            if "sarvam-m" in str(e) and model == "sarvam-2b":
-                 try:
-                    response = self._client.chat.completions(
-                        messages=messages,
-                        model="sarvam-m"
-                    )
-                    if hasattr(response, 'choices') and response.choices:
-                        return response.choices[0].message.content
-                 except Exception:
-                     pass
             raise Exception(f"Sarvam AI error: {str(e)}")
-
-    def chat_completion(
+    
+    def chat_completion_sync(
         self,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]] = None,
-        model: str = "sarvam-2.0-llama-3.1-8b-instruct" # Using a capable model for reasoning
-    ) -> Any:
+        model: str = "sarvam-m"
+    ) -> Dict[str, Any]:
         """
-        Raw chat completion with tools support.
-        Returns the full response object to handle tool_calls.
+        Synchronous chat completion with optional tools support.
+        Returns the full response object.
         """
         if not self.is_configured:
-             raise Exception("Sarvam AI not configured")
+            return {"error": "Sarvam AI not configured"}
         
         try:
-            # Prepare arguments
-            kwargs = {
-                "messages": messages,
+            url = f"{self.BASE_URL}/v1/chat/completions"
+            
+            payload = {
                 "model": model,
+                "messages": messages,
             }
             if tools:
-                kwargs["tools"] = tools
-                
-            # Use the SDK's create method if widely supported, or formatted call
-            # Based on user example: client.chat.completions.create
-            if hasattr(self._client, 'chat') and hasattr(self._client.chat, 'completions'):
-                if hasattr(self._client.chat.completions, 'create'):
-                    return self._client.chat.completions.create(**kwargs)
-                else:
-                    # Fallback to direct call if older SDK structure
-                    return self._client.chat.completions(**kwargs)
+                payload["tools"] = tools
+            
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json=payload,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                return response.json()
             else:
-                # Direct client call fallback
-                return self._client(**kwargs)
+                return {"error": f"API error: {response.status_code}"}
                 
         except Exception as e:
-            raise Exception(f"Sarvam completion error: {e}")
+            return {"error": str(e)}
+    
     async def simple_chat(
         self,
         message: str,
@@ -162,36 +285,39 @@ class SarvamService:
         messages.append({"role": "user", "content": message})
         return await self.chat(messages)
     
-    async def translate(
+    # ==================== TRANSLATION ====================
+    
+    def translate_sync(
         self,
         text: str,
         source_lang: str,
         target_lang: str
     ) -> str:
-        """Translate text between languages."""
+        """Translate text between languages (synchronous)."""
         if not self.is_configured:
-            return text  # Return original if not configured
+            return text
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.BASE_URL}/translate",
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.api_key}",
-                },
+        try:
+            url = f"{self.BASE_URL}/translate"
+            
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
                 json={
                     "text": text,
                     "source_language": source_lang,
                     "target_language": target_lang,
                 },
-                timeout=30.0
+                timeout=30
             )
             
-            if response.status_code != 200:
-                return text  # Return original on error
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("translated_text", text)
+            return text
             
-            data = response.json()
-            return data.get("translated_text", text)
+        except Exception:
+            return text
     
     async def get_financial_advice_indic(
         self,

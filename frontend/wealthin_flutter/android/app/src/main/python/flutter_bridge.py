@@ -49,6 +49,43 @@ def set_config(config_json: str) -> str:
         return json.dumps({"success": False, "error": str(e)})
 
 
+def health_check() -> str:
+    """
+    Check the health of the Python environment.
+    Returns status of various components for the Flutter Settings screen.
+    """
+    global _sarvam_api_key
+    
+    components = {
+        "python": True,  # If we're running this, Python is working
+        "sarvam_configured": bool(_sarvam_api_key),
+        "pdf_parser_available": False,
+        "tools_count": len(AVAILABLE_TOOLS),
+    }
+    
+    # Check if PDF parser is available
+    try:
+        import fitz
+        components["pdf_parser_available"] = True
+        components["pdf_engine"] = "pymupdf"
+    except ImportError:
+        try:
+            import pdfplumber
+            components["pdf_parser_available"] = True
+            components["pdf_engine"] = "pdfplumber"
+        except ImportError:
+            components["pdf_engine"] = "none"
+    
+    return json.dumps({
+        "success": True,
+        "status": "ready",
+        "components": components,
+        "sarvam_configured": components["sarvam_configured"],
+        "pdf_parser_available": components["pdf_parser_available"],
+    })
+
+
+
 # ==================== TOOL DEFINITIONS ====================
 # These are the tools available for the LLM to call
 

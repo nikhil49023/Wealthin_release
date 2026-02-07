@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 // import 'package:wealthin_client/wealthin_client.dart';
 import 'package:wealthin_flutter/core/theme/app_theme.dart';
 import 'package:wealthin_flutter/core/providers/locale_provider.dart';
+import 'package:wealthin_flutter/core/services/python_bridge_service.dart';
 import 'package:wealthin_flutter/main.dart' show themeModeNotifier, authService;
 
 import '../finance/finance_hub_screen.dart';
@@ -380,6 +381,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // System Health Card
+                  const _SystemHealthCard(),
+                  const SizedBox(height: 16),
+
                   // About
                   Card(
                     child: Column(
@@ -405,6 +410,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
+
 
                   Text(
                     'WealthIn v2.0.0 (Flutter)',
@@ -772,6 +778,184 @@ class _FinancialLinkTile extends StatelessWidget {
         color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
       ),
       onTap: onTap,
+    );
+  }
+}
+
+/// System Health Card - Shows AI Engine status
+class _SystemHealthCard extends StatefulWidget {
+  const _SystemHealthCard();
+
+  @override
+  State<_SystemHealthCard> createState() => _SystemHealthCardState();
+}
+
+class _SystemHealthCardState extends State<_SystemHealthCard> {
+  SystemHealth? _health;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkHealth();
+  }
+
+  Future<void> _checkHealth() async {
+    final health = await PythonBridgeService().checkSystemHealth();
+    if (mounted) {
+      setState(() {
+        _health = health;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _getStatusIcon(),
+                  color: _getStatusColor(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'System Health',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (!_isLoading && _health != null)
+                        Text(
+                          _health!.message,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _getStatusColor(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () {
+                      setState(() => _isLoading = true);
+                      _checkHealth();
+                    },
+                    tooltip: 'Refresh',
+                  ),
+              ],
+            ),
+            if (!_isLoading && _health != null) ...[
+              const Divider(height: 24),
+              _HealthComponentTile(
+                name: 'Python Engine',
+                isReady: _health!.components['python'] ?? false,
+              ),
+              _HealthComponentTile(
+                name: 'Sarvam AI',
+                isReady: _health!.components['sarvam'] ?? false,
+              ),
+              _HealthComponentTile(
+                name: 'PDF Parser',
+                isReady: _health!.components['pdf_parser'] ?? false,
+              ),
+              _HealthComponentTile(
+                name: 'AI Tools',
+                isReady: _health!.components['tools'] ?? false,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getStatusIcon() {
+    if (_isLoading) return Icons.hourglass_empty;
+    switch (_health?.status) {
+      case SystemHealthStatus.ready:
+        return Icons.check_circle;
+      case SystemHealthStatus.initializing:
+        return Icons.hourglass_top;
+      case SystemHealthStatus.unavailable:
+        return Icons.cloud_off;
+      case SystemHealthStatus.error:
+        return Icons.error;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  Color _getStatusColor() {
+    if (_isLoading) return Colors.grey;
+    switch (_health?.status) {
+      case SystemHealthStatus.ready:
+        return AppTheme.incomeGreen;
+      case SystemHealthStatus.initializing:
+        return Colors.orange;
+      case SystemHealthStatus.unavailable:
+        return Colors.grey;
+      case SystemHealthStatus.error:
+        return AppTheme.expenseRed;
+      default:
+        return Colors.grey;
+    }
+  }
+}
+
+class _HealthComponentTile extends StatelessWidget {
+  final String name;
+  final bool isReady;
+
+  const _HealthComponentTile({
+    required this.name,
+    required this.isReady,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            isReady ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+            size: 18,
+            color: isReady ? AppTheme.incomeGreen : Colors.grey,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            name,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const Spacer(),
+          Text(
+            isReady ? 'Ready' : 'Not Available',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isReady ? AppTheme.incomeGreen : Colors.grey,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }

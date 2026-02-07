@@ -2,6 +2,27 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+/// System Health Status for Python Engine
+enum SystemHealthStatus {
+  ready,
+  initializing,
+  unavailable,
+  error,
+}
+
+/// System Health Result
+class SystemHealth {
+  final SystemHealthStatus status;
+  final String message;
+  final Map<String, bool> components;
+
+  SystemHealth({
+    required this.status,
+    required this.message,
+    this.components = const {},
+  });
+}
+
 /// Python Bridge Service
 /// Provides access to embedded Python backend via Chaquopy platform channels
 /// This is the ONLY backend for the app - no external HTTP server needed
@@ -24,6 +45,59 @@ class PythonBridgeService {
 
   /// Get available tools for the LLM
   List<Map<String, dynamic>> get availableTools => _availableTools;
+
+  /// Check system health - useful for Settings screen
+  Future<SystemHealth> checkSystemHealth() async {
+    if (!_isInitialized) {
+      return SystemHealth(
+        status: SystemHealthStatus.initializing,
+        message: 'AI Engine is initializing...',
+        components: {'python': false, 'tools': false},
+      );
+    }
+
+    if (!_isPythonAvailable) {
+      // On non-Android, this is expected
+      if (defaultTargetPlatform != TargetPlatform.android) {
+        return SystemHealth(
+          status: SystemHealthStatus.unavailable,
+          message: 'Python engine not available on this platform. Using HTTP fallback.',
+          components: {'python': false, 'tools': false},
+        );
+      }
+      return SystemHealth(
+        status: SystemHealthStatus.error,
+        message: 'Python engine failed to initialize.',
+        components: {'python': false, 'tools': false},
+      );
+    }
+
+    // Perform a quick health check
+    try {
+      final result = await _callPython('health_check', {});
+      if (result['success'] == true) {
+        return SystemHealth(
+          status: SystemHealthStatus.ready,
+          message: 'AI Engine is ready',
+          components: {
+            'python': true,
+            'tools': _availableTools.isNotEmpty,
+            'sarvam': result['sarvam_configured'] == true,
+            'pdf_parser': result['pdf_parser_available'] == true,
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('[PythonBridge] Health check error: $e');
+    }
+
+    return SystemHealth(
+      status: SystemHealthStatus.ready,
+      message: 'AI Engine ready (${_availableTools.length} tools)',
+      components: {'python': true, 'tools': _availableTools.isNotEmpty},
+    );
+  }
+
 
   /// Set Configuration (API Keys, etc) in Python backend
   Future<bool> setConfig(Map<String, dynamic> config) async {
