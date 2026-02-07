@@ -1247,9 +1247,8 @@ $emiRecommendation
     // Fallback to Python bridge (Android)
     if (_isAndroid) {
       try {
-        final result = await pythonBridge.chat(
-          'Analyze this business idea: $idea',
-          null,
+        final result = await pythonBridge.chatWithLLM(
+          query: 'Analyze this business idea: $idea',
         );
         
         if (result['success'] == true) {
@@ -1355,7 +1354,7 @@ $emiRecommendation
           description: tx.description,
           category: tx.category,
           type: tx.type,
-          date: tx.date,
+          date: DateFormat('yyyy-MM-dd').format(tx.date),
           paymentMethod: tx.paymentMethod,
           notes: tx.notes,
         );

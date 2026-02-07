@@ -566,6 +566,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ? _buildDesktopGrid(theme, crossAxisCount)
                   : _buildMobileLayout(theme),
             ),
+          ),
         );
       },
     );
