@@ -216,7 +216,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -295,7 +295,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                               )
                             : const Icon(Icons.auto_awesome),
                         label: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Text(
                             _isAnalyzing ? 'Analyzing...' : 'Analyze Idea',
                           ),

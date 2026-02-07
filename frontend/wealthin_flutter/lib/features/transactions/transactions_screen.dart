@@ -122,6 +122,58 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     });
   }
 
+  /// Find duplicate transactions (same date + same amount)
+  void _findDuplicates() {
+    final Map<String, List<TransactionData>> grouped = {};
+    
+    for (var tx in _transactions) {
+      // Key by date (day only) + amount
+      final key = '${tx.date.toIso8601String().substring(0, 10)}_${tx.amount.toStringAsFixed(2)}';
+      grouped.putIfAbsent(key, () => []).add(tx);
+    }
+    
+    // Find groups with more than one transaction
+    final duplicateIds = <int>{};
+    for (var group in grouped.values) {
+      if (group.length > 1) {
+        // Mark all but the first as duplicates
+        for (int i = 1; i < group.length; i++) {
+          if (group[i].id != null) {
+            duplicateIds.add(group[i].id!);
+          }
+        }
+      }
+    }
+    
+    if (duplicateIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No duplicate transactions found'),
+          backgroundColor: WealthInColors.success,
+        ),
+      );
+      return;
+    }
+    
+    setState(() {
+      _isSelectionMode = true;
+      _selectedIds.clear();
+      _selectedIds.addAll(duplicateIds);
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Found ${duplicateIds.length} potential duplicate${duplicateIds.length > 1 ? 's' : ''} - review and delete'),
+        backgroundColor: WealthInColors.warning,
+        action: SnackBarAction(
+          label: 'Delete All',
+          textColor: Colors.white,
+          onPressed: _deleteSelectedTransactions,
+        ),
+      ),
+    );
+  }
+
   List<TransactionData> get _filteredTransactions {
     if (_filterType == 'all') return _transactions;
     return _transactions.where((t) => t.type == _filterType).toList();
@@ -165,8 +217,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               title: const Text('Transactions'),
               actions: [
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.add_to_photos),
-                  tooltip: 'Import Transactions',
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: 'Options',
                   onSelected: (value) {
                     if (value == 'import') {
                       showDialog(
@@ -177,6 +229,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           _loadTransactions();
                         }
                       });
+                    } else if (value == 'find_duplicates') {
+                      _findDuplicates();
                     }
                   },
                   itemBuilder: (context) => [
@@ -199,10 +253,30 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         ],
                       ),
                     ),
+                    PopupMenuItem<String>(
+                      value: 'find_duplicates',
+                      child: Row(
+                        children: [
+                          Icon(Icons.content_copy, color: WealthInColors.warning),
+                          const SizedBox(width: 12),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Find Duplicates'),
+                              Text(
+                                'Same date & amount',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
+
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),

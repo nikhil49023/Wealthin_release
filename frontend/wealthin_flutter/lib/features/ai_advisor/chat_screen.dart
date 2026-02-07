@@ -20,28 +20,35 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  final List<ChatMessage> _messages = [];
+  
+  // Static session storage - persists until app closes
+  static final List<ChatMessage> _sessionMessages = [];
+  
+  List<ChatMessage> get _messages => _sessionMessages;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _addWelcomeMessage();
+    if (_sessionMessages.isEmpty) {
+      _addWelcomeMessage();
+    }
+    // No need for manual scroll - reversed ListView handles it
   }
 
   void _addWelcomeMessage() {
-    _messages.add(
+    _sessionMessages.add(
       ChatMessage(
-        text: """**Welcome to your AI Financial Advisor**
+        text: """👋 **Hey! I'm your AI Financial Buddy.**
 
-I can help you with:
-• **Product Search** - Find the best deals online
-• **Calculations** - SIP returns, EMI, compound interest
-• **Budgeting** - Create and manage budgets
-• **Travel** - Hotels and flight search
-• **News** - Latest financial updates
+What would you like to do today?
 
-Try the quick actions below or ask me anything.""",
+• 🛒 **Shopping** - Find products with prices
+• 💰 **Calculate** - SIP, EMI, compound interest
+• 📊 **Budget** - Create budgets & savings goals
+• ✈️ **Travel** - Search hotels & flights
+
+_Just type or tap a suggestion below!_""",
         isUser: false,
         timestamp: DateTime.now(),
       ),
@@ -61,7 +68,8 @@ Try the quick actions below or ask me anything.""",
     if (text.isEmpty) return;
 
     setState(() {
-      _messages.add(
+      // Insert at index 0 for reversed list (newest first)
+      _messages.insert(0,
         ChatMessage(
           text: text,
           isUser: true,
@@ -72,7 +80,7 @@ Try the quick actions below or ask me anything.""",
     });
 
     _messageController.clear();
-    _scrollToBottom();
+    // No scrollToBottom needed - reversed list auto-scrolls
 
     try {
       final userId = authService.currentUserId;
@@ -105,7 +113,8 @@ Try the quick actions below or ask me anything.""",
 
       if (mounted) {
         setState(() {
-          _messages.add(
+          // Insert at index 0 (after the user message which is already at 0)
+          _messages.insert(0,
             ChatMessage(
               text: agentResponse.response,
               isUser: false,
@@ -118,12 +127,11 @@ Try the quick actions below or ask me anything.""",
           );
           _isLoading = false;
         });
-        _scrollToBottom();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _messages.add(
+          _messages.insert(0,
             ChatMessage(
               text: "I'm having trouble connecting to my brain. Details: $e",
               isUser: false,
@@ -133,7 +141,6 @@ Try the quick actions below or ask me anything.""",
           );
           _isLoading = false;
         });
-        _scrollToBottom();
       }
     }
   }
@@ -237,7 +244,7 @@ Try the quick actions below or ask me anything.""",
 
       if (mounted) {
         setState(() {
-          _messages.add(
+          _messages.insert(0,
             ChatMessage(
               text: success
                   ? '✅ Done! I\'ve completed that for you.'
@@ -248,12 +255,11 @@ Try the quick actions below or ask me anything.""",
           );
           _isLoading = false;
         });
-        _scrollToBottom();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _messages.add(
+          _messages.insert(0,
             ChatMessage(
               text: '❌ Error: $e',
               isUser: false,
@@ -263,14 +269,13 @@ Try the quick actions below or ask me anything.""",
           );
           _isLoading = false;
         });
-        _scrollToBottom();
       }
     }
   }
 
   void _handleCancel() {
     setState(() {
-      _messages.add(
+      _messages.insert(0,
         ChatMessage(
           text: 'No problem. Let me know if you need anything else.',
           isUser: false,
@@ -278,7 +283,6 @@ Try the quick actions below or ask me anything.""",
         ),
       );
     });
-    _scrollToBottom();
   }
 
   @override
@@ -330,19 +334,11 @@ Try the quick actions below or ask me anything.""",
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              ValueListenableBuilder<int>(
-                valueListenable: DataService().userCredits,
-                builder: (context, credits, child) {
-                  return Text(
-                    'Credits: $credits',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: credits < 10 
-                        ? WealthInColors.error 
-                        : WealthInColors.success,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  );
-                },
+              Text(
+                'Ready to help',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: WealthInColors.success,
+                ),
               ),
             ],
           ),
@@ -396,63 +392,160 @@ Try the quick actions below or ask me anything.""",
 
   Widget _buildChatArea(ThemeData theme, bool isDark) {
     return ListView.builder(
+      reverse: true, // Gemini-style: newest at bottom, auto-handles keyboard
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: _messages.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == _messages.length && _isLoading) {
-          return _buildTypingIndicator(isDark);
+        // In reversed list, index 0 is the newest (bottom)
+        // Show thinking indicator at the very bottom (index 0) when loading
+        if (index == 0 && _isLoading) {
+          return _buildThinkingIndicator(isDark, theme);
         }
-        return _buildMessageBubble(_messages[index], theme, isDark);
+        // Adjust index for messages: skip 1 if loading (thinking indicator takes slot 0)
+        final messageIndex = _isLoading ? index - 1 : index;
+        if (messageIndex < 0 || messageIndex >= _messages.length) {
+          return const SizedBox.shrink();
+        }
+        return _buildMessageBubble(_messages[messageIndex], theme, isDark);
       },
     );
   }
 
-  Widget _buildTypingIndicator(bool isDark) {
+  Widget _buildThinkingIndicator(bool isDark, ThemeData theme) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12, right: 80),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        margin: const EdgeInsets.only(bottom: 12, right: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isDark
-              ? WealthInColors.blackCard
-              : WealthInColors.surfaceLight,
+          gradient: LinearGradient(
+            colors: isDark
+                ? [WealthInColors.blackCard, WealthInColors.blackCard.withValues(alpha: 0.8)]
+                : [WealthInColors.surfaceLight, WealthInColors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: WealthInColors.primary.withValues(alpha: 0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: WealthInColors.primary.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDot(0),
-            const SizedBox(width: 4),
-            _buildDot(1),
-            const SizedBox(width: 4),
-            _buildDot(2),
+            // Animated brain/thinking icon
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                gradient: WealthInTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.psychology,
+                color: Colors.white,
+                size: 18,
+              ),
+            )
+            .animate(onPlay: (c) => c.repeat())
+            .shimmer(duration: 1500.ms, color: Colors.white.withValues(alpha: 0.3)),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'AI is thinking...',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _buildThinkingStatus(isDark, theme),
+              ],
+            ),
+            const SizedBox(width: 12),
+            // Animated dots
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildPulsingDot(0),
+                const SizedBox(width: 4),
+                _buildPulsingDot(1),
+                const SizedBox(width: 4),
+                _buildPulsingDot(2),
+              ],
+            ),
           ],
         ),
       ),
-    ).animate().fadeIn();
+    ).animate().fadeIn(duration: 200.ms).slideX(begin: -0.05, end: 0);
   }
 
-  Widget _buildDot(int index) {
-    return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: WealthInColors.primary.withValues(alpha: 0.6),
-            shape: BoxShape.circle,
+  Widget _buildThinkingStatus(bool isDark, ThemeData theme) {
+    // Rotating thinking status messages
+    return TweenAnimationBuilder<int>(
+      duration: const Duration(seconds: 8),
+      tween: IntTween(begin: 0, end: 3),
+      builder: (context, value, child) {
+        final messages = [
+          'Analyzing your request...',
+          'Processing with AI...',
+          'Generating response...',
+          'Almost ready...',
+        ];
+        return Text(
+          messages[value % messages.length],
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: isDark 
+                ? WealthInColors.textSecondaryDark 
+                : WealthInColors.textSecondary,
+            fontSize: 11,
           ),
-        )
-        .animate(
-          onPlay: (c) => c.repeat(),
-        )
-        .scale(
-          begin: const Offset(0.8, 0.8),
-          end: const Offset(1.2, 1.2),
-          delay: Duration(milliseconds: index * 150),
-          duration: const Duration(milliseconds: 400),
-        );
+        ).animate(onPlay: (c) => c.repeat())
+         .fadeIn(duration: 500.ms)
+         .then(delay: 1500.ms)
+         .fadeOut(duration: 500.ms);
+      },
+    );
   }
+
+  Widget _buildPulsingDot(int index) {
+    return Container(
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(
+        color: WealthInColors.primary,
+        shape: BoxShape.circle,
+      ),
+    )
+    .animate(onPlay: (c) => c.repeat())
+    .scale(
+      begin: const Offset(0.6, 0.6),
+      end: const Offset(1.2, 1.2),
+      delay: Duration(milliseconds: index * 200),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+    )
+    .then()
+    .scale(
+      begin: const Offset(1.2, 1.2),
+      end: const Offset(0.6, 0.6),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+    );
+  }
+
 
   Widget _buildMessageBubble(
     ChatMessage message,
@@ -700,6 +793,9 @@ Try the quick actions below or ask me anything.""",
 
   /// Sanitize AI response - remove unnecessary characters and clean formatting
   String _sanitizeAIResponse(String text) {
+    // Remove "Final Answer:" and similar prefixes
+    text = text.replaceAll(RegExp(r'^(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'\n(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false), '\n');
     // Remove triple asterisks
     text = text.replaceAll('***', '');
     // Clean up multiple newlines
@@ -711,8 +807,11 @@ Try the quick actions below or ask me anything.""",
     text = text.replaceAll(RegExp(r'```[\s\S]*?```'), '');
     // Remove markdown code ticks
     text = text.replaceAll('`', '');
+    // Remove "Here is the response:" type patterns
+    text = text.replaceAll(RegExp(r'^Here (?:is|are) (?:the|your|my) (?:response|answer)[:\.]?\s*', caseSensitive: false), '');
     return text.trim();
   }
+
 
   /// Check if line is a section header (surrounded by **)
   bool _isSectionHeader(String line) {
@@ -730,9 +829,9 @@ Try the quick actions below or ask me anything.""",
     return trimmed;
   }
 
-  /// Build formatted text with bold/italic support
+  /// Build formatted text with bold/italic/URL support
   Widget _buildFormattedText(String text, Color baseColor, ThemeData theme) {
-    final spans = _parseInlineFormattingClean(text, baseColor);
+    final spans = _parseTextWithUrls(text, baseColor, theme);
     return Text.rich(
       TextSpan(children: spans),
       style: theme.textTheme.bodyMedium?.copyWith(
@@ -740,6 +839,71 @@ Try the quick actions below or ask me anything.""",
         height: 1.5,
       ),
     );
+  }
+  
+  /// Parse text and make URLs clickable
+  List<InlineSpan> _parseTextWithUrls(String text, Color baseColor, ThemeData theme) {
+    final List<InlineSpan> spans = [];
+    final urlPattern = RegExp(
+      r'(https?://[^\s\)\]]+)',
+      caseSensitive: false,
+    );
+    
+    int lastEnd = 0;
+    for (final match in urlPattern.allMatches(text)) {
+      // Add text before URL with formatting
+      if (match.start > lastEnd) {
+        spans.addAll(_parseInlineFormattingClean(
+          text.substring(lastEnd, match.start),
+          baseColor,
+        ));
+      }
+      
+      // Add clickable URL
+      final url = match.group(0)!;
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.baseline,
+        baseline: TextBaseline.alphabetic,
+        child: GestureDetector(
+          onTap: () => _launchUrl(url),
+          child: Text(
+            _shortenUrl(url),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: WealthInColors.primary,
+              decoration: TextDecoration.underline,
+              decorationColor: WealthInColors.primary,
+            ),
+          ),
+        ),
+      ));
+      
+      lastEnd = match.end;
+    }
+    
+    // Add remaining text with formatting
+    if (lastEnd < text.length) {
+      spans.addAll(_parseInlineFormattingClean(
+        text.substring(lastEnd),
+        baseColor,
+      ));
+    }
+    
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: text, style: TextStyle(color: baseColor)));
+    }
+    
+    return spans;
+  }
+  
+  /// Shorten URL for display
+  String _shortenUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final host = uri.host.replaceFirst('www.', '');
+      return host.length > 25 ? '${host.substring(0, 22)}...' : host;
+    } catch (_) {
+      return url.length > 30 ? '${url.substring(0, 27)}...' : url;
+    }
   }
 
   /// Parse inline formatting and return clean text spans (no visible **)
@@ -1348,7 +1512,7 @@ Try the quick actions below or ask me anything.""",
         
         if (mounted) {
           setState(() {
-            _messages.add(
+            _messages.insert(0,
               ChatMessage(
                 text: result != null
                     ? '🎯 **Savings Goal Created!**\n\n• **Goal:** $goalName\n• **Target:** ₹${price.toStringAsFixed(0)}\n\n_Track your progress in the Goals section!_'
@@ -1359,7 +1523,6 @@ Try the quick actions below or ask me anything.""",
             );
             _isLoading = false;
           });
-          _scrollToBottom();
           
           if (result != null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1379,7 +1542,7 @@ Try the quick actions below or ask me anything.""",
       } catch (e) {
         if (mounted) {
           setState(() {
-            _messages.add(
+            _messages.insert(0,
               ChatMessage(
                 text: '❌ Error creating goal: $e',
                 isUser: false,
@@ -1389,7 +1552,6 @@ Try the quick actions below or ask me anything.""",
             );
             _isLoading = false;
           });
-          _scrollToBottom();
         }
       }
     }

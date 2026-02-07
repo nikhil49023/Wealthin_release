@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:wealthin_flutter/core/theme/wealthin_theme.dart';
+import '../../../core/theme/app_theme.dart';
 
-/// Metric Card Widget - equivalent to the React MetricCard component
-/// Displays a financial metric with icon, title, and value
+/// Metric Card Widget - Glassmorphic design with blur effect
 class MetricCard extends StatelessWidget {
   final String title;
   final String value;
@@ -24,53 +26,93 @@ class MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconBackgroundColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 16,
-                    color: iconColor,
-                  ),
-                ),
-              ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [Colors.white.withValues(alpha: 0.08), Colors.white.withValues(alpha: 0.04)]
+                  : [Colors.white.withValues(alpha: 0.75), Colors.white.withValues(alpha: 0.55)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(height: 8),
-            isLoading
-                ? Container(
-                    height: 32,
-                    width: 120,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.tertiary,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  )
-                : Text(
-                    value,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark
+                  ? AppTheme.sereneTeal.withValues(alpha: 0.2)
+                  : AppTheme.sageGreen.withValues(alpha: 0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (isDark ? Colors.black : AppTheme.slate500).withValues(alpha: 0.1),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white70 : AppTheme.slate500,
                     ),
                   ),
-          ],
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: iconBackgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: iconColor.withValues(alpha: 0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 18,
+                      color: iconColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              isLoading
+                  ? Container(
+                      height: 32,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: isDark 
+                            ? Colors.white.withValues(alpha: 0.1) 
+                            : AppTheme.sageGreen.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    )
+                  : Text(
+                      value,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppTheme.slate900,
+                      ),
+                    ),
+            ],
+          ),
         ),
       ),
     );

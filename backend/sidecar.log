@@ -17,3 +17,8 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 ✅ Transactions DB initialized at /media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b171/wealthin_git_/wealthin_v2/backend/services/../transactions.db
 ✅ Planning DB initialized at /media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b171/wealthin_git_/wealthin_v2/backend/services/../planning.db
 INFO:     127.0.0.1:35684 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:__main__:Shutting down WealthIn Agent Service...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [15794]

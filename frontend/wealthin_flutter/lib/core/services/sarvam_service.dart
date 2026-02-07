@@ -375,5 +375,80 @@ Return as JSON object with these exact keys. If any field is unclear, use null."
       return {"success": false, "error": e.toString()};
     }
   }
+
+  // ==================== PDF TRANSACTION PARSER (Sarvam Vision + Doc Intelligence) ====================
+  
+  /// Parse a PDF file using Document Intelligence and extract transactions
+  /// This is the main method to be called for PDF bank statement parsing
+  Future<Map<String, dynamic>> parsePdfAndExtractTransactions(String pdfFilePath) async {
+    try {
+      debugPrint('[SarvamService] Starting PDF parsing with Document Intelligence...');
+      
+      // Step 1: Use Document Intelligence to extract text from PDF
+      final diResult = await processDocumentIntelligence(pdfFilePath);
+      
+      if (!diResult['success']) {
+        debugPrint('[SarvamService] Document Intelligence failed: ${diResult['error']}');
+        return {"success": false, "error": diResult['error'], "transactions": []};
+      }
+      
+      // Step 2: Extract text content from Document Intelligence output
+      final output = diResult['data'];
+      String extractedText = '';
+      
+      // Handle various output formats from Document Intelligence
+      if (output is Map) {
+        if (output['text'] != null) {
+          extractedText = output['text'].toString();
+        } else if (output['pages'] is List) {
+          // Concatenate text from all pages
+          for (var page in output['pages']) {
+            if (page['text'] != null) {
+              extractedText += page['text'].toString() + '\n';
+            } else if (page['content'] != null) {
+              extractedText += page['content'].toString() + '\n';
+            }
+          }
+        } else if (output['content'] != null) {
+          extractedText = output['content'].toString();
+        } else {
+          // Fallback: convert entire output to string
+          extractedText = jsonEncode(output);
+        }
+      } else if (output is String) {
+        extractedText = output;
+      }
+      
+      if (extractedText.isEmpty) {
+        return {"success": false, "error": "No text extracted from PDF", "transactions": []};
+      }
+      
+      debugPrint('[SarvamService] Extracted ${extractedText.length} chars, sending to LLM for transaction extraction...');
+      
+      // Step 3: Use Sarvam LLM to extract structured transactions
+      final txResult = await extractTransactionsFromText(extractedText);
+      
+      if (txResult['success'] == true && txResult['transactions'] != null) {
+        final transactions = txResult['transactions'] as List;
+        debugPrint('[SarvamService] Successfully extracted ${transactions.length} transactions');
+        
+        return {
+          "success": true,
+          "transactions": transactions,
+          "bank_detected": txResult['bank_detected'] ?? "Sarvam Vision AI",
+          "raw_text_length": extractedText.length,
+        };
+      }
+      
+      return {
+        "success": false,
+        "error": txResult['error'] ?? "Failed to extract transactions from text",
+        "transactions": [],
+      };
+    } catch (e) {
+      debugPrint('[SarvamService] PDF parsing error: $e');
+      return {"success": false, "error": e.toString(), "transactions": []};
+    }
+  }
 }
 

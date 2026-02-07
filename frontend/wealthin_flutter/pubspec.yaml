@@ -51,8 +51,8 @@ dependencies:
   supabase_flutter: ^2.3.4
   read_pdf_text: ^0.3.1
   pdfx: ^2.9.0
-  # Using Sarvam AI for document intelligence (via Python backend)
-  # google_mlkit_text_recognition removed - too heavy, using Sarvam instead
+  # On-device OCR - lightweight, works offline
+  google_mlkit_text_recognition: ^0.14.0
   url_launcher: ^6.3.2
 
 dev_dependencies:
@@ -84,6 +84,7 @@ flutter:
   # https://flutter.dev/assets-and-images/#from-packages
   assets:
     - assets/config.json
+    - assets/wealthin_logo.png
 dependency_overrides:
   flutter_secure_storage: ^10.0.0
 

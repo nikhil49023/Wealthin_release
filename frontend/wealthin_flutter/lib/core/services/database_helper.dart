@@ -24,10 +24,42 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    debugPrint('Upgrading database from v$oldVersion to v$newVersion');
+    
+    if (oldVersion < 2) {
+      // Add user_streak table if it doesn't exist
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS user_streak(
+          id INTEGER PRIMARY KEY DEFAULT 1,
+          current_streak INTEGER DEFAULT 0,
+          longest_streak INTEGER DEFAULT 0,
+          last_activity_date TEXT,
+          total_days_active INTEGER DEFAULT 0
+        )
+      ''');
+      
+      // Insert default row if not exists
+      final existing = await db.query('user_streak', where: 'id = ?', whereArgs: [1]);
+      if (existing.isEmpty) {
+        await db.insert('user_streak', {
+          'id': 1,
+          'current_streak': 0,
+          'longest_streak': 0,
+          'last_activity_date': null,
+          'total_days_active': 0,
+        });
+      }
+      debugPrint('user_streak table created/verified');
+    }
+  }
+
 
   Future<void> _onCreate(Database db, int version) async {
     debugPrint('Creating Database tables...');
