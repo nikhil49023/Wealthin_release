@@ -417,79 +417,41 @@ _Just type or tap a suggestion below!_""",
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12, right: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isDark
-                ? [WealthInColors.blackCard, WealthInColors.blackCard.withValues(alpha: 0.8)]
-                : [WealthInColors.surfaceLight, WealthInColors.white],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: isDark
+              ? WealthInColors.blackCard
+              : WealthInColors.surfaceLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: WealthInColors.primary.withValues(alpha: 0.3),
+            color: WealthInColors.primary.withValues(alpha: 0.2),
             width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: WealthInColors.primary.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Animated brain/thinking icon
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                gradient: WealthInTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.psychology,
-                color: Colors.white,
-                size: 18,
-              ),
+            // Simple pulsing icon
+            Icon(
+              Icons.auto_awesome,
+              color: WealthInColors.primary,
+              size: 18,
             )
             .animate(onPlay: (c) => c.repeat())
-            .shimmer(duration: 1500.ms, color: Colors.white.withValues(alpha: 0.3)),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'AI is thinking...',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                _buildThinkingStatus(isDark, theme),
-              ],
-            ),
-            const SizedBox(width: 12),
-            // Animated dots
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildPulsingDot(0),
-                const SizedBox(width: 4),
-                _buildPulsingDot(1),
-                const SizedBox(width: 4),
-                _buildPulsingDot(2),
-              ],
+            .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 600.ms)
+            .then()
+            .scale(begin: const Offset(1.1, 1.1), end: const Offset(1, 1), duration: 600.ms),
+            const SizedBox(width: 10),
+            Text(
+              'Thinking...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+              ),
             ),
           ],
         ),
       ),
-    ).animate().fadeIn(duration: 200.ms).slideX(begin: -0.05, end: 0);
+    ).animate().fadeIn(duration: 200.ms);
   }
 
   Widget _buildThinkingStatus(bool isDark, ThemeData theme) {

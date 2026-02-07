@@ -189,167 +189,160 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
   }
 
   Widget _buildContent(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.surface,
-            theme.colorScheme.primary.withValues(alpha: 0.05),
-            theme.colorScheme.secondary.withValues(alpha: 0.1),
-          ],
-        ),
+        color: isDark ? WealthInColors.backgroundDark : WealthInColors.backgroundLight,
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Header
-            _GlassContainer(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                theme.colorScheme.primary,
-                                theme.colorScheme.secondary,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.3,
-                                ),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.lightbulb,
-                            color: Colors.white,
-                            size: 28,
-                          ),
+            // Header - Minimalistic
+            if (_currentIdea == null) ...[
+              const SizedBox(height: 60),
+              Icon(
+                Icons.auto_awesome,
+                size: 48,
+                color: WealthInColors.primary,
+              ).animate()
+                .fadeIn(duration: 500.ms)
+                .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1)),
+              const SizedBox(height: 24),
+              Text(
+                'Brainstorm',
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                ),
+              ).animate().fadeIn(delay: 100.ms),
+              const SizedBox(height: 8),
+              Text(
+                'AI-powered business idea analysis',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                ),
+              ).animate().fadeIn(delay: 200.ms),
+              const SizedBox(height: 48),
+            ],
+            
+            // Input Card - Clean & Elegant
+            Container(
+              constraints: const BoxConstraints(maxWidth: 600),
+              decoration: BoxDecoration(
+                color: isDark ? WealthInColors.blackCard : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark 
+                      ? WealthInColors.primary.withValues(alpha: 0.2) 
+                      : Colors.grey.shade200,
+                ),
+                boxShadow: [
+                  if (!isDark)
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                ],
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Describe your idea',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _ideaController,
+                    maxLines: 4,
+                    style: TextStyle(
+                      color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., A subscription service for homemade healthy tiffins...',
+                      hintStyle: TextStyle(
+                        color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                      ),
+                      filled: true,
+                      fillColor: isDark 
+                          ? WealthInColors.backgroundDark 
+                          : Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _isAnalyzing ? null : _analyzeIdea,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: WealthInColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Business Idea Analyzer',
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Powered by AI & Market Research',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.6,
+                        elevation: 0,
+                      ),
+                      child: _isAnalyzing
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white.withValues(alpha: 0.9),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: _ideaController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText:
-                            'Describe your business idea...\n\nExample: A subscription service for homemade healthy tiffins for office workers',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _isAnalyzing ? null : _analyzeIdea,
-                        icon: _isAnalyzing
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+                                const SizedBox(width: 12),
+                                const Text('Analyzing...'),
+                              ],
+                            )
+                          : const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Analyze Idea',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              )
-                            : const Icon(Icons.auto_awesome),
-                        label: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Text(
-                            _isAnalyzing ? 'Analyzing...' : 'Analyze Idea',
-                          ),
-                        ),
-                      ),
+                              ],
+                            ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ).animate().fadeIn(duration: 600.ms).moveY(begin: 20, end: 0),
+            ).animate().fadeIn(duration: 400.ms).moveY(begin: 20, end: 0),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             // Analysis Results
-            if (_currentIdea != null) ...[
-              _IdeaAnalysisCard(
-                idea: _currentIdea!,
-                onSave: _saveIdea,
-              ).animate().fadeIn(duration: 800.ms).moveY(begin: 30, end: 0),
-            ] else ...[
-              // Sample Ideas
-              Text(
-                'Popular Business Ideas',
-                style: theme.textTheme.titleLarge,
-              ).animate().fadeIn(delay: 200.ms),
-              const SizedBox(height: 16),
-              _SampleIdeaTile(
-                title: 'Cloud Kitchen',
-                description: 'Start a delivery-only restaurant',
-                icon: Icons.restaurant,
-                onTap: () {
-                  _ideaController.text =
-                      'A cloud kitchen specializing in healthy Indian meals with subscription options';
-                },
-              ).animate(delay: 300.ms).fadeIn().moveX(begin: -20, end: 0),
-              _SampleIdeaTile(
-                title: 'EdTech Platform',
-                description: 'Online courses for skill development',
-                icon: Icons.school,
-                onTap: () {
-                  _ideaController.text =
-                      'An e-learning platform for vernacular language programming courses';
-                },
-              ).animate(delay: 400.ms).fadeIn().moveX(begin: -20, end: 0),
-              _SampleIdeaTile(
-                title: 'Sustainable Products',
-                description: 'Eco-friendly everyday items',
-                icon: Icons.eco,
-                onTap: () {
-                  _ideaController.text =
-                      'An e-commerce store for sustainable and eco-friendly home products';
-                },
-              ).animate(delay: 500.ms).fadeIn().moveX(begin: -20, end: 0),
-            ],
+            if (_currentIdea != null)
+              Container(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: _IdeaAnalysisCard(
+                  idea: _currentIdea!,
+                  onSave: _saveIdea,
+                ).animate().fadeIn(duration: 600.ms).moveY(begin: 30, end: 0),
+              ),
           ],
         ),
       ),

@@ -566,12 +566,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ? _buildDesktopGrid(theme, crossAxisCount)
                   : _buildMobileLayout(theme),
             ),
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _showAddTransactionDialog(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Add Transaction'),
-          ).animate().scale(delay: 500.ms, curve: Curves.elasticOut),
         );
       },
     );
