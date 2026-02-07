@@ -233,7 +233,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary.withOpacity(0.1)
+                                ? AppTheme.primary.withValues(alpha: 0.1)
                                 :  WealthInTheme.gray100,
                             borderRadius: BorderRadius.circular(12),
                             border: isSelected
@@ -378,7 +378,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary.withOpacity(0.1)
+                                ? AppTheme.primary.withValues(alpha: 0.1)
                                 : WealthInTheme.gray100,
                             borderRadius: BorderRadius.circular(12),
                             border: isSelected
@@ -410,10 +410,8 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                           // Update budget via API
                           final updated = await dataService.updateBudget(
                             userId: _userId,
-                            budgetId: budget.id!,
-                            name: name,
-                            amount: amount,
-                            icon: selectedIcon,
+                            category: budget.category,
+                            limitAmount: amount,
                           );
 
                           if (updated != null) {
@@ -534,7 +532,7 @@ class _OverallBudgetCard extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [
               AppTheme.primary,
-              AppTheme.primary.withOpacity(0.8),
+              AppTheme.primary.withValues(alpha: 0.8),
             ],
           ),
         ),
@@ -548,7 +546,7 @@ class _OverallBudgetCard extends StatelessWidget {
                 Text(
                   'Monthly Budget',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
                 Container(
@@ -557,7 +555,7 @@ class _OverallBudgetCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -587,7 +585,7 @@ class _OverallBudgetCard extends StatelessWidget {
                       Text(
                         'spent of ₹${_formatAmount(totalBudget)}',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
@@ -600,8 +598,8 @@ class _OverallBudgetCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isOverBudget
-                        ? AppTheme.expenseRed.withOpacity(0.3)
-                        : AppTheme.incomeGreen.withOpacity(0.3),
+                        ? AppTheme.expenseRed.withValues(alpha: 0.3)
+                        : AppTheme.incomeGreen.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -609,7 +607,7 @@ class _OverallBudgetCard extends StatelessWidget {
                       Text(
                         isOverBudget ? 'Over by' : 'Remaining',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 12,
                         ),
                       ),
@@ -632,7 +630,7 @@ class _OverallBudgetCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
                 minHeight: 10,
-                backgroundColor: Colors.white.withOpacity(0.3),
+                backgroundColor: Colors.white.withValues(alpha: 0.3),
                 valueColor: AlwaysStoppedAnimation(
                   isOverBudget ? AppTheme.expenseRed : Colors.white,
                 ),
@@ -685,7 +683,7 @@ class _BudgetCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: progressColor.withOpacity(0.1),
+                    color: progressColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -708,7 +706,7 @@ class _BudgetCard extends StatelessWidget {
                       Text(
                         '₹${_formatAmount(budget.spent)} / ₹${_formatAmount(budget.amount)}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -731,7 +729,7 @@ class _BudgetCard extends StatelessWidget {
                     Text(
                       isOverBudget ? 'over budget' : 'left',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -809,7 +807,7 @@ class _EmptyBudgetsPlaceholder extends StatelessWidget {
             Icon(
               Icons.pie_chart_outline,
               size: 64,
-              color: theme.colorScheme.primary.withOpacity(0.3),
+              color: theme.colorScheme.primary.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
@@ -820,7 +818,7 @@ class _EmptyBudgetsPlaceholder extends StatelessWidget {
             Text(
               'Create category budgets to track your spending limits',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               textAlign: TextAlign.center,
             ),

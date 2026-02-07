@@ -36,8 +36,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Use real user data if available via Auth
       if (authService.currentUser != null) {
         final user = authService.currentUser!;
-        _userName = user.displayName ?? 'User';
-        // _userEmail = user.email ?? ''; // This is final so can't update easily without refactor
+        final metadata = user.userMetadata;
+        _userName = metadata?['display_name'] ?? metadata?['full_name'] ?? 'User';
+        // _userEmail is final, so we can't update it easily here without removing final or using setState aggressively differently
+        // But the error was about displayName getter.
       }
 
       // Mock profile data
@@ -151,8 +153,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      AppTheme.emerald,
-                                      AppTheme.emeraldDark,
+                                      AppTheme.navy,
+                                      AppTheme.navyLight,
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(12),
@@ -189,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.mintDark,
+                                  color: AppTheme.gold.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -197,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: theme.textTheme.headlineSmall
                                       ?.copyWith(
                                         fontWeight: FontWeight.bold,
-                                        color: AppTheme.forestGreen,
+                                        color: AppTheme.navy,
                                       ),
                                 ),
                               ),
@@ -503,14 +505,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.mintDark,
+                          color: AppTheme.gold.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           'Total: $_credits',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.forestGreen,
+                            color: AppTheme.navy,
                           ),
                         ),
                       ),
@@ -670,10 +672,10 @@ class _CreditHistoryTile extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppTheme.mintDark,
+          color: AppTheme.gold.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(Icons.stars, color: AppTheme.emeraldDark),
+        child: Icon(Icons.stars, color: AppTheme.navy),
       ),
       title: Text(transaction.description),
       subtitle: Text(_formatDate(transaction.date)),

@@ -143,7 +143,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 }),
               ),
               title: Text('${_selectedIds.length} Selected'),
-              backgroundColor: theme.colorScheme.surfaceVariant,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
               actions: [
                 IconButton(
                   icon: Icon(
@@ -249,7 +249,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 Icon(
                                   Icons.receipt_long_outlined,
                                   size: 64,
-                                  color: theme.colorScheme.primary.withOpacity(0.3),
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
@@ -260,7 +260,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 Text(
                                   'Add your first transaction or import from PDF',
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -507,7 +507,7 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? chipColor.withOpacity(0.15) : Colors.transparent,
+          color: isSelected ? chipColor.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? chipColor : theme.colorScheme.outline,
@@ -548,7 +548,7 @@ class _TransactionTile extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      color: isSelected ? theme.colorScheme.primaryContainer.withOpacity(0.3) : null,
+      color: isSelected ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3) : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isSelected 
@@ -567,7 +567,7 @@ class _TransactionTile extends StatelessWidget {
           : Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -619,18 +619,13 @@ class _TransactionTile extends StatelessWidget {
     return Icons.category;
   }
 
-  String _formatDate(String dateString) {
-    try {
-      final date = DateTime.parse(dateString);
-      final now = DateTime.now();
-      final diff = now.difference(date).inDays;
-      if (diff == 0) return 'Today';
-      if (diff == 1) return 'Yesterday';
-      if (diff < 7) return '$diff days ago';
-      return '${date.day}/${date.month}/${date.year}';
-    } catch (e) {
-      return dateString;
-    }
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff < 7) return '$diff days ago';
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
 
@@ -657,7 +652,7 @@ class _TypeButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? color : Theme.of(context).colorScheme.outline,

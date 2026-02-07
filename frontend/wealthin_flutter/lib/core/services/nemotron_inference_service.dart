@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 /// Nemotron LLM Inference Service
@@ -28,11 +29,11 @@ class NemotronInferenceService {
     try {
       // Detect device capabilities
       final capabilities = await _detectDeviceCapabilities();
-      print('[NemotronInference] Device capabilities: $capabilities');
+      debugPrint('[NemotronInference] Device capabilities: $capabilities');
 
       _isInitialized = true;
     } catch (e) {
-      print('[NemotronInference] Initialization error: $e');
+      debugPrint('[NemotronInference] Initialization error: $e');
       _isInitialized = true; // Mark as initialized even on error
     }
   }
@@ -58,7 +59,7 @@ class NemotronInferenceService {
     try {
       final ProcessResult result = await Process.run('free', ['-b']);
       final memOutput = result.stdout.toString();
-      print('[NemotronInference] Memory info: $memOutput');
+      debugPrint('[NemotronInference] Memory info: $memOutput');
 
       return {
         'platform': Platform.operatingSystem,
@@ -96,7 +97,7 @@ class NemotronInferenceService {
     }
 
     try {
-      print('[NemotronInference] Loading model: $modelName');
+      debugPrint('[NemotronInference] Loading model: $modelName');
 
       // In production, this would:
       // 1. Check if model file exists locally
@@ -107,10 +108,10 @@ class NemotronInferenceService {
       _loadedModelName = modelName;
       _isModelLoaded = true;
 
-      print('[NemotronInference] Model loaded successfully: $modelName');
+      debugPrint('[NemotronInference] Model loaded successfully: $modelName');
       return true;
     } catch (e) {
-      print('[NemotronInference] Failed to load model: $e');
+      debugPrint('[NemotronInference] Failed to load model: $e');
       _isModelLoaded = false;
       return false;
     }
@@ -129,7 +130,7 @@ class NemotronInferenceService {
     }
 
     try {
-      print(
+      debugPrint(
         '[NemotronInference] Inferring locally with model: $_loadedModelName',
       );
 
@@ -148,7 +149,7 @@ class NemotronInferenceService {
         isLocal: true,
       );
     } catch (e) {
-      print('[NemotronInference] Local inference error: $e');
+      debugPrint('[NemotronInference] Local inference error: $e');
       rethrow;
     }
   }
@@ -162,7 +163,7 @@ class NemotronInferenceService {
     double temperature = 0.7,
   }) async {
     try {
-      print('[NemotronInference] Inferring via cloud endpoint');
+      debugPrint('[NemotronInference] Inferring via cloud endpoint');
 
       final response = await http
           .post(
@@ -187,7 +188,7 @@ class NemotronInferenceService {
       final data = jsonDecode(response.body);
       return NemotronResponse.fromJson(data);
     } catch (e) {
-      print('[NemotronInference] Cloud inference error: $e');
+      debugPrint('[NemotronInference] Cloud inference error: $e');
       rethrow;
     }
   }
@@ -218,7 +219,7 @@ class NemotronInferenceService {
 
       return null;
     } catch (e) {
-      print('[NemotronInference] Failed to parse tool call: $e');
+      debugPrint('[NemotronInference] Failed to parse tool call: $e');
       return null;
     }
   }
@@ -243,7 +244,7 @@ class NemotronInferenceService {
     _isModelLoaded = false;
     _loadedModelName = null;
     _modelCache.clear();
-    print('[NemotronInference] Model unloaded');
+    debugPrint('[NemotronInference] Model unloaded');
   }
 }
 

@@ -455,19 +455,43 @@ async def scan_document(file: UploadFile = File(...)):
         temp_path = tmp.name
     
     try:
-        from ocr_engine import OCREngine
-        engine = OCREngine()
-        transactions = engine.extract_transactions(temp_path)
+        # Use AdvancedPDFParser for robust extraction
+        # It handles Text, Tables, OCR, and PhonePe formats
+        result = await pdf_parser_service.extract_transactions(temp_path, document_type='auto')
+        transactions = result.get('transactions', [])
         
-        # Auto-categorize extracted transactions
-        if transactions:
-            transactions = await transaction_categorizer.categorize_batch(transactions)
+        # Auto-categorize extracted transactions if category is missing or 'Uncategorized'
+        # The parser already does some categorization, but we can enhance it with AI
+        for tx in transactions:
+            if not tx.get('category') or tx.get('category') in ['Uncategorized', 'Miscellaneous']:
+                pass # Let AI categorizer handle it if needed
+                
+        # Format for response (ensure all fields are present)
+        formatted_transactions = []
+        for tx in transactions:
+            # tx is a dict because extract_transactions returns list of dicts (via asdict)
+            formatted_transactions.append({
+                "date": tx.get('date'),
+                "description": tx.get('description'),
+                "amount": tx.get('amount'),
+                "type": tx.get('transaction_type', 'expense'),
+                "category": tx.get('category', 'Uncategorized'),
+                "merchant": tx.get('merchant'),
+                "source": tx.get('source')
+            })
+            
+        if formatted_transactions:
+            formatted_transactions = await transaction_categorizer.categorize_batch(formatted_transactions)
         
         return {
             "filename": file.filename,
-            "transactions": transactions,
-            "count": len(transactions),
-            "note": "Extracted using Local OCR + AI Categorization"
+            "transactions": formatted_transactions,
+            "count": len(formatted_transactions),
+            "note": f"Extracted using {', '.join(result.get('method', []))}",
+            "metadata": {
+                "document_type": result.get('document_type'),
+                "bank_detected": result.get('bank')
+            }
         }
     except Exception as e:
         logger.error(f"Error scanning document: {e}")

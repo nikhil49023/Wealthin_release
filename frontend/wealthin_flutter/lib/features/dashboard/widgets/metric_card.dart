@@ -94,7 +94,7 @@ class IncomeCard extends StatelessWidget {
       title: 'Your Income',
       value: _formatCurrency(amount),
       icon: Icons.trending_up,
-      iconBackgroundColor: WealthInColors.success.withOpacity(0.1),
+      iconBackgroundColor: WealthInColors.success.withValues(alpha: 0.1),
       iconColor: WealthInColors.success,
       isLoading: isLoading,
     );
@@ -125,7 +125,7 @@ class ExpenseCard extends StatelessWidget {
       title: 'Your Expenses',
       value: _formatCurrency(amount),
       icon: Icons.trending_down,
-      iconBackgroundColor: WealthInColors.error.withOpacity(0.1),
+      iconBackgroundColor: WealthInColors.error.withValues(alpha: 0.1),
       iconColor: WealthInColors.error,
       isLoading: isLoading,
     );
@@ -181,7 +181,7 @@ class SavingsCard extends StatelessWidget {
       title: 'Total Savings',
       value: _formatCurrency(amount),
       icon: Icons.account_balance_wallet,
-      iconBackgroundColor: WealthInColors.primary.withOpacity(0.1),
+      iconBackgroundColor: WealthInColors.primary.withValues(alpha: 0.1),
       iconColor: WealthInColors.primary,
       isLoading: isLoading,
     );

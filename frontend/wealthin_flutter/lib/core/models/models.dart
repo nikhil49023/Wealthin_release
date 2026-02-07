@@ -1,4 +1,3 @@
-/// Transaction model for the Flutter app
 class TransactionModel {
   final int? id;
   final double amount;
@@ -9,6 +8,10 @@ class TransactionModel {
   final String type; // 'income' or 'expense'
   final String category;
   final String? paymentMethod;
+  final String? notes;
+  final String? receiptUrl;
+  final bool isRecurring;
+  final DateTime? createdAt;
   final int? userProfileId;
 
   TransactionModel({
@@ -21,6 +24,10 @@ class TransactionModel {
     required this.type,
     required this.category,
     this.paymentMethod,
+    this.notes,
+    this.receiptUrl,
+    this.isRecurring = false,
+    this.createdAt,
     this.userProfileId,
   });
 
@@ -34,7 +41,12 @@ class TransactionModel {
       merchant: json['merchant'] as String?,
       type: json['type'] as String,
       category: json['category'] as String,
-      paymentMethod: json['payment_method'] as String?,
+      paymentMethod: json['paymentMethod'] as String? ?? json['payment_method'] as String?,
+      notes: json['notes'] as String?,
+      receiptUrl: json['receiptUrl'] as String? ?? json['receipt_url'] as String?,
+      isRecurring: (json['isRecurring'] ?? json['is_recurring']) == 1 || (json['isRecurring'] ?? json['is_recurring']) == true,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : 
+                 (json['created_at'] != null ? DateTime.parse(json['created_at']) : null),
       userProfileId: json['userProfileId'] as int?,
     );
   }
@@ -49,7 +61,11 @@ class TransactionModel {
       'merchant': merchant,
       'type': type,
       'category': category,
-      'payment_method': paymentMethod,
+      'paymentMethod': paymentMethod, // SQLite expects this or snake case? We used paymentMethod in createTable
+      'notes': notes,
+      'receiptUrl': receiptUrl,
+      'isRecurring': isRecurring ? 1 : 0,
+      'createdAt': createdAt?.toIso8601String(),
       'userProfileId': userProfileId,
     };
   }
@@ -61,7 +77,8 @@ class TransactionModel {
 /// Budget model
 class BudgetModel {
   final int? id;
-  final String name;
+  final String name; // Computed or from DB
+  final String category; // Category identifier
   final double amount;
   final double spent;
   final String icon;
@@ -70,6 +87,7 @@ class BudgetModel {
   BudgetModel({
     this.id,
     required this.name,
+    required this.category,
     required this.amount,
     this.spent = 0,
     this.icon = 'Default',
@@ -81,11 +99,15 @@ class BudgetModel {
   bool get isOverBudget => spent > amount;
 
   factory BudgetModel.fromJson(Map<String, dynamic> json) {
+    // Handle both API (camelCase/custom) and SQLite (snake_case)
+    // SQLite: category, limit_amount, spent_amount
+    final category = json['category'] as String? ?? json['name'] as String? ?? 'other';
     return BudgetModel(
       id: json['id'] as int?,
-      name: json['name'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      spent: (json['spent'] as num?)?.toDouble() ?? 0,
+      name: json['name'] as String? ?? category,
+      category: category,
+      amount: ((json['amount'] ?? json['limit_amount']) as num?)?.toDouble() ?? 0.0,
+      spent: ((json['spent'] ?? json['spent_amount']) as num?)?.toDouble() ?? 0,
       icon: json['icon'] as String? ?? 'Default',
       userProfileId: json['userProfileId'] as int?,
     );
@@ -98,6 +120,10 @@ class GoalModel {
   final String name;
   final double targetAmount;
   final double currentAmount;
+  final String? deadline;
+  final String status;
+  final String icon;
+  final String? notes;
   final bool isDefault;
   final int? userProfileId;
 
@@ -106,22 +132,45 @@ class GoalModel {
     required this.name,
     required this.targetAmount,
     this.currentAmount = 0,
+    this.deadline,
+    this.status = 'active',
+    this.icon = 'flag',
+    this.notes,
     this.isDefault = false,
     this.userProfileId,
   });
 
-  double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0, 1) : 0;
+  double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0;
   bool get isCompleted => currentAmount >= targetAmount;
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
     return GoalModel(
       id: json['id'] as int?,
       name: json['name'] as String,
-      targetAmount: (json['targetAmount'] as num).toDouble(),
-      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0,
-      isDefault: json['isDefault'] as bool? ?? false,
+      targetAmount: ((json['targetAmount'] ?? json['target_amount']) as num).toDouble(),
+      currentAmount: ((json['currentAmount'] ?? json['saved_amount']) as num?)?.toDouble() ?? 0,
+      deadline: json['deadline'] as String?,
+      status: json['status'] as String? ?? 'active',
+      icon: json['icon'] as String? ?? 'flag',
+      notes: json['notes'] as String?,
+      isDefault: (json['isDefault'] ?? json['is_default']) == 1 || (json['isDefault'] ?? json['is_default']) == true,
       userProfileId: json['userProfileId'] as int?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'targetAmount': targetAmount,
+      'currentAmount': currentAmount,
+      'deadline': deadline,
+      'status': status,
+      'icon': icon,
+      'notes': notes,
+      'isDefault': isDefault,
+      'userProfileId': userProfileId,
+    };
   }
 }
 
@@ -141,3 +190,4 @@ class DashboardSummary {
 
   double get netSavings => totalIncome - totalExpenses;
 }
+

@@ -76,7 +76,7 @@ class FinBiteCard extends StatelessWidget {
                         Text(
                           'AI FinBite',
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -87,7 +87,7 @@ class FinBiteCard extends StatelessWidget {
                         onPressed: isLoading ? null : onRefresh,
                         icon: Icon(
                           Icons.refresh,
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                           size: 20,
                         ),
                         padding: EdgeInsets.zero,
@@ -125,7 +125,7 @@ class FinBiteCard extends StatelessWidget {
                   Text(
                     displayInsight.insightText,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withOpacity(0.95),
+                      color: Colors.white.withValues(alpha: 0.95),
                       height: 1.4,
                     ),
                     maxLines: 3,
@@ -150,7 +150,7 @@ class FinBiteCard extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -159,14 +159,14 @@ class FinBiteCard extends StatelessWidget {
                         Icon(
                           Icons.tips_and_updates,
                           size: 16,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             displayInsight.recommendation,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                               fontStyle: FontStyle.italic,
                             ),
                             maxLines: 2,
@@ -201,7 +201,7 @@ class FinBiteCard extends StatelessWidget {
       default:
         return [
           theme.colorScheme.primary,
-          theme.colorScheme.primary.withOpacity(0.8),
+          theme.colorScheme.primary.withValues(alpha: 0.8),
         ];
     }
   }
@@ -221,16 +221,16 @@ class _TrendIcon extends StatelessWidget {
     switch (trend) {
       case 'up':
         icon = Icons.trending_up;
-        bgColor = Colors.white.withOpacity(0.2);
+        bgColor = Colors.white.withValues(alpha: 0.2);
         break;
       case 'down':
         icon = Icons.trending_down;
-        bgColor = Colors.white.withOpacity(0.2);
+        bgColor = Colors.white.withValues(alpha: 0.2);
         break;
       case 'stable':
       default:
         icon = Icons.trending_flat;
-        bgColor = Colors.white.withOpacity(0.2);
+        bgColor = Colors.white.withValues(alpha: 0.2);
         break;
     }
 
@@ -268,7 +268,7 @@ class _CategoryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -346,14 +346,14 @@ class _LoadingShimmer extends StatelessWidget {
           height: height,
           width: width,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.3),
+            color: Colors.white.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(4),
           ),
         )
         .animate(onPlay: (c) => c.repeat())
         .shimmer(
           duration: 1200.ms,
-          color: Colors.white.withOpacity(0.5),
+          color: Colors.white.withValues(alpha: 0.5),
         );
   }
 }

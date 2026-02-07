@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/services/data_service.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../main.dart'; // for authService
+import '../../../../main.dart' hide dataService; // for authService
 
 class TrendAnalysisCard extends StatefulWidget {
   const TrendAnalysisCard({super.key});
@@ -114,7 +114,7 @@ class _TrendAnalysisCardState extends State<TrendAnalysisCard> {
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true, 
-                        color: AppTheme.incomeGreen.withOpacity(0.1)
+                        color: AppTheme.incomeGreen.withValues(alpha: 0.1)
                       ),
                     ),
                     LineChartBarData(

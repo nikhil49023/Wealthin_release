@@ -1,0 +1,5 @@
+numpy
+requests
+pymupdf
+pandas
+python-dotenv

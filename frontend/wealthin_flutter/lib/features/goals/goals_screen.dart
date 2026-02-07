@@ -595,7 +595,7 @@ class _OverallProgressCard extends StatelessWidget {
                 Text(
                   'Overall Progress',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
                 Container(
@@ -604,7 +604,7 @@ class _OverallProgressCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -634,7 +634,7 @@ class _OverallProgressCard extends StatelessWidget {
                       Text(
                         'saved of ₹${_formatAmount(totalTarget)}',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
@@ -649,7 +649,7 @@ class _OverallProgressCard extends StatelessWidget {
                       CircularProgressIndicator(
                         value: overallProgress.clamp(0.0, 1.0),
                         strokeWidth: 8,
-                        backgroundColor: Colors.white.withOpacity(0.3),
+                        backgroundColor: Colors.white.withValues(alpha: 0.3),
                         valueColor: const AlwaysStoppedAnimation(Colors.white),
                       ),
                       Text(
@@ -711,8 +711,8 @@ class _GoalCard extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isCompleted
-                        ? AppTheme.incomeGreen.withOpacity(0.1)
-                        : AppTheme.primary.withOpacity(0.1),
+                        ? AppTheme.incomeGreen.withValues(alpha: 0.1)
+                        : AppTheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -744,7 +744,7 @@ class _GoalCard extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.incomeGreen.withOpacity(0.1),
+                                color: AppTheme.incomeGreen.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -762,7 +762,7 @@ class _GoalCard extends StatelessWidget {
                       Text(
                         '₹${_formatAmount(goal.currentAmount)} / ₹${_formatAmount(goal.targetAmount)}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -832,7 +832,7 @@ class _GoalCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: daysLeft < 30
-                          ? AppTheme.warning.withOpacity(0.1)
+                          ? AppTheme.warning.withValues(alpha: 0.1)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -892,7 +892,7 @@ class _GoalCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.incomeGreen.withOpacity(0.1),
+                  color: AppTheme.incomeGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
@@ -939,7 +939,7 @@ class _EmptyGoalsPlaceholder extends StatelessWidget {
             Icon(
               Icons.flag_outlined,
               size: 64,
-              color: theme.colorScheme.primary.withOpacity(0.3),
+              color: theme.colorScheme.primary.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
@@ -950,7 +950,7 @@ class _EmptyGoalsPlaceholder extends StatelessWidget {
             Text(
               'Set financial goals to track your savings progress',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               textAlign: TextAlign.center,
             ),

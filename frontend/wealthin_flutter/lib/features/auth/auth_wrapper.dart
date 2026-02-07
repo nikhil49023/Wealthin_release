@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../main.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
 import 'login_screen.dart';
 
 /// Auth Wrapper that checks authentication status and shows login or main app
-/// Uses Firebase Auth state management for reactive updates
+/// Uses Supabase Auth via AuthService (ChangeNotifier)
 class AuthWrapper extends StatefulWidget {
   final Widget child;
 
@@ -19,19 +18,9 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
-    // If Firebase is not available (e.g., Linux), skip auth and show main app directly
-    if (!isFirebaseAvailable) {
-      return widget.child;
-    }
-
-    return StreamBuilder<User?>(
-      stream: authService.authStateChanges,
-      builder: (context, snapshot) {
-        // Show loading screen while checking auth state
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildLoadingScreen(context, 'Authenticating...');
-        }
-
+    return ListenableBuilder(
+      listenable: authService,
+      builder: (context, _) {
         final user = authService.currentUser;
 
         // If user is logged in, show main app
@@ -42,12 +31,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Otherwise show login screen
         return LoginScreen(
           onLoginSuccess: () {
-            // Auth state will update automatically via StreamBuilder
+            // Auth state will update automatically via ListenableBuilder
           },
         );
       },
     );
   }
+
 
   Widget _buildLoadingScreen(BuildContext context, String message) {
     return Scaffold(

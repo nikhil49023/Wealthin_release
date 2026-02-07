@@ -132,7 +132,7 @@ class RecentTransactionsCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isExpense = transaction.isExpense;
     final color = isExpense ? WealthInColors.error : WealthInColors.success;
-    final date = DateTime.tryParse(transaction.date) ?? DateTime.now();
+    final date = transaction.date; // Already a DateTime
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -141,7 +141,7 @@ class RecentTransactionsCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

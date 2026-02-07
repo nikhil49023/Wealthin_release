@@ -22,10 +22,12 @@ logger = logging.getLogger(__name__)
 # Import services
 from .sarvam_service import sarvam_service
 from .zoho_vision_service import zoho_vision_service
+from .web_search_service import web_search_service
 
 # Check which services are available
 SARVAM_AVAILABLE = sarvam_service.is_configured
 ZOHO_AVAILABLE = zoho_vision_service.is_configured
+WEB_SEARCH_AVAILABLE = web_search_service.is_available
 
 logger.info("AI Services Status:")
 logger.info(f"  - Sarvam AI: {'✅' if SARVAM_AVAILABLE else '❌'}")
@@ -248,11 +250,32 @@ FINANCIAL_TOOLS = [
             },
             "required": ["query_type"]
         }
+    },
+    {
+        "name": "web_search",
+        "description": "Unified web search using DuckDuckGo. Use for any internet lookup: product prices, gold rates, FD rates, stock prices, news, hotel deals, reviews, comparisons, etc. Add context to your query for better results (e.g., 'iPhone 15 price Amazon India' or 'best hotels in Mumbai booking.com').",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query - be specific for better results"
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["general", "shopping", "news", "finance", "travel"],
+                    "description": "Optional category hint to refine search results"
+                }
+            },
+            "required": ["query"]
+        }
     }
 ]
 
-# System prompt for the AI advisor
-SYSTEM_PROMPT = """You are WealthIn AI, a friendly and knowledgeable financial advisor for Indian users.
+# System prompt for the AI advisor - Enhanced for Agentic Behavior
+SYSTEM_PROMPT = """You are WealthIn AI, a powerful and intelligent financial advisor for Indian users.
+
+You operate as a FULLY AGENTIC AI - you can think step-by-step, perform multiple searches, compare results, and validate information before responding.
 
 You can help users with:
 - Creating and managing budgets
@@ -262,16 +285,32 @@ You can help users with:
 - Getting spending analysis
 - Calculating SIP returns and loan EMIs
 - Tax information (Income Tax, GST)
+- **Market Research & Price Comparison** (NEW - use search tools agentically!)
 
+### AGENTIC SEARCH BEHAVIOR ###
+When a user asks about products, prices, or market research:
+1. **Multi-Step Search**: First search for the product, then search for reviews, then compare prices.
+2. **Price Comparison**: Search on Amazon AND Flipkart, compare and present best deals.
+3. **Validation**: Cross-reference information from multiple sources.
+4. **Deep Research**: For investment queries, search for news, expert opinions, and historical data.
+
+Example agentic flow for "Find best price for iPhone 15":
+- Step 1: Call `web_search` with "iPhone 15 price Amazon India"
+- Step 2: Call `web_search` with "iPhone 15 price Flipkart"
+- Step 3: Call `web_search` with "iPhone 15 reviews"
+- Step 4: Compare results and provide a comprehensive answer with recommendations.
+
+### ACTION GUIDELINES ###
 When a user's request requires taking an action (like creating a budget or adding a transaction), 
 use the appropriate function. Always confirm important details before executing.
 
 Guidelines:
 - Use Indian Rupee (₹) for all amounts
-- Be concise and helpful
+- Be concise and helpful, but thorough for research queries
 - For calculations, show the breakdown
 - For tax queries, mention that this is general information and they should consult a CA for specific advice
 - Be encouraging about good financial habits
+- For shopping/product queries, always provide multiple options with prices and links
 
 If the user just wants to chat or has a general question, respond conversationally without calling functions."""
 
@@ -425,64 +464,132 @@ class AIToolsService:
                     needs_confirmation=action_result.get("needs_confirmation", False)
                 )
             
-            # 2. LLM-based Reasoning (Smart Path)
-            # Get user trends context if user_id is available
+            # 2. LLM-based Reasoning (Agentic Loop)
+            # Get user trends context
             trends_context = ""
             if user_context and user_context.get("user_id"):
                 trends_context = await self._get_user_trends_context(user_context["user_id"])
             
-            # Build tool definitions for the system prompt
-            tools_desc = json.dumps([
-                {"name": t["name"], "description": t["description"], "parameters": t["parameters"]} 
-                for t in FINANCIAL_TOOLS
-            ], indent=2)
-
-            # Build context-aware system prompt structure
-            system_prompt = f"""You are WealthIn AI, a friendly financial advisor for Indian users.
-You help with budgets, savings goals, payments, transactions, SIP/EMI calculations, and tax info.
-Use Indian Rupee (₹) for amounts. Be concise and helpful.
-
-Available Tools:
-{tools_desc}
-
-INSTRUCTIONS:
-1. If the user wants to perform an action (like 'create budget', 'add transaction', 'calculate sip'), you MUST return a valid JSON object:
-{{ "tool": "tool_name", "arguments": {{ ... }} }}
-
-2. If no tool is needed (general question, greeting), respond with plain text.
-
-3. Prioritize using tools for exact calculations or data entry.
-
-{trends_context}
-
-User Context: {json.dumps(user_context) if user_context else 'None'}"""
+            # Prepare tools for Sarvam SDK
+            tools = [
+                {
+                    "type": "function",
+                    "function": t
+                } for t in FINANCIAL_TOOLS
+            ]
             
-            response_text = await self._get_llm_response(query, system_prompt)
+            # Initialize conversation history
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT + f"\n\n{trends_context}\n\nUser Context: {json.dumps(user_context) if user_context else 'None'}"},
+                {"role": "user", "content": query}
+            ]
+            
+            # AGENTIC LOOP (Max 5 iterations)
+            final_response = None
+            action_result = None
+            
+            for _ in range(5):
+                # Call LLM with tools
+                if SARVAM_AVAILABLE:
+                    response_obj = sarvam_service.chat_completion(messages, tools=tools)
+                else:
+                    # Fallback to simple chat if Sarvam not available (should be handled upstream)
+                    response_text = await self._get_llm_response(query, SYSTEM_PROMPT)
+                    return AIToolResponse(response=response_text, action_taken=False)
 
-            # 3. Check for Tool Call in LLM Response
-            tool_call = self._parse_tool_call(response_text)
-            if tool_call:
-                function_name = tool_call["tool"]
-                arguments = tool_call["arguments"]
-                action_result = await self._execute_function(function_name, arguments)
-                return AIToolResponse(
-                    response=action_result["message"],
-                    action_taken=True,
-                    action_type=function_name,
-                    action_data=action_result,
-                    needs_confirmation=action_result.get("needs_confirmation", False)
-                )
+                # Handle response
+                response_message = None
+                tool_calls = []
+                
+                # Parse response object (adapt based on SDK return type)
+                if hasattr(response_obj, 'choices'):
+                    choice = response_obj.choices[0]
+                    response_message = choice.message
+                    if hasattr(response_message, 'tool_calls') and response_message.tool_calls:
+                        tool_calls = response_message.tool_calls
+                    content = response_message.content
+                elif isinstance(response_obj, dict): # Dict fallback
+                    choice = response_obj.get("choices", [{}])[0]
+                    msg_dict = choice.get("message", {})
+                    content = msg_dict.get("content")
+                    tool_calls_data = msg_dict.get("tool_calls", [])
+                    # Convert dict tool calls to objects if needed or use as is
+                    # For simplicity in this block, assuming object or dict access
+                    tool_calls = tool_calls_data
 
-            # 4. Normal Text Response
+                # If we have content, add to history
+                # Note: We only add the message once (with tool_calls if present)
+                
+                # If no tool calls, this is the final answer
+                if not tool_calls:
+                    if content:
+                        messages.append({"role": "assistant", "content": content})
+                    final_response = content
+                    break
+                
+                # Process tool calls - add assistant message with tool_calls
+                messages.append({
+                    "role": "assistant",
+                    "content": content or "",
+                    "tool_calls": tool_calls
+                })
+                
+                # Execute each tool
+                has_financial_action = False
+                
+                for tool_call in tool_calls:
+                    # Handle object vs dict access
+                    if isinstance(tool_call, dict):
+                        func_name = tool_call.get("function", {}).get("name")
+                        args_str = tool_call.get("function", {}).get("arguments")
+                        call_id = tool_call.get("id")
+                    else:
+                        func_name = tool_call.function.name
+                        args_str = tool_call.function.arguments
+                        call_id = tool_call.id
+                        
+                    try:
+                        func_args = json.loads(args_str)
+                    except:
+                        func_args = {}
+                        
+                    logger.info(f"Agent executing tool: {func_name}")
+                    
+                    # Execute tool
+                    result = await self._execute_function(func_name, func_args)
+                    
+                    # Store result if it's a significant financial action
+                    # (Not just search)
+                    if not func_name.startswith("search_") and not func_name.startswith("web_"):
+                        action_result = result
+                        has_financial_action = True
+                    
+                    # Add tool output to history
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "name": func_name,
+                        "content": json.dumps(result)
+                    })
+                
+                # If we performed a financial action (like create budget), 
+                # we might want to stop early or let the LLM confirm
+                if has_financial_action and action_result:
+                     # Check if we should stop. Usually LLM will summarize next.
+                     pass
+
             return AIToolResponse(
-                response=response_text,
-                action_taken=False
+                response=final_response or "I've completed the tasks.",
+                action_taken=bool(action_result),
+                action_type=action_result["action"] if action_result else None,
+                action_data=action_result,
+                needs_confirmation=action_result.get("needs_confirmation", False) if action_result else False
             )
 
         except Exception as e:
             logger.error(f"Chat response error: {e}")
             return AIToolResponse(
-                response="I'm here to help with your finances! You can ask me to:\\n\\n• **Create a budget**: 'Set a budget of ₹15000 for Food'\\n• **Save for goals**: 'Save ₹50000 for Emergency Fund'\\n• **Track spending**: 'Spent ₹500 on Groceries'\\n• **Calculate returns**: 'Calculate SIP of ₹5000 at 12% for 5 years'\\n\\nHow can I assist you today?",
+                response="I encountered an error while processing your request. Please try again.",
                 action_taken=False
             )
 
@@ -563,6 +670,11 @@ Use this information to provide personalized, relevant advice. Reference specifi
             return await self._calculate_emi(arguments)
         elif function_name == "get_tax_info":
             return await self._get_tax_info(arguments)
+        
+        # Unified Web Search Tool
+        elif function_name == "web_search":
+            return await self._execute_search_tool(function_name, arguments)
+            
         else:
             return {"success": False, "message": f"Unknown action: {function_name}"}
     
@@ -855,7 +967,74 @@ Popular options:
             },
             "message": message
         }
-
+    
+    async def _execute_search_tool(self, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute search-related tools using DuckDuckGo (privacy-respecting, free)."""
+        from .web_search_service import web_search_service
+        from dataclasses import asdict
+        
+        query = args.get("query", "")
+        if not query:
+            return {"success": False, "message": "Query cannot be empty."}
+        
+        if not web_search_service.is_available:
+            return {"success": False, "message": "Web search is not available. Please install duckduckgo-search."}
+        
+        try:
+            # Use the optional category hint from arguments, or default to "general"
+            category = arguments.get("category", "general")
+            
+            # Execute the search using DuckDuckGo
+            results = await web_search_service.search_finance_news(
+                query, 
+                limit=5, 
+                category=category
+            )
+            
+            if not results:
+                return {
+                    "success": True,
+                    "needs_confirmation": False,
+                    "action": tool_name,
+                    "data": [],
+                    "message": f"No results found for '{query}'. Try a different search term."
+                }
+            
+            # Format results for the LLM to process
+            formatted_results = []
+            for r in results:
+                item = {
+                    "title": r.title,
+                    "url": r.url,
+                    "snippet": r.snippet,
+                    "source": r.source,
+                }
+                if r.price:
+                    item["price"] = r.price
+                    item["price_display"] = r.price_display
+                if r.date:
+                    item["date"] = r.date
+                formatted_results.append(item)
+            
+            # Build a user-friendly message
+            message_lines = [f"🔍 **Search Results for '{query}':**\n"]
+            for i, r in enumerate(results[:5], 1):
+                price_str = f" - {r.price_display}" if r.price_display else ""
+                message_lines.append(f"{i}. **{r.title}**{price_str}")
+                message_lines.append(f"   {r.snippet[:100]}...")
+                message_lines.append(f"   [View]({r.url})\n")
+            
+            return {
+                "success": True,
+                "needs_confirmation": False,
+                "action": tool_name,
+                "data": formatted_results,
+                "message": "\n".join(message_lines)
+            }
+            
+        except Exception as e:
+            logger.error(f"Search error: {e}")
+            return {"success": False, "message": f"Search error: {str(e)}"}
 
     async def generate_daily_insight(self, user_id: str) -> Dict[str, Any]:
         """

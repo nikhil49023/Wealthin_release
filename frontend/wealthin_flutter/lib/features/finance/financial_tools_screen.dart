@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/services/data_service.dart';
+import '../../core/services/financial_calculator.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
 
@@ -22,7 +22,7 @@ class FinancialToolsScreen extends StatelessWidget {
           _ToolCard(
             title: 'Compound Interest',
             icon: Icons.trending_up,
-            color: AppTheme.purpleLight,
+            color: WealthInTheme.purpleLight,
             onTap: () => _showCompoundInterestCalculator(context),
           ),
           _ToolCard(
@@ -70,10 +70,10 @@ class FinancialToolsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: () {
                 final income = double.tryParse(incomeCtrl.text) ?? 0;
                 final expense = double.tryParse(expenseCtrl.text) ?? 0;
-                final rate = await dataService.calculateSavingsRate(income, expense);
+                final rate = FinancialCalculator.calculateSavingsRate(income, expense);
                 Navigator.pop(ctx);
                 _showResult(context, 'Savings Rate: $rate%');
               },
@@ -127,13 +127,13 @@ class FinancialToolsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: () {
                 final principal = double.tryParse(principalCtrl.text) ?? 0;
                 final rate = double.tryParse(rateCtrl.text) ?? 0;
                 final years = int.tryParse(yearsCtrl.text) ?? 0;
                 final monthly = double.tryParse(monthlyCtrl.text) ?? 0;
 
-                final result = await dataService.calculateCompoundInterest(
+                final result = FinancialCalculator.calculateCompoundInterest(
                   principal: principal,
                   rate: rate,
                   years: years,
@@ -178,11 +178,11 @@ class FinancialToolsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: () {
                 final savings = double.tryParse(savingsCtrl.text) ?? 0;
                 final expenses = double.tryParse(expenseCtrl.text) ?? 0;
                 
-                final result = await dataService.calculateEmergencyFundStatus(
+                final result = FinancialCalculator.calculateEmergencyFundStatus(
                   currentSavings: savings, 
                   monthlyExpenses: expenses
                 );
@@ -225,10 +225,10 @@ class FinancialToolsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: () {
                 final income = double.tryParse(incomeCtrl.text) ?? 0;
                 final size = int.tryParse(familySizeCtrl.text) ?? 1;
-                final result = await dataService.calculatePerCapitaIncome(income, size);
+                final result = FinancialCalculator.calculatePerCapitaIncome(income, size);
                 Navigator.pop(ctx);
                 _showResult(context, 'Per Capita Income: ₹$result');
               },
@@ -283,7 +283,7 @@ class _ToolCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 28),
@@ -303,3 +303,4 @@ class _ToolCard extends StatelessWidget {
     );
   }
 }
+

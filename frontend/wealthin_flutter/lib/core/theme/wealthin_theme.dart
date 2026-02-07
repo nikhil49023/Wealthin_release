@@ -1,281 +1,347 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
 
-/// Color Constants for WealthIn App
-/// Can be used directly: WealthInColors.primary, WealthInColors.success, etc.
+/// ============================================================
+/// WEALTHIN 2026 SOVEREIGN THEME
+/// "The Emerald Vault" (Dark) & "The Ivory Mint" (Light)
+/// ============================================================
+
+/// Color Constants for WealthIn App - 2026 Sovereign Edition
 class WealthInColors {
   WealthInColors._();
 
-  // Primary Colors
-  static const primary = Color(0xFF0A1628);
-  static const primaryLight = Color(0xFF1A2942);
+  // ============== DARK MODE: "THE EMERALD VAULT" ==============
+  // AMOLED-optimized deep blacks with emerald accents
+  
+  /// Deep Obsidian - Main background for AMOLED
+  static const deepObsidian = Color(0xFF040D08);
+  
+  /// Vault Green - Card surfaces (recessed tray look)
+  static const vaultGreen = Color(0xFF0D1F14);
+  
+  /// Emerald Glow - Primary action color
+  static const emeraldGlow = Color(0xFF50C878);
+  
+  /// Regal Gold - Premium features & high-value alerts
+  static const regalGold = Color(0xFFD4AF37);
+  
+  /// Pure Frost - High-legibility text (off-white with green tint)
+  static const pureFrost = Color(0xFFF2FBF5);
+  
+  /// Jade Shadow - Secondary text, borders, inactive states
+  static const jadeShadow = Color(0xFF4A6353);
 
-  // Semantic Colors
-  static const success = Color(0xFF10B981);
-  static const successLight = Color(0xFF34D399);
+  // ============== LIGHT MODE: "THE IVORY MINT" ==============
+  // Premium stationery feel, avoiding stark white
+  
+  /// Ivory Mist - Main background
+  static const ivoryMist = Color(0xFFFBFDFA);
+  
+  /// Paper White - Card surfaces
+  static const paperWhite = Color(0xFFFFFFFF);
+  
+  /// Mint Border - Subtle card borders
+  static const mintBorder = Color(0xFFE8F2EC);
+  
+  /// True Emerald - Primary CTA and text
+  static const trueEmerald = Color(0xFF046307);
+  
+  /// Vintage Gold - Sophisticated gold indicators
+  static const vintageGold = Color(0xFFB8860B);
+  
+  /// Deep Forest - Headlines and primary text
+  static const deepForest = Color(0xFF06130B);
+  
+  /// Sage Gray - Captions, labels, disabled elements
+  static const sageGray = Color(0xFF8FBC8F);
+
+  // ============== SEMANTIC COLORS ==============
+  
+  /// Success/Income indicator
+  static const success = emeraldGlow;
+  static const successLight = Color(0xFF6FE097);
+  
+  /// Error/Expense indicator
   static const error = Color(0xFFEF4444);
   static const errorLight = Color(0xFFF87171);
+  
+  /// Warning
   static const warning = Color(0xFFF59E0B);
+  
+  /// Info/AI
   static const info = Color(0xFF7C3AED);
 
-  // Background Colors
-  static const background = Color(0xFFF3F4F6);
-  static const surfaceLight = Color(0xFFF9FAFB);
-  static const white = Color(0xFFFFFFFF);
-
-  // Text Colors
-  static const textPrimary = Color(0xFF111827);
-  static const textSecondary = Color(0xFF6B7280);
-  static const border = Color(0xFFD1D5DB);
-
-  // Dark Mode Colors
-  static const black = Color(0xFF000000);
-  static const blackLight = Color(0xFF0A0A0A);
-  static const blackCard = Color(0xFF121212);
-  static const blackElevated = Color(0xFF1A1A1A);
-  static const blackBorder = Color(0xFF262626);
-  static const textPrimaryDark = Color(0xFFF9FAFB);
-  static const textSecondaryDark = Color(0xFF9CA3AF);
+  // ============== LEGACY COMPATIBILITY ==============
+  // These maintain backward compatibility with existing code
+  
+  static const primary = trueEmerald;
+  static const primaryLight = emeraldGlow;
+  static const background = ivoryMist;
+  static const surfaceLight = paperWhite;
+  static const white = paperWhite;
+  static const textPrimary = deepForest;
+  static const textSecondary = jadeShadow;
+  static const border = mintBorder;
+  
+  // Dark mode legacy
+  static const black = deepObsidian;
+  static const blackLight = Color(0xFF061A0D);
+  static const blackCard = vaultGreen;
+  static const blackSurface = Color(0xFF0F2518);
+  static const blackElevated = Color(0xFF132B1C);
+  static const blackBorder = Color(0xFF1A3D24);
+  static const textPrimaryDark = pureFrost;
+  static const textSecondaryDark = jadeShadow;
 }
 
-/// WealthIn 2026 Professional Theme
-/// Formal color scheme with deep black dark mode
+/// WealthIn 2026 Sovereign Theme
+/// Premium, depth-focused design with emerald wealth aesthetic
 class WealthInTheme {
   WealthInTheme._();
 
-  // ============== PROFESSIONAL COLOR PALETTE ==============
+  // ============== SOVEREIGN COLOR PALETTE ==============
 
-  // Primary - Professional Navy
-  static const navy = Color(0xFF0A1628);
-  static const navyLight = Color(0xFF1A2942);
-  static const navyMuted = Color(0xFF2D3F5C);
+  // Dark Mode Colors
+  static const deepObsidian = WealthInColors.deepObsidian;
+  static const vaultGreen = WealthInColors.vaultGreen;
+  static const emeraldGlow = WealthInColors.emeraldGlow;
+  static const regalGold = WealthInColors.regalGold;
+  static const pureFrost = WealthInColors.pureFrost;
+  static const jadeShadow = WealthInColors.jadeShadow;
 
-  // Accent - Refined Gold/Amber
-  static const gold = Color(0xFFD4AF37);
-  static const goldLight = Color(0xFFE8C547);
-  static const goldMuted = Color(0xFFF5E6A3);
+  // Light Mode Colors
+  static const ivoryMist = WealthInColors.ivoryMist;
+  static const paperWhite = WealthInColors.paperWhite;
+  static const mintBorder = WealthInColors.mintBorder;
+  static const trueEmerald = WealthInColors.trueEmerald;
+  static const vintageGold = WealthInColors.vintageGold;
+  static const deepForest = WealthInColors.deepForest;
+  static const sageGray = WealthInColors.sageGray;
 
-  // Success/Income - Emerald Green
-  static const emerald = Color(0xFF10B981);
-  static const emeraldLight = Color(0xFF34D399);
-  static const emeraldDark = Color(0xFF059669);
+  // Semantic
+  static const income = emeraldGlow;
+  static const expense = Color(0xFFEF4444);
+  static const savings = regalGold;
+  static const warning = Color(0xFFF59E0B);
+  static const info = Color(0xFF7C3AED);
 
-  // Expense/Alert - Coral Red
+  // Secondary emerald shades
+  static const emeraldDark = Color(0xFF2E8B57);
+  static const emeraldLight = Color(0xFF6FE097);
+
+  // Legacy compatibility
+  static const navy = trueEmerald;
+  static const navyLight = emeraldGlow;
+  static const gold = regalGold;
+  static const emerald = emeraldGlow;
   static const coral = Color(0xFFEF4444);
-  static const coralLight = Color(0xFFF87171);
-  static const coralDark = Color(0xFFDC2626);
-
-  // AI/Intelligence - Royal Purple
   static const purple = Color(0xFF7C3AED);
   static const purpleLight = Color(0xFFA78BFA);
   static const purpleDark = Color(0xFF5B21B6);
-
-  // Neutral - Professional Grays
-  static const gray50 = Color(0xFFF9FAFB);
-  static const gray100 = Color(0xFFF3F4F6);
-  static const gray200 = Color(0xFFE5E7EB);
-  static const gray300 = Color(0xFFD1D5DB);
-  static const gray400 = Color(0xFF9CA3AF);
-  static const gray500 = Color(0xFF6B7280);
-  static const gray600 = Color(0xFF4B5563);
-  static const gray700 = Color(0xFF374151);
-  static const gray800 = Color(0xFF1F2937);
-  static const gray900 = Color(0xFF111827);
-
-  // ============== DARK MODE - DEEP BLACKS ==============
-
-  static const black = Color(0xFF000000);
-  static const blackLight = Color(0xFF0A0A0A);
-  static const blackCard = Color(0xFF121212);
-  static const blackElevated = Color(0xFF1A1A1A);
-  static const blackBorder = Color(0xFF262626);
-
-  // Dark mode accent colors (sharper/brighter)
-  static const darkEmerald = Color(0xFF22C55E);
+  static const black = deepObsidian;
+  static const blackCard = vaultGreen;
+  static const blackElevated = Color(0xFF132B1C);
+  static const blackBorder = Color(0xFF1A3D24);
+  static const gray50 = ivoryMist;
+  static const gray100 = Color(0xFFF3F7F4);
+  static const gray200 = mintBorder;
+  static const gray300 = Color(0xFFCCDDD2);
+  static const gray400 = sageGray;
+  static const gray500 = jadeShadow;
+  static const gray600 = Color(0xFF3D5346);
+  static const gray700 = Color(0xFF2D3F33);
+  static const gray800 = Color(0xFF1F2B24);
+  static const gray900 = deepForest;
+  static const darkEmerald = emeraldGlow;
   static const darkCoral = Color(0xFFF87171);
   static const darkPurple = Color(0xFFA78BFA);
-  static const darkGold = Color(0xFFFBBF24);
-
-  // ============== SEMANTIC COLORS ==============
-
-  static const income = emerald;
-  static const expense = coral;
-  static const savings = gold;
-  static const warning = Color(0xFFF59E0B);
-  static const info = purple;
+  static const darkGold = regalGold;
 
   // ============== GRADIENTS ==============
 
-  static const primaryGradient = LinearGradient(
+  /// Primary gradient for dark mode buttons
+  static const primaryGradientDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [navy, navyLight],
+    colors: [emeraldGlow, emeraldDark],
   );
 
-  static const successGradient = LinearGradient(
+  /// Primary gradient for light mode buttons
+  static const primaryGradientLight = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [emerald, emeraldLight],
+    colors: [trueEmerald, emeraldDark],
   );
 
-  // ============== TYPOGRAPHY ==============
+  /// Legacy gradient
+  static const primaryGradient = primaryGradientDark;
+  static const successGradient = primaryGradientDark;
 
-  static TextTheme get _baseTextTheme => GoogleFonts.interTextTheme();
+  /// AI Glow effect for agent avatar
+  static BoxShadow aiGlowShadow = BoxShadow(
+    color: emeraldGlow.withOpacity(0.6),
+    blurRadius: 15,
+    spreadRadius: 5,
+  );
 
-  // ============== LIGHT THEME ==============
+  // ============== TYPOGRAPHY - 2026 Sovereign ==============
+
+  /// Headlines (Brand): Plus Jakarta Sans
+  static TextStyle get headlineFont => GoogleFonts.plusJakartaSans();
+  
+  /// Financials (Data): JetBrains Mono for currency values
+  static TextStyle get moneyFont => GoogleFonts.jetBrainsMono();
+
+  // ============== LIGHT THEME: "THE IVORY MINT" ==============
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.light(
-        primary: navy,
+        primary: trueEmerald,
         onPrimary: Colors.white,
-        primaryContainer: navyLight,
-        onPrimaryContainer: Colors.white,
-        secondary: emerald,
+        primaryContainer: emeraldGlow.withOpacity(0.15),
+        onPrimaryContainer: trueEmerald,
+        secondary: vintageGold,
         onSecondary: Colors.white,
-        secondaryContainer: emeraldLight.withOpacity(0.2),
-        onSecondaryContainer: emeraldDark,
-        tertiary: purple,
+        secondaryContainer: vintageGold.withOpacity(0.15),
+        onSecondaryContainer: vintageGold,
+        tertiary: info,
         onTertiary: Colors.white,
-        tertiaryContainer: purpleLight.withOpacity(0.2),
-        onTertiaryContainer: purpleDark,
-        surface: gray50,
-        onSurface: gray900,
-        surfaceContainerHighest: Colors.white,
-        onSurfaceVariant: gray600,
-        outline: gray300,
-        outlineVariant: gray200,
-        error: coral,
+        surface: ivoryMist,
+        onSurface: deepForest,
+        surfaceContainerHighest: paperWhite,
+        onSurfaceVariant: jadeShadow,
+        outline: mintBorder,
+        outlineVariant: Color(0xFFD8EDE0),
+        error: expense,
         onError: Colors.white,
       ),
-      scaffoldBackgroundColor: gray100,
-      textTheme: _baseTextTheme.copyWith(
+      scaffoldBackgroundColor: ivoryMist,
+      textTheme: TextTheme(
         displayLarge: GoogleFonts.plusJakartaSans(
           fontSize: 32,
           fontWeight: FontWeight.bold,
-          color: navy,
+          color: deepForest,
           letterSpacing: -0.5,
         ),
         displayMedium: GoogleFonts.plusJakartaSans(
           fontSize: 28,
           fontWeight: FontWeight.bold,
-          color: navy,
+          color: deepForest,
           letterSpacing: -0.5,
         ),
         headlineLarge: GoogleFonts.plusJakartaSans(
           fontSize: 24,
           fontWeight: FontWeight.w700,
-          color: navy,
+          color: deepForest,
         ),
         headlineMedium: GoogleFonts.plusJakartaSans(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: navy,
+          color: deepForest,
         ),
         titleLarge: GoogleFonts.plusJakartaSans(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: gray900,
+          color: deepForest,
         ),
-        titleMedium: GoogleFonts.inter(
+        titleMedium: GoogleFonts.plusJakartaSans(
           fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: gray800,
-        ),
-        titleSmall: GoogleFonts.inter(
-          fontSize: 14,
           fontWeight: FontWeight.w500,
           color: gray700,
         ),
-        bodyLarge: GoogleFonts.inter(
+        titleSmall: GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: jadeShadow,
+        ),
+        bodyLarge: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           color: gray700,
           height: 1.5,
         ),
-        bodyMedium: GoogleFonts.inter(
+        bodyMedium: GoogleFonts.plusJakartaSans(
           fontSize: 14,
-          color: gray600,
+          color: jadeShadow,
           height: 1.5,
         ),
-        bodySmall: GoogleFonts.inter(
+        bodySmall: GoogleFonts.plusJakartaSans(
           fontSize: 12,
-          color: gray500,
+          color: sageGray,
           height: 1.4,
         ),
-        labelLarge: GoogleFonts.inter(
+        labelLarge: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: gray900,
+          color: deepForest,
         ),
-        labelMedium: GoogleFonts.inter(
+        labelMedium: GoogleFonts.plusJakartaSans(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: gray700,
+          color: jadeShadow,
         ),
-        labelSmall: GoogleFonts.inter(
+        labelSmall: GoogleFonts.plusJakartaSans(
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: gray500,
+          color: sageGray,
           letterSpacing: 0.5,
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.white,
+        backgroundColor: paperWhite,
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
         titleTextStyle: GoogleFonts.plusJakartaSans(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: navy,
+          color: deepForest,
         ),
-        iconTheme: const IconThemeData(color: navy),
+        iconTheme: IconThemeData(color: trueEmerald),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: gray200),
+          side: BorderSide(color: mintBorder),
         ),
-        color: Colors.white,
+        color: paperWhite,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: paperWhite,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: gray300),
+          borderSide: BorderSide(color: mintBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: gray300),
+          borderSide: BorderSide(color: mintBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: navy, width: 2),
+          borderSide: BorderSide(color: trueEmerald, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: coral),
+          borderSide: BorderSide(color: expense),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        hintStyle: TextStyle(color: gray400),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        hintStyle: TextStyle(color: sageGray),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: navy,
+          backgroundColor: trueEmerald,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -283,9 +349,9 @@ class WealthInTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: navy,
-          side: const BorderSide(color: navy, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          foregroundColor: trueEmerald,
+          side: BorderSide(color: trueEmerald, width: 1.5),
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -293,78 +359,78 @@ class WealthInTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: navy,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          foregroundColor: trueEmerald,
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: emerald,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: trueEmerald,
         foregroundColor: Colors.white,
-        elevation: 2,
+        elevation: 4,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: gray100,
-        selectedColor: navy.withOpacity(0.1),
-        labelStyle: GoogleFonts.inter(fontSize: 13, color: gray700),
+        backgroundColor: ivoryMist,
+        selectedColor: trueEmerald.withOpacity(0.15),
+        labelStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: jadeShadow),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
-        side: BorderSide(color: gray300),
+        side: BorderSide(color: mintBorder),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: navy,
-        unselectedItemColor: gray400,
+        backgroundColor: paperWhite,
+        selectedItemColor: trueEmerald,
+        unselectedItemColor: sageGray,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        indicatorColor: navy.withOpacity(0.1),
+        backgroundColor: paperWhite,
+        indicatorColor: trueEmerald.withOpacity(0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.inter(
+            return GoogleFonts.plusJakartaSans(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: navy,
+              color: trueEmerald,
             );
           }
-          return GoogleFonts.inter(
+          return GoogleFonts.plusJakartaSans(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: gray500,
+            color: sageGray,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: navy, size: 24);
+            return IconThemeData(color: trueEmerald, size: 24);
           }
-          return IconThemeData(color: gray400, size: 24);
+          return IconThemeData(color: sageGray, size: 24);
         }),
       ),
       dividerTheme: DividerThemeData(
-        color: gray200,
+        color: mintBorder,
         thickness: 1,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: gray900,
-        contentTextStyle: GoogleFonts.inter(color: Colors.white),
+        backgroundColor: deepForest,
+        contentTextStyle: GoogleFonts.plusJakartaSans(color: Colors.white),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: paperWhite,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: paperWhite,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -372,107 +438,105 @@ class WealthInTheme {
     );
   }
 
-  // ============== DARK THEME - DEEP BLACKS ==============
+  // ============== DARK THEME: "THE EMERALD VAULT" ==============
 
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme.dark(
-        primary: darkEmerald,
-        onPrimary: black,
-        primaryContainer: darkEmerald.withOpacity(0.2),
-        onPrimaryContainer: darkEmerald,
-        secondary: darkPurple,
-        onSecondary: black,
-        secondaryContainer: darkPurple.withOpacity(0.2),
-        onSecondaryContainer: darkPurple,
-        tertiary: darkGold,
-        onTertiary: black,
-        tertiaryContainer: darkGold.withOpacity(0.2),
-        onTertiaryContainer: darkGold,
-        surface: blackCard,
-        onSurface: Colors.white,
-        surfaceContainerHighest: blackElevated,
-        onSurfaceVariant: gray400,
-        outline: blackBorder,
-        outlineVariant: Color(0xFF333333),
-        error: darkCoral,
-        onError: black,
+        primary: emeraldGlow,
+        onPrimary: deepObsidian,
+        primaryContainer: emeraldGlow.withOpacity(0.2),
+        onPrimaryContainer: emeraldGlow,
+        secondary: regalGold,
+        onSecondary: deepObsidian,
+        secondaryContainer: regalGold.withOpacity(0.2),
+        onSecondaryContainer: regalGold,
+        tertiary: info,
+        onTertiary: deepObsidian,
+        surface: vaultGreen,
+        onSurface: pureFrost,
+        surfaceContainerHighest: Color(0xFF132B1C),
+        onSurfaceVariant: jadeShadow,
+        outline: Color(0xFF1A3D24),
+        outlineVariant: Color(0xFF254830),
+        error: Color(0xFFF87171),
+        onError: deepObsidian,
       ),
-      scaffoldBackgroundColor: black,
-      textTheme: _baseTextTheme.copyWith(
+      scaffoldBackgroundColor: deepObsidian,
+      textTheme: TextTheme(
         displayLarge: GoogleFonts.plusJakartaSans(
           fontSize: 32,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: pureFrost,
           letterSpacing: -0.5,
         ),
         displayMedium: GoogleFonts.plusJakartaSans(
           fontSize: 28,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: pureFrost,
           letterSpacing: -0.5,
         ),
         headlineLarge: GoogleFonts.plusJakartaSans(
           fontSize: 24,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: pureFrost,
         ),
         headlineMedium: GoogleFonts.plusJakartaSans(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: pureFrost,
         ),
         titleLarge: GoogleFonts.plusJakartaSans(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: pureFrost,
         ),
-        titleMedium: GoogleFonts.inter(
+        titleMedium: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: gray200,
+          color: Color(0xFFD0E8D8),
         ),
-        titleSmall: GoogleFonts.inter(
+        titleSmall: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: gray300,
+          color: Color(0xFFB0D0BC),
         ),
-        bodyLarge: GoogleFonts.inter(
+        bodyLarge: GoogleFonts.plusJakartaSans(
           fontSize: 16,
-          color: gray300,
+          color: Color(0xFFB0D0BC),
           height: 1.5,
         ),
-        bodyMedium: GoogleFonts.inter(
+        bodyMedium: GoogleFonts.plusJakartaSans(
           fontSize: 14,
-          color: gray400,
+          color: jadeShadow,
           height: 1.5,
         ),
-        bodySmall: GoogleFonts.inter(
+        bodySmall: GoogleFonts.plusJakartaSans(
           fontSize: 12,
-          color: gray500,
+          color: Color(0xFF5A7363),
           height: 1.4,
         ),
-        labelLarge: GoogleFonts.inter(
+        labelLarge: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: pureFrost,
         ),
-        labelMedium: GoogleFonts.inter(
+        labelMedium: GoogleFonts.plusJakartaSans(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: gray300,
+          color: Color(0xFFB0D0BC),
         ),
-        labelSmall: GoogleFonts.inter(
+        labelSmall: GoogleFonts.plusJakartaSans(
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: gray500,
+          color: jadeShadow,
           letterSpacing: 0.5,
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: black,
+        backgroundColor: deepObsidian,
         elevation: 0,
         scrolledUnderElevation: 1,
         surfaceTintColor: Colors.transparent,
@@ -480,53 +544,50 @@ class WealthInTheme {
         titleTextStyle: GoogleFonts.plusJakartaSans(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: pureFrost,
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: emeraldGlow),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: blackBorder),
+          side: BorderSide(color: Color(0xFF1A3D24)),
         ),
-        color: blackCard,
+        color: vaultGreen,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: blackElevated,
+        fillColor: Color(0xFF132B1C),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: blackBorder),
+          borderSide: BorderSide(color: Color(0xFF1A3D24)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: blackBorder),
+          borderSide: BorderSide(color: Color(0xFF1A3D24)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: darkEmerald, width: 2),
+          borderSide: BorderSide(color: emeraldGlow, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: darkCoral),
+          borderSide: BorderSide(color: Color(0xFFF87171)),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        hintStyle: TextStyle(color: gray600),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        hintStyle: TextStyle(color: jadeShadow),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: darkEmerald,
-          foregroundColor: black,
+          backgroundColor: emeraldGlow,
+          foregroundColor: deepObsidian,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -534,9 +595,9 @@ class WealthInTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: darkEmerald,
-          side: const BorderSide(color: darkEmerald, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          foregroundColor: emeraldGlow,
+          side: BorderSide(color: emeraldGlow, width: 1.5),
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -544,80 +605,80 @@ class WealthInTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: darkEmerald,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          foregroundColor: emeraldGlow,
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: darkEmerald,
-        foregroundColor: black,
-        elevation: 2,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: emeraldGlow,
+        foregroundColor: deepObsidian,
+        elevation: 4,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: blackElevated,
-        selectedColor: darkEmerald.withOpacity(0.2),
-        labelStyle: GoogleFonts.inter(fontSize: 13, color: gray300),
+        backgroundColor: Color(0xFF132B1C),
+        selectedColor: emeraldGlow.withOpacity(0.2),
+        labelStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: Color(0xFFB0D0BC)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
-        side: BorderSide(color: blackBorder),
+        side: BorderSide(color: Color(0xFF1A3D24)),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: blackCard,
-        selectedItemColor: darkEmerald,
-        unselectedItemColor: gray500,
+        backgroundColor: vaultGreen,
+        selectedItemColor: emeraldGlow,
+        unselectedItemColor: jadeShadow,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: blackCard,
+        backgroundColor: vaultGreen,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: darkEmerald.withOpacity(0.15),
+        indicatorColor: emeraldGlow.withOpacity(0.15),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.inter(
+            return GoogleFonts.plusJakartaSans(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: darkEmerald,
+              color: emeraldGlow,
             );
           }
-          return GoogleFonts.inter(
+          return GoogleFonts.plusJakartaSans(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: gray500,
+            color: jadeShadow,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: darkEmerald, size: 24);
+            return IconThemeData(color: emeraldGlow, size: 24);
           }
-          return IconThemeData(color: gray500, size: 24);
+          return IconThemeData(color: jadeShadow, size: 24);
         }),
       ),
       dividerTheme: DividerThemeData(
-        color: blackBorder,
+        color: Color(0xFF1A3D24),
         thickness: 1,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: blackElevated,
-        contentTextStyle: GoogleFonts.inter(color: Colors.white),
+        backgroundColor: Color(0xFF132B1C),
+        contentTextStyle: GoogleFonts.plusJakartaSans(color: pureFrost),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: blackCard,
+        backgroundColor: vaultGreen,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: blackCard,
-        shape: const RoundedRectangleBorder(
+        backgroundColor: vaultGreen,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
@@ -630,34 +691,43 @@ class WealthInTheme {
   static Color getTransactionColor(String type, BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (type == 'income') {
-      return isDark ? darkEmerald : emerald;
+      return emeraldGlow;
     } else {
-      return isDark ? darkCoral : coral;
+      return isDark ? Color(0xFFF87171) : expense;
     }
   }
 
   /// Get AI/chat bubble color
   static Color getAIColor(BuildContext context) {
+    return info;
+  }
+
+  /// Format currency with JetBrains Mono
+  static TextStyle currencyStyle(BuildContext context, {double fontSize = 18, FontWeight fontWeight = FontWeight.w600}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark ? darkPurple : purple;
+    return GoogleFonts.jetBrainsMono(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: isDark ? pureFrost : deepForest,
+    );
   }
 
   /// Card decoration with subtle shadow
   static BoxDecoration cardDecoration(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
-      color: isDark ? blackCard : Colors.white,
+      color: isDark ? vaultGreen : paperWhite,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color: isDark ? blackBorder : gray200,
+        color: isDark ? Color(0xFF1A3D24) : mintBorder,
       ),
       boxShadow: isDark
           ? null
           : [
               BoxShadow(
-                color: gray900.withOpacity(0.04),
+                color: deepForest.withOpacity(0.04),
                 blurRadius: 8,
-                offset: const Offset(0, 2),
+                offset: Offset(0, 2),
               ),
             ],
     );
@@ -667,36 +737,50 @@ class WealthInTheme {
   static BoxDecoration elevatedCardDecoration(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
-      color: isDark ? blackElevated : Colors.white,
+      color: isDark ? Color(0xFF132B1C) : paperWhite,
       borderRadius: BorderRadius.circular(20),
       border: Border.all(
-        color: isDark ? blackBorder : gray200,
+        color: isDark ? Color(0xFF1A3D24) : mintBorder,
       ),
       boxShadow: isDark
           ? [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
                 blurRadius: 12,
-                offset: const Offset(0, 4),
+                offset: Offset(0, 4),
               ),
             ]
           : [
               BoxShadow(
-                color: gray900.withOpacity(0.08),
+                color: deepForest.withOpacity(0.08),
                 blurRadius: 16,
-                offset: const Offset(0, 4),
+                offset: Offset(0, 4),
               ),
             ],
     );
   }
 
+  /// Glassmorphism decoration for bottom nav
+  static BoxDecoration glassDecoration(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return BoxDecoration(
+      color: isDark 
+          ? vaultGreen.withOpacity(0.85) 
+          : paperWhite.withOpacity(0.85),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: isDark 
+            ? Colors.white.withOpacity(0.1) 
+            : Colors.white.withOpacity(0.5),
+        width: 1,
+      ),
+    );
+  }
+
   /// Gradient for income
   static LinearGradient incomeGradient(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LinearGradient(
-      colors: isDark
-          ? [darkEmerald.withOpacity(0.8), darkEmerald]
-          : [emeraldLight, emerald],
+      colors: [emeraldGlow, emeraldDark],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -707,8 +791,8 @@ class WealthInTheme {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return LinearGradient(
       colors: isDark
-          ? [darkCoral.withOpacity(0.8), darkCoral]
-          : [coralLight, coral],
+          ? [Color(0xFFF87171).withOpacity(0.8), Color(0xFFF87171)]
+          : [Color(0xFFF87171), expense],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -716,13 +800,16 @@ class WealthInTheme {
 
   /// AI/Chat gradient
   static LinearGradient aiGradient(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LinearGradient(
-      colors: isDark
-          ? [darkPurple.withOpacity(0.8), darkPurple]
-          : [purpleLight, purple],
+      colors: [info.withOpacity(0.8), info],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
+  }
+
+  /// Primary button gradient
+  static LinearGradient buttonGradient(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? primaryGradientDark : primaryGradientLight;
   }
 }

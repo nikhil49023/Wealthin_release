@@ -218,7 +218,7 @@ class _CashflowCardState extends State<CashflowCard> {
                 Text(
                   'Net Cash Flow',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
                 Row(
@@ -253,10 +253,10 @@ class _CashflowCardState extends State<CashflowCard> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: WealthInColors.success.withOpacity(0.1),
+                  color: WealthInColors.success.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: WealthInColors.success.withOpacity(0.3),
+                    color: WealthInColors.success.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -359,8 +359,8 @@ class _CashflowCardState extends State<CashflowCard> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                theme.colorScheme.primary.withOpacity(0.2),
-                theme.colorScheme.primary.withOpacity(0.0),
+                theme.colorScheme.primary.withValues(alpha: 0.2),
+                theme.colorScheme.primary.withValues(alpha: 0.0),
               ],
             ),
           ),
@@ -496,7 +496,7 @@ class _CashflowBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      WealthInColors.success.withOpacity(0.8),
+                      WealthInColors.success.withValues(alpha: 0.8),
                       WealthInColors.success,
                     ],
                   ),
@@ -510,7 +510,7 @@ class _CashflowBar extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       WealthInColors.error,
-                      WealthInColors.error.withOpacity(0.8),
+                      WealthInColors.error.withValues(alpha: 0.8),
                     ],
                   ),
                 ),
@@ -554,7 +554,7 @@ class _CashflowItem extends StatelessWidget {
               Text(
                 label,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
               Text(

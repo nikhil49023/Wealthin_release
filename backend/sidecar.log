@@ -1,0 +1,19 @@
+nohup: ignoring input
+/media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b171/wealthin_git_/wealthin_v2/backend/services/web_search_service.py:75: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  self.ddgs = DDGS() if _HAS_DDGS else None
+INFO:services.ai_tools_service:AI Services Status:
+INFO:services.ai_tools_service:  - Sarvam AI: ✅
+INFO:services.ai_tools_service:  - Zoho Catalyst: ✅
+/media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b171/wealthin_git_/wealthin_v2/backend/venv/lib/python3.12/site-packages/uvicorn/protocols/websockets/websockets_impl.py:17: DeprecationWarning: websockets.server.WebSocketServerProtocol is deprecated
+  from websockets.server import WebSocketServerProtocol
+INFO:     Started server process [15794]
+INFO:     Waiting for application startup.
+INFO:__main__:Starting WealthIn Agent Service...
+INFO:__main__:Database initialized successfully
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+✅ Zoho Catalyst QuickML configured
+✅ Sarvam AI initialized successfully
+✅ Transactions DB initialized at /media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b171/wealthin_git_/wealthin_v2/backend/services/../transactions.db
+✅ Planning DB initialized at /media/nikhil/427092fa-e2b4-41f9-aa94-fa27c0b84b171/wealthin_git_/wealthin_v2/backend/services/../planning.db
+INFO:     127.0.0.1:35684 - "GET /health HTTP/1.1" 200 OK

@@ -79,7 +79,7 @@ class _DocumentsScreenBodyState extends State<DocumentsScreenBody> {
           Text(
             'Generate professional financial documents with AI assistance',
             style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 24),
@@ -162,7 +162,7 @@ class _DocumentTemplateCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: template.color.withOpacity(0.1),
+                  color: template.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -183,7 +183,7 @@ class _DocumentTemplateCard extends StatelessWidget {
               Text(
                 template.description,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -415,7 +415,7 @@ class _DocumentFormScreenState extends State<DocumentFormScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: widget.template.color.withOpacity(0.1),
+                  color: widget.template.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -439,9 +439,7 @@ class _DocumentFormScreenState extends State<DocumentFormScreen> {
                           Text(
                             widget.template.description,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.7,
-                              ),
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                           ),
                         ],
