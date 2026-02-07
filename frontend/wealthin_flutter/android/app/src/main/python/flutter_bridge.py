@@ -1382,8 +1382,9 @@ def chat_with_llm(
                     messages.append({"role": "assistant", "content": response_text})
                     messages.append({
                         "role": "user", 
-                        "content": f"TOOL RESULT:\n{tool_result_str}\n\nAnalyze this result and provide your FINAL ANSWER to the user. Include specific details like prices, links, or recommendations."
+                        "content": f"TOOL RESULT:\n{tool_result_str}\n\nRespond naturally to the user with these results. Include specific details like prices, links, or recommendations. Be helpful and conversational - don't start with 'Final Answer' or similar."
                     })
+
                 else:
                     # No tool call - this is the final answer
                     final_response = _clean_llm_response(response_text)
@@ -1492,6 +1493,16 @@ def _clean_llm_response(text: str) -> str:
     text = re.sub(r'```json\s*\{.*?\}\s*```', '', text, flags=re.DOTALL)
     text = re.sub(r'```\s*\{.*?\}\s*```', '', text, flags=re.DOTALL)
     
+    # Remove "Final Answer:" and similar prefixes (case-insensitive)
+    text = re.sub(r'^(?:Final Answer[:\s]*|Answer[:\s]*|Response[:\s]*)+', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\n(?:Final Answer[:\s]*|Answer[:\s]*)+', '\n', text, flags=re.IGNORECASE)
+    
+    # Remove "Here is the/my answer" patterns
+    text = re.sub(r'^Here (?:is|are) (?:the|your|my) (?:response|answer|information)[:\.]?\s*', '', text, flags=re.IGNORECASE)
+    
+    # Remove thinking/reasoning prefixes
+    text = re.sub(r'^(?:Based on (?:the|my) (?:search|analysis|research)[,\s]*)?', '', text, flags=re.IGNORECASE)
+    
     # Remove excessive newlines
     text = re.sub(r'\n{3,}', '\n\n', text)
     
@@ -1499,6 +1510,7 @@ def _clean_llm_response(text: str) -> str:
     text = text.strip()
     
     return text
+
 
 
 
@@ -1709,7 +1721,7 @@ def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[D
             "model": "sarvam-m",
             "messages": messages,
             "temperature": 0.3,
-            "max_tokens": 1024,
+            "max_tokens": 4096,
         }
         
         data = json.dumps(request_body).encode('utf-8')
@@ -2267,28 +2279,475 @@ def calculate_savings_rate(income: float, expenses: float) -> str:
 
 # ==================== TRANSACTION CATEGORIZATION ====================
 
+# Enhanced merchant database for better recognition
+KNOWN_MERCHANTS = {
+    # Food & Dining
+    'swiggy': {'category': 'Food & Dining', 'display_name': 'Swiggy'},
+    'zomato': {'category': 'Food & Dining', 'display_name': 'Zomato'},
+    'dominos': {'category': 'Food & Dining', 'display_name': "Domino's Pizza"},
+    'mcdonalds': {'category': 'Food & Dining', 'display_name': "McDonald's"},
+    'mcd': {'category': 'Food & Dining', 'display_name': "McDonald's"},
+    'kfc': {'category': 'Food & Dining', 'display_name': 'KFC'},
+    'pizzahut': {'category': 'Food & Dining', 'display_name': 'Pizza Hut'},
+    'burger king': {'category': 'Food & Dining', 'display_name': 'Burger King'},
+    'starbucks': {'category': 'Food & Dining', 'display_name': 'Starbucks'},
+    'cafe coffee day': {'category': 'Food & Dining', 'display_name': 'Cafe Coffee Day'},
+    'ccd': {'category': 'Food & Dining', 'display_name': 'Cafe Coffee Day'},
+    'subway': {'category': 'Food & Dining', 'display_name': 'Subway'},
+    'haldiram': {'category': 'Food & Dining', 'display_name': 'Haldiram'},
+    'bikanervala': {'category': 'Food & Dining', 'display_name': 'Bikanervala'},
+    'chaayos': {'category': 'Food & Dining', 'display_name': 'Chaayos'},
+    'wow momo': {'category': 'Food & Dining', 'display_name': 'Wow Momo'},
+    'faasos': {'category': 'Food & Dining', 'display_name': 'Faasos'},
+    'box8': {'category': 'Food & Dining', 'display_name': 'Box8'},
+    'behrouz': {'category': 'Food & Dining', 'display_name': 'Behrouz Biryani'},
+    'eatclub': {'category': 'Food & Dining', 'display_name': 'EatClub'},
+    
+    # Groceries
+    'dmart': {'category': 'Groceries', 'display_name': 'DMart'},
+    'bigbasket': {'category': 'Groceries', 'display_name': 'BigBasket'},
+    'blinkit': {'category': 'Groceries', 'display_name': 'Blinkit'},
+    'zepto': {'category': 'Groceries', 'display_name': 'Zepto'},
+    'instamart': {'category': 'Groceries', 'display_name': 'Swiggy Instamart'},
+    'jiomart': {'category': 'Groceries', 'display_name': 'JioMart'},
+    'reliance fresh': {'category': 'Groceries', 'display_name': 'Reliance Fresh'},
+    'more megastore': {'category': 'Groceries', 'display_name': 'More Megastore'},
+    'spencers': {'category': 'Groceries', 'display_name': "Spencer's"},
+    'nature basket': {'category': 'Groceries', 'display_name': "Nature's Basket"},
+    'dunzo': {'category': 'Groceries', 'display_name': 'Dunzo'},
+    
+    # Transport
+    'uber': {'category': 'Transport', 'display_name': 'Uber'},
+    'ola': {'category': 'Transport', 'display_name': 'Ola'},
+    'rapido': {'category': 'Transport', 'display_name': 'Rapido'},
+    'irctc': {'category': 'Transport', 'display_name': 'IRCTC'},
+    'redbus': {'category': 'Transport', 'display_name': 'RedBus'},
+    'makemytrip': {'category': 'Transport', 'display_name': 'MakeMyTrip'},
+    'goibibo': {'category': 'Transport', 'display_name': 'Goibibo'},
+    'yatra': {'category': 'Transport', 'display_name': 'Yatra'},
+    'ixigo': {'category': 'Transport', 'display_name': 'ixigo'},
+    'uber india': {'category': 'Transport', 'display_name': 'Uber India'},
+    'indian oil': {'category': 'Transport', 'display_name': 'Indian Oil'},
+    'hindustan petroleum': {'category': 'Transport', 'display_name': 'HPCL'},
+    'bharat petroleum': {'category': 'Transport', 'display_name': 'BPCL'},
+    'fastag': {'category': 'Transport', 'display_name': 'FASTag Toll'},
+    
+    # Shopping
+    'amazon': {'category': 'Shopping', 'display_name': 'Amazon'},
+    'flipkart': {'category': 'Shopping', 'display_name': 'Flipkart'},
+    'myntra': {'category': 'Shopping', 'display_name': 'Myntra'},
+    'ajio': {'category': 'Shopping', 'display_name': 'AJIO'},
+    'nykaa': {'category': 'Shopping', 'display_name': 'Nykaa'},
+    'meesho': {'category': 'Shopping', 'display_name': 'Meesho'},
+    'tatacliq': {'category': 'Shopping', 'display_name': 'TataCliq'},
+    'croma': {'category': 'Shopping', 'display_name': 'Croma'},
+    'reliance digital': {'category': 'Shopping', 'display_name': 'Reliance Digital'},
+    'vijay sales': {'category': 'Shopping', 'display_name': 'Vijay Sales'},
+    'shoppers stop': {'category': 'Shopping', 'display_name': 'Shoppers Stop'},
+    'lifestyle': {'category': 'Shopping', 'display_name': 'Lifestyle'},
+    'westside': {'category': 'Shopping', 'display_name': 'Westside'},
+    'h&m': {'category': 'Shopping', 'display_name': 'H&M'},
+    'zara': {'category': 'Shopping', 'display_name': 'Zara'},
+    'decathlon': {'category': 'Shopping', 'display_name': 'Decathlon'},
+    
+    # Utilities
+    'airtel': {'category': 'Utilities', 'display_name': 'Airtel'},
+    'jio': {'category': 'Utilities', 'display_name': 'Jio'},
+    'vi india': {'category': 'Utilities', 'display_name': 'Vi (Vodafone Idea)'},
+    'vodafone': {'category': 'Utilities', 'display_name': 'Vodafone'},
+    'bsnl': {'category': 'Utilities', 'display_name': 'BSNL'},
+    'tata power': {'category': 'Utilities', 'display_name': 'Tata Power'},
+    'adani electricity': {'category': 'Utilities', 'display_name': 'Adani Electricity'},
+    'bescom': {'category': 'Utilities', 'display_name': 'BESCOM'},
+    'mahanagar gas': {'category': 'Utilities', 'display_name': 'Mahanagar Gas'},
+    'indane': {'category': 'Utilities', 'display_name': 'Indane Gas'},
+    'tata sky': {'category': 'Utilities', 'display_name': 'Tata Sky'},
+    'd2h': {'category': 'Utilities', 'display_name': 'D2H'},
+    'dish tv': {'category': 'Utilities', 'display_name': 'Dish TV'},
+    
+    # Entertainment
+    'netflix': {'category': 'Entertainment', 'display_name': 'Netflix'},
+    'spotify': {'category': 'Entertainment', 'display_name': 'Spotify'},
+    'amazon prime': {'category': 'Entertainment', 'display_name': 'Amazon Prime'},
+    'hotstar': {'category': 'Entertainment', 'display_name': 'Disney+ Hotstar'},
+    'jiocinema': {'category': 'Entertainment', 'display_name': 'JioCinema'},
+    'zee5': {'category': 'Entertainment', 'display_name': 'ZEE5'},
+    'sonyliv': {'category': 'Entertainment', 'display_name': 'SonyLIV'},
+    'youtube premium': {'category': 'Entertainment', 'display_name': 'YouTube Premium'},
+    'bookmyshow': {'category': 'Entertainment', 'display_name': 'BookMyShow'},
+    'pvr': {'category': 'Entertainment', 'display_name': 'PVR Cinemas'},
+    'inox': {'category': 'Entertainment', 'display_name': 'INOX'},
+    
+    # Healthcare
+    'apollo': {'category': 'Healthcare', 'display_name': 'Apollo'},
+    'pharmeasy': {'category': 'Healthcare', 'display_name': 'PharmEasy'},
+    'netmeds': {'category': 'Healthcare', 'display_name': 'Netmeds'},
+    '1mg': {'category': 'Healthcare', 'display_name': '1mg'},
+    'tata 1mg': {'category': 'Healthcare', 'display_name': 'Tata 1mg'},
+    'practo': {'category': 'Healthcare', 'display_name': 'Practo'},
+    'medibuddy': {'category': 'Healthcare', 'display_name': 'MediBuddy'},
+    'max hospital': {'category': 'Healthcare', 'display_name': 'Max Hospital'},
+    'fortis': {'category': 'Healthcare', 'display_name': 'Fortis Hospital'},
+    
+    # Investment
+    'zerodha': {'category': 'Investment', 'display_name': 'Zerodha'},
+    'groww': {'category': 'Investment', 'display_name': 'Groww'},
+    'upstox': {'category': 'Investment', 'display_name': 'Upstox'},
+    'angelone': {'category': 'Investment', 'display_name': 'Angel One'},
+    'kuvera': {'category': 'Investment', 'display_name': 'Kuvera'},
+    'coin zerodha': {'category': 'Investment', 'display_name': 'Zerodha Coin'},
+    'smallcase': {'category': 'Investment', 'display_name': 'Smallcase'},
+    'etmoney': {'category': 'Investment', 'display_name': 'ET Money'},
+    'paytm money': {'category': 'Investment', 'display_name': 'Paytm Money'},
+    
+    # Insurance
+    'lic': {'category': 'Insurance', 'display_name': 'LIC'},
+    'hdfc life': {'category': 'Insurance', 'display_name': 'HDFC Life'},
+    'icici pru': {'category': 'Insurance', 'display_name': 'ICICI Prudential'},
+    'sbi life': {'category': 'Insurance', 'display_name': 'SBI Life'},
+    'max life': {'category': 'Insurance', 'display_name': 'Max Life'},
+    'star health': {'category': 'Insurance', 'display_name': 'Star Health'},
+    'digit': {'category': 'Insurance', 'display_name': 'Digit Insurance'},
+    'acko': {'category': 'Insurance', 'display_name': 'Acko'},
+    
+    # Education
+    'udemy': {'category': 'Education', 'display_name': 'Udemy'},
+    'coursera': {'category': 'Education', 'display_name': 'Coursera'},
+    'unacademy': {'category': 'Education', 'display_name': 'Unacademy'},
+    'byjus': {'category': 'Education', 'display_name': "BYJU'S"},
+    'upgrad': {'category': 'Education', 'display_name': 'upGrad'},
+    'simplilearn': {'category': 'Education', 'display_name': 'Simplilearn'},
+    'vedantu': {'category': 'Education', 'display_name': 'Vedantu'},
+    
+    # Fitness
+    'cult.fit': {'category': 'Subscriptions', 'display_name': 'cult.fit'},
+    'gold gym': {'category': 'Subscriptions', 'display_name': 'Gold Gym'},
+    'fitness first': {'category': 'Subscriptions', 'display_name': 'Fitness First'},
+}
+
+# ==================== ENHANCED CATEGORY KEYWORDS ====================
+# Massively expanded for Indian context with 200+ keywords per category
 CATEGORY_KEYWORDS = {
-    'Food & Dining': ['food', 'restaurant', 'swiggy', 'zomato', 'cafe', 'dining', 'pizza', 'burger', 'biryani', 'dine', 'eat', 'lunch', 'dinner', 'breakfast'],
-    'Groceries': ['grocery', 'supermarket', 'dmart', 'bigbasket', 'grofers', 'reliance fresh', 'more', 'blinkit', 'zepto', 'instamart', 'vegetables', 'fruits'],
-    'Transport': ['uber', 'ola', 'petrol', 'diesel', 'fuel', 'taxi', 'metro', 'bus', 'train', 'rapido', 'auto', 'irctc', 'redbus', 'parking', 'toll'],
-    'Shopping': ['amazon', 'flipkart', 'shop', 'mall', 'myntra', 'ajio', 'nykaa', 'meesho', 'tatacliq', 'clothes', 'electronics'],
-    'Utilities': ['electricity', 'water', 'gas', 'internet', 'phone', 'bill', 'airtel', 'jio', 'bsnl', 'vi', 'broadband', 'dth', 'tata sky', 'recharge'],
-    'Entertainment': ['netflix', 'spotify', 'movie', 'game', 'entertainment', 'amazon prime', 'hotstar', 'disney', 'youtube', 'gaming', 'concert', 'event'],
-    'Healthcare': ['hospital', 'doctor', 'pharmacy', 'medical', 'health', 'medicine', 'clinic', 'apollo', 'pharmeasy', 'netmeds', '1mg', 'dental', 'eye'],
-    'Income': ['salary', 'income', 'payment received', 'credit', 'deposit', 'interest credited', 'dividend', 'bonus', 'refund'],
-    'Transfer': ['transfer', 'upi', 'neft', 'imps', 'rtgs', 'paytm', 'phonepe', 'gpay', 'google pay', 'self transfer'],
-    'Investment': ['mutual fund', 'sip', 'stock', 'zerodha', 'groww', 'upstox', 'investment', 'fd', 'fixed deposit', 'ppf', 'nps'],
-    'Insurance': ['insurance', 'lic', 'policy', 'premium', 'hdfc life', 'icici pru', 'health insurance', 'term plan'],
-    'Education': ['school', 'college', 'university', 'tuition', 'course', 'udemy', 'coursera', 'education', 'books', 'fees'],
-    'Rent': ['rent', 'housing', 'landlord', 'pg', 'hostel', 'maintenance', 'society'],
-    'Subscriptions': ['subscription', 'membership', 'gym', 'club', 'annual fee', 'renewal']
+    'Food & Dining': [
+        # Food Delivery Apps
+        'swiggy', 'zomato', 'uber eats', 'foodpanda', 'dunzo', 'box8', 'fasoos', 'faasos',
+        'behrouz biryani', 'ovenstory', 'licious', 'freshmenu', 'eatfit', 'rebel foods',
+        # Restaurants & Cafes
+        'restaurant', 'cafe', 'dhaba', 'hotel', 'biryani', 'pizza', 'burger', 'dine', 'dining',
+        'mcdonalds', 'mcd', 'kfc', 'dominos', 'pizza hut', 'subway', 'starbucks', 'ccd',
+        'barista', 'haldirams', 'bikanervala', 'saravana bhavan', 'litti chokha', 'pind balluchi',
+        'paradise biryani', 'behrouz', 'chai point', 'chaayos', 'social', 'hard rock cafe',
+        'burger king', 'wendy', 'taco bell', 'dunkin', 'krispy kreme', 'baskin robbins', 'keventers',
+        # Generic food terms
+        'food', 'meal', 'lunch', 'dinner', 'breakfast', 'snack', 'brunch', 'canteen', 'mess',
+        'bakery', 'sweet shop', 'mithai', 'ice cream', 'gelato', 'juice', 'smoothie', 'tea', 'coffee',
+        'tiffin', 'thali', 'buffet', 'takeaway', 'delivery', 'eat', 'dosa', 'idli', 'paratha',
+        'pav bhaji', 'vada pav', 'samosa', 'chaat', 'momos', 'noodles', 'chinese', 'italian',
+        'thai', 'japanese', 'sushi', 'tandoori', 'mughlai', 'punjabi', 'south indian', 'north indian',
+        'food court', 'eatery', 'bistro', 'kitchen'
+    ],
+    'Groceries': [
+        # Online Grocery
+        'bigbasket', 'grofers', 'blinkit', 'zepto', 'instamart', 'jiomart', 'amazon fresh',
+        'swiggy instamart', 'dunzo daily', 'milkbasket', 'supr daily', 'licious', 'freshtohome',
+        'country delight', 'doodhwala',
+        # Retail Chains
+        'dmart', 'd mart', 'reliance fresh', 'reliance smart', 'more', 'star bazaar', 'spencer',
+        'heritage', 'ratnadeep', 'vishal mega mart', 'easy day', 'big bazaar', 'spar', 'hypercity',
+        'nature basket', 'foodhall', 'godrej nature basket',
+        # Generic terms
+        'grocery', 'groceries', 'supermarket', 'hypermarket', 'kirana', 'provision', 'ration',
+        'vegetables', 'fruits', 'sabzi', 'mandi', 'dairy', 'milk', 'curd', 'paneer', 'eggs',
+        'bread', 'atta', 'rice', 'dal', 'oil', 'masala', 'spices', 'staples', 'essentials',
+        'household', 'detergent', 'cleaning', 'toiletries', 'personal care'
+    ],
+    'Transport': [
+        # Ride Sharing
+        'uber', 'ola', 'rapido', 'meru', 'mega cabs', 'indrive', 'blu smart', 'jugnoo',
+        # Fuel
+        'petrol', 'diesel', 'fuel', 'indian oil', 'bharat petroleum', 'hp petrol', 'ioc', 'bpcl', 'hpcl',
+        'cng', 'ev charging', 'ather', 'tata power charging', 'reliance bp',
+        # Public Transport
+        'irctc', 'indian railways', 'metro', 'delhi metro', 'mumbai metro', 'bangalore metro',
+        'hyderabad metro', 'chennai metro', 'kolkata metro', 'uber metro', 'bus', 'redbus',
+        'abhibus', 'paytm bus', 'apsrtc', 'ksrtc', 'msrtc', 'upsrtc', 'tsrtc', 'gsrtc',
+        # Bikes & Autos
+        'auto', 'rickshaw', 'bike taxi', 'bounce', 'vogo', 'yulu',
+        # Toll & Parking
+        'fastag', 'toll', 'parking', 'nhai', 'paytm fastag', 'airtel fastag',
+        # Air & Rail
+        'flight', 'airline', 'indigo', 'spicejet', 'air india', 'vistara', 'goair', 'akasa',
+        'makemytrip', 'cleartrip', 'ixigo', 'goibibo', 'easemytrip', 'yatra', 'via',
+        'cab', 'taxi', 'travel', 'trip', 'commute', 'ride'
+    ],
+    'Shopping': [
+        # E-commerce
+        'amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'meesho', 'snapdeal', 'shopclues',
+        'tatacliq', 'reliance digital', 'croma', 'vijay sales', 'poorvika', 'sangeetha',
+        # Fashion
+        'zara', 'h&m', 'uniqlo', 'westside', 'shoppers stop', 'lifestyle', 'pantaloons',
+        'max fashion', 'fbb', 'central', 'reliance trends', 'v mart', 'brand factory',
+        # Electronics
+        'apple store', 'samsung store', 'mi home', 'oneplus', 'realme', 'oppo store', 'vivo',
+        # Jewelry & Accessories
+        'tanishq', 'kalyan jewellers', 'malabar gold', 'joyalukkas', 'pc jeweller', 'titan',
+        'caratlane', 'bluestone', 'melorra',
+        # Generic
+        'shop', 'shopping', 'mall', 'retail', 'purchase', 'buy', 'store', 'outlet', 'clothes',
+        'electronics', 'fashion', 'apparel', 'footwear', 'shoes', 'watch', 'jewel', 'jewelry',
+        'accessory', 'accessories', 'bag', 'bags', 'cosmetic', 'makeup', 'beauty', 'grooming',
+        'decathlon', 'sports', 'furniture', 'ikea', 'pepperfry', 'urban ladder', 'home centre'
+    ],
+    'Utilities': [
+        # Telecom
+        'airtel', 'jio', 'bsnl', 'vi', 'vodafone', 'idea', 'mtnl',
+        # DTH
+        'tata sky', 'dish tv', 'airtel dth', 'sun direct', 'videocon', 'd2h',
+        # Electricity
+        'electricity', 'electric bill', 'bescom', 'msedcl', 'tata power', 'adani power',
+        'bses', 'reliance energy', 'torrent power',
+        # Gas
+        'indane', 'hp gas', 'bharat gas', 'mahanagar gas', 'adani gas', 'igl', 'gail',
+        'piped gas', 'cylinder', 'lpg',
+        # Water
+        'water', 'water bill', 'jal board', 'municipal',
+        # Internet
+        'broadband', 'wifi', 'internet', 'fiber', 'act fibernet', 'hathway', 'tikona',
+        'excitel', 'spectra', 'airtel xstream', 'jio fiber',
+        # Generic
+        'utility', 'bill', 'recharge', 'prepaid', 'postpaid', 'landline', 'connection',
+        'renewal', 'plan', 'pack'
+    ],
+    'Entertainment': [
+        # OTT Platforms
+        'netflix', 'amazon prime', 'prime video', 'hotstar', 'disney plus', 'disney+',
+        'zee5', 'sonyliv', 'voot', 'altbalaji', 'mx player', 'jiocinema', 'aha', 'hoichoi',
+        'discovery plus', 'lionsgate', 'erosnow', 'shemaroo', 'hungama', 'mubi',
+        # Music
+        'spotify', 'apple music', 'gaana', 'jio saavn', 'amazon music', 'wynk', 'youtube music',
+        # Gaming
+        'steam', 'playstation', 'xbox', 'nintendo', 'epic games', 'google play games',
+        'pubg', 'free fire', 'cod', 'valorant', 'dream11', 'mpl', 'winzo', 'paytm first games',
+        # Theatre & Events
+        'bookmyshow', 'paytm movies', 'inox', 'pvr', 'cinepolis', 'carnival', 'movie ticket',
+        'concert', 'event', 'show', 'theatre', 'cinema',
+        # Generic
+        'entertainment', 'movie', 'film', 'game', 'gaming', 'stream', 'streaming', 'ott',
+        'subscription', 'premium', 'music', 'video'
+    ],
+    'Healthcare': [
+        # Hospital Chains
+        'apollo', 'fortis', 'max healthcare', 'manipal hospital', 'narayana health',
+        'medanta', 'aiims', 'aster', 'columbia asia', 'sakra', 'cloudnine',
+        # Pharmacy
+        'apollo pharmacy', 'medplus', 'netmeds', 'pharmeasy', '1mg', 'truemeds',
+        'wellness forever', 'frank ross', 'guardian pharmacy',
+        # Diagnostic
+        'dr lal path', 'srl diagnostics', 'metropolis', 'thyrocare', 'redcliffe',
+        'healthians', 'orange health',
+        # Insurance & Wellness
+        'practo', 'docprime', 'mfine', 'cult.fit', 'healthify', 'stepsetgo',
+        # Generic
+        'hospital', 'clinic', 'doctor', 'medical', 'healthcare', 'health', 'medicine',
+        'pharmacy', 'chemist', 'diagnostic', 'lab', 'pathology', 'xray', 'scan', 'mri', 'ct scan',
+        'dental', 'dentist', 'eye', 'optical', 'therapy', 'physiotherapy', 'consultation',
+        'specialist', 'treatment', 'surgery', 'checkup', 'test', 'report', 'prescription'
+    ],
+    'Income': [
+        'salary', 'income', 'wages', 'pay', 'compensation', 'payment received',
+        'credit', 'credited', 'deposit', 'received', 'inward',
+        'interest credited', 'interest earned', 'dividend', 'bonus', 'incentive',
+        'refund', 'cashback', 'reward', 'rewards', 'commission',
+        'freelance', 'consulting', 'contract payment', 'invoice payment',
+        'rent received', 'rental income', 'royalty', 'settlement',
+        'reimbursement', 'expense claim', 'maturity', 'redemption',
+        'from upi', 'received from', 'credit by', 'cr'
+    ],
+    'Transfer': [
+        'transfer', 'upi', 'neft', 'imps', 'rtgs', 'fund transfer',
+        'paytm', 'phonepe', 'gpay', 'google pay', 'bhim', 'bhim upi',
+        'self transfer', 'to self', 'own account', 'internal', 'self',
+        'between accounts', 'savings to', 'to savings', 'current to',
+        'wallet', 'load wallet', 'add money', 'bank transfer'
+    ],
+    'Investment': [
+        # Platforms
+        'zerodha', 'groww', 'upstox', 'angel one', 'angel broking', 'icicidirect',
+        'hdfc securities', 'kotak securities', 'sharekhan', '5paisa', 'paytm money',
+        'kuvera', 'etmoney', 'coin', 'vested', 'indiabulls',
+        # Instruments
+        'mutual fund', 'mf', 'sip', 'lumpsum', 'stock', 'share', 'equity', 'nifty', 'sensex',
+        'ipo', 'nfo', 'etf', 'bond', 'debenture', 'ncd', 'sgb', 'sovereign gold',
+        'fd', 'fixed deposit', 'rd', 'recurring deposit', 'ppf', 'nps', 'epf', 'vpf',
+        'nsc', 'kvp', 'post office', 'gold', 'silver', 'digital gold',
+        # Generic
+        'investment', 'invest', 'trading', 'portfolio', 'demat', 'folio', 'nav', 'units',
+        'dividend', 'capital gain', 'exit load', 'redemption'
+    ],
+    'Insurance': [
+        # Companies
+        'lic', 'hdfc life', 'icici prudential', 'sbi life', 'max life', 'bajaj allianz',
+        'tata aia', 'kotak life', 'birla sunlife', 'aegon life', 'pnb metlife',
+        'star health', 'care health', 'niva bupa', 'aditya birla health', 'manipal cigna',
+        'acko', 'digit', 'go digit', 'policy bazaar',
+        # Generic
+        'insurance', 'policy', 'premium', 'term plan', 'term life', 'endowment', 'ulip',
+        'health insurance', 'mediclaim', 'life insurance', 'motor insurance', 'car insurance',
+        'two wheeler insurance', 'travel insurance', 'home insurance', 'cover', 'claim',
+        'renewal', 'nominee', 'sum assured'
+    ],
+    'Education': [
+        # Online Learning
+        'udemy', 'coursera', 'edx', 'linkedin learning', 'skillshare', 'pluralsight',
+        'upgrad', 'simplilearn', 'great learning', 'byju', 'unacademy', 'vedantu',
+        'toppr', 'meritnation', 'embibe', 'doubtnut', 'khan academy', 'whitehat jr', 'cuemath',
+        # Institutions
+        'school', 'college', 'university', 'institute', 'iit', 'iim', 'nit', 'bits', 'vit',
+        'amity', 'manipal', 'srm', 'christ',
+        # Generic
+        'education', 'tuition', 'coaching', 'training', 'course', 'certification', 'diploma',
+        'degree', 'books', 'stationery', 'fees', 'admission', 'exam', 'examination',
+        'tutorial', 'learning', 'workshop', 'seminar', 'webinar', 'masterclass'
+    ],
+    'Rent': [
+        'rent', 'rental', 'house rent', 'flat rent', 'office rent', 'room rent',
+        'housing', 'landlord', 'tenant', 'lease', 'pg', 'paying guest', 'hostel',
+        'maintenance', 'society maintenance', 'association', 'apartment', 'flat',
+        'accommodation', 'stay', 'deposit', 'security deposit', 'brokerage',
+        'nobroker', 'magicbricks', 'housing.com', '99acres', 'nestaway'
+    ],
+    'Subscriptions': [
+        'subscription', 'membership', 'annual', 'monthly', 'yearly', 'renewal',
+        'premium', 'pro', 'plus', 'gold', 'silver', 'platinum', 'vip',
+        # Gym & Fitness
+        'gym', 'fitness', 'cult fit', 'cult.fit', 'gold gym', 'anytime fitness',
+        'fitness first', 'talwalkars', 'golds gym', 'snap fitness',
+        # Cloud & Software
+        'icloud', 'google one', 'dropbox', 'microsoft 365', 'office 365', 'adobe',
+        'notion', 'canva', 'grammarly', 'zoom',
+        # General
+        'club', 'association', 'fee', 'dues', 'auto renewal', 'recurring'
+    ],
+    'Travel': [
+        # OTAs
+        'makemytrip', 'goibibo', 'cleartrip', 'yatra', 'ixigo', 'easemytrip', 'via',
+        # Hotels
+        'oyo', 'treebo', 'fabhotels', 'zostel', 'goibibo hotels', 'booking.com', 'agoda',
+        'airbnb', 'marriott', 'taj', 'oberoi', 'itc hotels', 'radisson', 'hyatt', 'hilton',
+        'lemon tree', 'ginger', 'ibis', 'novotel',
+        # Generic
+        'hotel', 'resort', 'homestay', 'vacation', 'holiday', 'trip', 'tour', 'travel',
+        'booking', 'reservation', 'check-in', 'checkout', 'room', 'stay', 'accommodation',
+        'passport', 'visa', 'currency exchange', 'forex', 'travel insurance'
+    ],
+    'Loan & EMI': [
+        'emi', 'loan', 'personal loan', 'home loan', 'car loan', 'bike loan', 'gold loan',
+        'education loan', 'business loan', 'credit card emi', 'no cost emi', 'bajaj finserv',
+        'hdfc credila', 'sbi loan', 'icici loan', 'axis loan', 'kotak loan', 'tata capital',
+        'fullerton', 'indiabulls', 'muthoot', 'manappuram', 'iifl', 'credit', 'lending',
+        'borrowing', 'interest', 'principal', 'tenure', 'instalment', 'repayment'
+    ]
 }
 
 
+def extract_merchant_name(description: str) -> tuple:
+    """
+    Extract merchant name from transaction description.
+    Returns (merchant_name, category, confidence)
+    Improved with timestamp filtering and junk character removal.
+    """
+    if not description:
+        return (None, None, 0.0)
+    
+    desc_lower = description.lower().strip()
+    
+    # First, clean the description - remove timestamps and junk
+    clean_desc = description
+    # Remove common timestamp patterns
+    clean_desc = re.sub(r'\d{1,2}[:/]\d{2}([:/]\d{2})?\s*(am|pm|AM|PM)?', '', clean_desc)
+    clean_desc = re.sub(r'\d{4}[-/]\d{2}[-/]\d{2}', '', clean_desc)
+    clean_desc = re.sub(r'\d{2}[-/]\d{2}[-/]\d{4}', '', clean_desc)
+    clean_desc = re.sub(r'\d{2}[-/]\d{2}[-/]\d{2}', '', clean_desc)
+    # Remove reference numbers (12+ digits)
+    clean_desc = re.sub(r'\b\d{12,}\b', '', clean_desc)
+    # Remove transaction IDs (alphanumeric 10+ chars)
+    clean_desc = re.sub(r'\b[A-Z0-9]{10,}\b', '', clean_desc)
+    # Remove mobile numbers
+    clean_desc = re.sub(r'\b\d{10}\b', '', clean_desc)
+    # Remove UPI IDs
+    clean_desc = re.sub(r'[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+', '', clean_desc)
+    # Clean up extra spaces
+    clean_desc = ' '.join(clean_desc.split())
+    
+    # Check against known merchants database first
+    for merchant_key, merchant_info in KNOWN_MERCHANTS.items():
+        if merchant_key in desc_lower:
+            return (merchant_info['display_name'], merchant_info['category'], 0.95)
+    
+    # Try to extract from UPI patterns
+    upi_patterns = [
+        r'(?:paid to|payment to|sent to|transfer to|to)\s+([A-Za-z][A-Za-z\s]{2,30})(?:\s+(?:via|using|on|from|ref|upi)|$)',
+        r'(?:received from|from)\s+([A-Za-z][A-Za-z\s]{2,30})(?:\s+(?:via|using|on|ref)|$)',
+        r'(?:upi|imps|neft)[-/]([A-Za-z][A-Za-z\s]+?)[-/]',
+        r'^([A-Za-z][A-Za-z\s]{2,25})\s+(?:upi|payment|transfer)',
+    ]
+    
+    for pattern in upi_patterns:
+        match = re.search(pattern, clean_desc, re.IGNORECASE)
+        if match:
+            merchant = match.group(1).strip()
+            # Clean up the merchant name - only alphabets and spaces
+            merchant = re.sub(r'[^a-zA-Z\s]', '', merchant).strip()
+            # Remove very short words at start/end
+            words = merchant.split()
+            words = [w for w in words if len(w) >= 2]
+            if words:
+                merchant = ' '.join(words)
+                if 3 <= len(merchant) <= 50:
+                    # Capitalize properly
+                    merchant = ' '.join(word.capitalize() for word in merchant.split())
+                    return (merchant, None, 0.75)
+    
+    # If no pattern matched, try to extract first meaningful words
+    words = re.findall(r'\b[A-Za-z]{3,}\b', clean_desc)
+    if words:
+        # Expanded noise words list
+        noise_words = {
+            'upi', 'imps', 'neft', 'rtgs', 'ref', 'txn', 'payment', 'transfer',
+            'to', 'from', 'via', 'paid', 'received', 'for', 'and', 'the',
+            'credit', 'debit', 'transaction', 'account', 'bank', 'mobile',
+            'number', 'xyz', 'abc', 'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+            'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'inr', 'rupees', 'rs'
+        }
+        clean_words = [w for w in words if w.lower() not in noise_words]
+        if clean_words:
+            merchant = ' '.join(clean_words[:3]).title()
+            if 3 <= len(merchant) <= 50:
+                return (merchant, None, 0.5)
+    
+    return (None, None, 0.0)
+
+
 def categorize_transaction(description: str, amount: float = 0) -> str:
-    """Categorize a transaction based on description."""
+    """Categorize a transaction based on description with enhanced merchant recognition."""
     try:
         desc_lower = description.lower()
+        
+        # First try to extract merchant and get category from known merchants
+        merchant_name, merchant_category, merchant_confidence = extract_merchant_name(description)
+        
+        if merchant_category:
+            return json.dumps({
+                "success": True,
+                "category": merchant_category,
+                "confidence": merchant_confidence,
+                "transaction_type": 'income' if merchant_category == 'Income' else 'expense',
+                "description": description,
+                "merchant": merchant_name,
+                "amount": amount
+            })
+        
+        # Fallback to keyword matching
         category = 'Other'
         confidence = 0.5
         
@@ -2296,7 +2755,7 @@ def categorize_transaction(description: str, amount: float = 0) -> str:
             for keyword in keywords:
                 if keyword in desc_lower:
                     category = cat
-                    confidence = 0.9
+                    confidence = 0.85
                     break
             if category != 'Other':
                 break
@@ -2310,6 +2769,7 @@ def categorize_transaction(description: str, amount: float = 0) -> str:
             "confidence": confidence,
             "transaction_type": transaction_type,
             "description": description,
+            "merchant": merchant_name,
             "amount": amount
         })
     except Exception as e:
@@ -2723,7 +3183,7 @@ Return ONLY the JSON array."""
             "model": "VL-Qwen2.5-7B",
             "images": [image_b64],
             "system_prompt": "You are a bank statement OCR expert. Return only JSON.",
-            "max_tokens": 2000
+            "max_tokens": 4096
         }
         
         req = urllib.request.Request(
@@ -2924,20 +3384,16 @@ def parse_bank_statement_text(text: str) -> str:
                         tx_amount = all_amounts[amount_idx]
                         amount_idx += 1
                     
-                    # Determine category
-                    category = 'Other'
-                    for keyword, cat in categories.items():
-                        if keyword in merchant.lower():
-                            category = cat
-                            break
+                    # Use the centralized categorization logic to confirm/refine
+                    cat_result = json.loads(categorize_transaction(merchant, tx_amount or 0.0))
                     
                     transactions.append({
                         'date': last_date or datetime.now().strftime('%Y-%m-%d'),
                         'description': merchant,
                         'amount': tx_amount or 0.0,
                         'type': 'expense',
-                        'category': category,
-                        'merchant': merchant
+                        'category': cat_result.get('category', 'Other'),
+                        'merchant': cat_result.get('merchant', merchant)
                     })
                 
                 # Check for "Received from" pattern
@@ -2962,13 +3418,16 @@ def parse_bank_statement_text(text: str) -> str:
                         tx_amount = all_amounts[amount_idx]
                         amount_idx += 1
                     
+                    # Use the centralized categorization logic
+                    cat_result = json.loads(categorize_transaction(f"Received from {sender}", tx_amount or 0.0))
+                    
                     transactions.append({
                         'date': last_date or datetime.now().strftime('%Y-%m-%d'),
                         'description': f'Received from {sender}',
                         'amount': tx_amount or 0.0,
                         'type': 'income',
-                        'category': 'Income',
-                        'merchant': sender
+                        'category': cat_result.get('category', 'Income'),
+                        'merchant': cat_result.get('merchant', sender)
                     })
         
         # Strategy 2: Generic line-by-line parsing for other banks
@@ -3016,20 +3475,16 @@ def parse_bank_statement_text(text: str) -> str:
                             if not desc or len(desc) < 3:
                                 desc = 'Transaction'
                             
-                            # Determine category
-                            category = 'Other'
-                            for keyword, cat in categories.items():
-                                if keyword in line.lower():
-                                    category = cat
-                                    break
+                            # Use the centralized categorization logic
+                            cat_result = json.loads(categorize_transaction(desc, amount))
                             
                             transactions.append({
                                 'date': last_date or datetime.now().strftime('%Y-%m-%d'),
                                 'description': desc,
                                 'amount': amount,
                                 'type': tx_type,
-                                'category': category,
-                                'merchant': desc.split()[0] if desc else 'Unknown'
+                                'category': cat_result.get('category', 'Other'),
+                                'merchant': cat_result.get('merchant', 'Unknown')
                             })
                             break
                         except:

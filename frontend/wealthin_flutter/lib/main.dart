@@ -3,15 +3,17 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'core/theme/wealthin_theme.dart';
+import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/backend_config.dart';
 import 'core/services/sidecar_manager.dart';
 import 'core/services/python_bridge_service.dart';
 import 'features/auth/auth_wrapper.dart';
+import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/finance/finance_hub_screen.dart';
 import 'features/ai_hub/ai_hub_screen.dart';
+import 'features/brainstorm/brainstorm_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'core/services/ai_agent_service.dart';
 import 'core/services/data_service.dart';
@@ -86,8 +88,19 @@ void main() async {
 }
 
 
-class WealthInApp extends StatelessWidget {
+class WealthInApp extends StatefulWidget {
   const WealthInApp({super.key});
+
+  @override
+  State<WealthInApp> createState() => _WealthInAppState();
+}
+
+class _WealthInAppState extends State<WealthInApp> {
+  bool _showSplash = true;
+
+  void _onSplashComplete() {
+    setState(() => _showSplash = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,12 +110,14 @@ class WealthInApp extends StatelessWidget {
         return MaterialApp(
           title: 'WealthIn',
           debugShowCheckedModeBanner: false,
-          theme: WealthInTheme.lightTheme,
-          darkTheme: WealthInTheme.darkTheme,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
-          home: const AuthWrapper(
-            child: MainNavigationShell(),
-          ),
+          home: _showSplash
+            ? SplashScreen(onComplete: _onSplashComplete)
+            : const AuthWrapper(
+                child: MainNavigationShell(),
+              ),
         );
       },
     );
@@ -124,6 +139,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     DashboardScreen(),
     FinanceHubScreen(),
     AiHubScreen(),
+    BrainstormScreen(),
     ProfileScreen(),
   ];
 
@@ -156,6 +172,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       icon: Icon(Icons.auto_awesome_outlined),
                       selectedIcon: Icon(Icons.auto_awesome),
                       label: Text('AI Tools'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.lightbulb_outline),
+                      selectedIcon: Icon(Icons.lightbulb),
+                      label: Text('Brainstorm'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Icons.person_outline),
@@ -228,6 +249,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   icon: Icon(Icons.auto_awesome_outlined),
                   selectedIcon: Icon(Icons.auto_awesome_rounded),
                   label: 'AI Tools',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.lightbulb_outline),
+                  selectedIcon: Icon(Icons.lightbulb_rounded),
+                  label: 'Brainstorm',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.person_outline_rounded),

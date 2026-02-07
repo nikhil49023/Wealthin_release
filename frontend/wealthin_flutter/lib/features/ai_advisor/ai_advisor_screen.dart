@@ -20,8 +20,9 @@ class AiAdvisorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: AiAdvisorScreenBody(),
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      body: const AiAdvisorScreenBody(),
     );
   }
 }
@@ -130,6 +131,8 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
         _activityMessage = message;
         if (steps != null) _searchSteps = steps;
       });
+      // Auto-scroll during activity updates (thinking, searching, responding)
+      _scrollToBottom();
     }
   }
 
@@ -556,30 +559,163 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    
+    // Luxury backgrounds
+    final backgroundColor = isDark 
+      ? AppTheme.oceanDeep // Deep navy (not pure black)
+      : AppTheme.cream; // Soft mint (not plain white)
+    
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [const Color(0xFFF8FFFE), const Color(0xFFF0FDF4)],
-        ),
-      ),
+      color: backgroundColor,
       child: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            if (_isLoading) _buildActivityIndicator(),
-            Expanded(child: _buildChatArea()),
-            _buildInputArea(),
-          ],
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isLargeScreen = constraints.maxWidth > 600;
+            final contentWidth = isLargeScreen ? 640.0 : constraints.maxWidth;
+            
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentWidth),
+                child: Column(
+                  children: [
+                    // Minimal header
+                    _buildMinimalHeader(isDark),
+                    // Activity indicator inline (subtle)
+                    if (_isLoading) _buildCompactActivityIndicator(isDark),
+                    // Main chat area with keyboard-aware padding
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _focusNode.unfocus(),
+                        child: _buildChatArea(isDark, keyboardHeight),
+                      ),
+                    ),
+                    // Input area
+                    _buildCompactInputArea(isDark),
+                    // Keyboard spacer
+                    SizedBox(height: keyboardHeight > 0 ? 0 : MediaQuery.of(context).padding.bottom),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  /// Minimal header like ChatGPT - just status, no big title
+  Widget _buildMinimalHeader(bool isDark) {
+    final textColor = isDark ? const Color(0xFFE0E7ED) : AppTheme.slate900;
+    final subtitleColor = isDark ? AppTheme.oceanMist : AppTheme.slate500;
+    
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          // Minimal AI indicator
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: _currentActivity == AIActivityState.idle 
+                ? AppTheme.sageGreen 
+                : AppTheme.warning,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: (_currentActivity == AIActivityState.idle 
+                    ? AppTheme.sageGreen 
+                    : AppTheme.warning).withValues(alpha: 0.4),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Status text
+          Expanded(
+            child: Text(
+              _currentActivity == AIActivityState.idle 
+                ? 'AI Advisor' 
+                : _activityMessage,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: _currentActivity == AIActivityState.idle 
+                  ? textColor 
+                  : subtitleColor,
+              ),
+            ),
+          ),
+          // Clear button
+          IconButton(
+            onPressed: () => setState(() { 
+              _messages.clear(); 
+              _addWelcomeMessage(); 
+            }),
+            icon: Icon(
+              Icons.add_comment_outlined,
+              size: 20,
+              color: subtitleColor,
+            ),
+            tooltip: 'New chat',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Compact activity indicator that doesn't take much space
+  Widget _buildCompactActivityIndicator(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark 
+          ? AppTheme.oceanMid.withValues(alpha: 0.8) 
+          : AppTheme.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark 
+            ? AppTheme.sereneTeal.withValues(alpha: 0.3) 
+            : AppTheme.sageGreen.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(AppTheme.sereneTeal),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _getActivityTitle(),
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: isDark ? AppTheme.oceanMist : AppTheme.slate700,
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 150.ms);
+  }
+
+  Widget _buildHeader(bool isLargeScreen) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isLargeScreen ? 0 : 16, 
+        vertical: 8
+      ),
       child: Row(
         children: [
           AnimatedBuilder(
@@ -704,112 +840,266 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
     }
   }
 
-  Widget _buildChatArea() {
+  Widget _buildChatArea(bool isDark, double keyboardHeight) {
+    // Add 1 to message count when loading to show typing indicator
+    final itemCount = _messages.length + (_isLoading ? 1 : 0);
+    
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      itemCount: _messages.length,
-      itemBuilder: (context, index) => _buildMessageWidget(_messages[index]),
+      // Add bottom padding when keyboard is open to keep messages visible
+      padding: EdgeInsets.fromLTRB(16, 4, 16, keyboardHeight > 0 ? 8 : 4),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        // Show typing indicator as the last item when loading
+        if (_isLoading && index == _messages.length) {
+          return _buildTypingIndicator(isDark);
+        }
+        return _buildMessageWidget(_messages[index], isDark);
+      },
     );
   }
 
-  Widget _buildMessageWidget(_ChatMessage msg) {
-    if (msg.isUser) return _buildUserBubble(msg);
+  Widget _buildMessageWidget(_ChatMessage msg, bool isDark) {
+    if (msg.isUser) return _buildUserBubble(msg, isDark);
     
     switch (msg.messageType) {
       case MessageType.products: return _buildProductsCard(msg);
-      case MessageType.confirmation: return _buildConfirmationCard(msg);
-      case MessageType.success: return _buildSuccessBubble(msg);
-      default: return _buildAIBubble(msg);
+      case MessageType.confirmation: return _buildConfirmationCard(msg, isDark);
+      case MessageType.success: return _buildSuccessBubble(msg, isDark);
+      default: return _buildAIBubble(msg, isDark);
     }
   }
 
-  Widget _buildUserBubble(_ChatMessage msg) {
+  Widget _buildUserBubble(_ChatMessage msg, bool isDark) {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12, left: 50),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: AppTheme.growthGradient,
+        margin: const EdgeInsets.only(bottom: 8, left: 50),
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: AppTheme.emerald.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2))],
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.sereneTeal, AppTheme.sereneTealLight],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.sereneTeal.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(
+                msg.text,
+                style: GoogleFonts.dmSans(
+                  fontSize: 15,
+                  color: Colors.white,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
         ),
-        child: Text(msg.text, style: GoogleFonts.inter(fontSize: 15, color: Colors.white)),
       ),
-    ).animate().fadeIn(duration: 200.ms).slideX(begin: 0.1, end: 0);
+    ).animate().fadeIn(duration: 200.ms).slideX(begin: 0.1, end: 0, curve: Curves.easeOut);
   }
 
-  Widget _buildAIBubble(_ChatMessage msg) {
+  /// Animated typing indicator shown while AI is processing
+  Widget _buildTypingIndicator(bool isDark) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12, right: 50),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
+        margin: const EdgeInsets.only(bottom: 8, right: 80),
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              decoration: BoxDecoration(
+                color: isDark 
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark
+                      ? AppTheme.sereneTeal.withValues(alpha: 0.3)
+                      : AppTheme.sageGreen.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDot(0),
+                  const SizedBox(width: 4),
+                  _buildDot(1),
+                  const SizedBox(width: 4),
+                  _buildDot(2),
+                  const SizedBox(width: 10),
+                  Text(
+                    'AI is thinking...',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      color: isDark ? Colors.white70 : AppTheme.slate500,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        child: Text(msg.text.replaceAll('**', '').replaceAll('*', ''), style: GoogleFonts.inter(fontSize: 15, color: AppTheme.forestGreen, height: 1.5)),
       ),
-    ).animate().fadeIn(duration: 200.ms).slideX(begin: -0.1, end: 0);
+    ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 1200.ms, color: AppTheme.sereneTeal.withValues(alpha: 0.3));
   }
 
-  Widget _buildSuccessBubble(_ChatMessage msg) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12, right: 50),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.emerald.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
-        ),
-        child: Text(msg.text.replaceAll('**', '').replaceAll('*', ''), style: GoogleFonts.inter(fontSize: 15, color: AppTheme.forestGreen, height: 1.5)),
-      ),
-    ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95));
-  }
-
-  Widget _buildConfirmationCard(_ChatMessage msg) {
+  Widget _buildDot(int index) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12, right: 30),
-      padding: const EdgeInsets.all(20),
+      width: 8,
+      height: 8,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
-        boxShadow: [BoxShadow(color: AppTheme.emerald.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))],
+        color: AppTheme.sereneTeal,
+        shape: BoxShape.circle,
+      ),
+    ).animate(onPlay: (c) => c.repeat())
+      .scale(delay: Duration(milliseconds: index * 150), duration: 400.ms, begin: const Offset(0.6, 0.6), end: const Offset(1.0, 1.0))
+      .then().scale(duration: 400.ms, begin: const Offset(1.0, 1.0), end: const Offset(0.6, 0.6));
+  }
+
+  Widget _buildAIBubble(_ChatMessage msg, bool isDark) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8, right: 40),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark 
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark
+                      ? AppTheme.sereneTeal.withValues(alpha: 0.2)
+                      : AppTheme.sageGreen.withValues(alpha: 0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isDark ? Colors.black : AppTheme.slate500).withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(
+                msg.text.replaceAll('**', '').replaceAll('*', ''),
+                style: GoogleFonts.dmSans(
+                  fontSize: 15,
+                  color: isDark ? const Color(0xFFE8EEF4) : AppTheme.slate900,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ).animate().fadeIn(duration: 250.ms).slideX(begin: -0.1, end: 0, curve: Curves.easeOut);
+  }
+
+  Widget _buildSuccessBubble(_ChatMessage msg, bool isDark) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6, right: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.sageGreen.withValues(alpha: isDark ? 0.2 : 0.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.sageGreen.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          msg.text.replaceAll('**', '').replaceAll('*', ''),
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: isDark ? AppTheme.sageLight : AppTheme.sereneTealDark,
+            height: 1.5,
+          ),
+        ),
+      ),
+    ).animate().fadeIn().scale(begin: const Offset(0.98, 0.98));
+  }
+
+  Widget _buildConfirmationCard(_ChatMessage msg, bool isDark) {
+    final bgColor = isDark ? AppTheme.oceanMid : AppTheme.white;
+    final textColor = isDark ? const Color(0xFFE0E7ED) : AppTheme.slate900;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6, right: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.sereneTeal.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(msg.text.replaceAll('**', '').replaceAll('*', ''), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.forestGreen)),
-          const SizedBox(height: 16),
+          Text(
+            msg.text.replaceAll('**', '').replaceAll('*', ''),
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
+                child: ElevatedButton(
                   onPressed: () => _confirmAction(msg.actionId!, msg.actionType!, msg.actionData!),
-                  icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Yes, do it!'),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.sereneTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Confirm'),
                 ),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: () => _cancelAction(msg.actionId!),
-                child: const Text('Cancel'),
-                style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _cancelAction(msg.actionId!),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.mutedRose,
+                    side: BorderSide(color: AppTheme.mutedRose.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Cancel'),
+                ),
               ),
             ],
           ),
         ],
       ),
-    ).animate().fadeIn().slideY(begin: 0.1);
+    ).animate().fadeIn().slideY(begin: 0.05, end: 0);
   }
+
+  // Products card (shared implementation)
 
   Widget _buildProductsCard(_ChatMessage msg) {
     return Column(
@@ -904,45 +1194,165 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
     }
   }
 
-  Widget _buildInputArea() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))]),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: _toggleVoiceInput,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: _isListening ? Colors.red.withValues(alpha: 0.1) : AppTheme.emerald.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-              child: Icon(_isListening ? Icons.mic : Icons.mic_none, color: _isListening ? Colors.red : AppTheme.emerald, size: 22),
+  /// Compact input area like ChatGPT/Messenger
+  Widget _buildCompactInputArea(bool isDark) {
+    final inputBgColor = isDark 
+      ? Colors.white.withValues(alpha: 0.05)
+      : Colors.white.withValues(alpha: 0.7);
+    final borderColor = isDark 
+      ? AppTheme.sereneTeal.withValues(alpha: 0.3) 
+      : AppTheme.sageGreen.withValues(alpha: 0.3);
+    
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark 
+                ? Colors.black.withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.6),
+            border: Border(
+              top: BorderSide(color: borderColor, width: 1),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(color: const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(24)),
-              child: TextField(
-                controller: _messageController,
-                focusNode: _focusNode,
-                decoration: InputDecoration(hintText: 'Ask anything...', hintStyle: GoogleFonts.inter(color: Colors.grey[500]), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                style: GoogleFonts.inter(fontSize: 15),
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-              ),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Voice input button (glassmorphic)
+                GestureDetector(
+                  onTap: _toggleVoiceInput,
+                  child: Container(
+                    padding: const EdgeInsets.all(11),
+                    decoration: BoxDecoration(
+                      color: _isListening 
+                        ? AppTheme.mutedRose.withValues(alpha: 0.2) 
+                        : inputBgColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _isListening 
+                          ? AppTheme.mutedRose.withValues(alpha: 0.5) 
+                          : borderColor,
+                      ),
+                    ),
+                    child: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none_rounded,
+                      color: _isListening ? AppTheme.mutedRose : AppTheme.sereneTeal,
+                      size: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Text input (glassmorphic pill)
+                Expanded(
+                  child: Container(
+                    constraints: const BoxConstraints(maxHeight: 100),
+                    decoration: BoxDecoration(
+                      color: inputBgColor,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: _focusNode.hasPrimaryFocus 
+                          ? AppTheme.sereneTeal.withValues(alpha: 0.6)
+                          : borderColor,
+                        width: _focusNode.hasPrimaryFocus ? 1.5 : 1,
+                      ),
+                      boxShadow: _focusNode.hasPrimaryFocus ? [
+                        BoxShadow(
+                          color: AppTheme.sereneTeal.withValues(alpha: 0.1),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ] : null,
+                    ),
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _focusNode,
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: 'Ask me anything...',
+                        hintStyle: GoogleFonts.dmSans(
+                          color: isDark ? Colors.white54 : AppTheme.slate500,
+                          fontSize: 15,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        isDense: true,
+                      ),
+                      style: GoogleFonts.dmSans(
+                        fontSize: 15,
+                        color: isDark ? const Color(0xFFE8EEF4) : AppTheme.slate900,
+                      ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Send button (gradient when active)
+                GestureDetector(
+                  onTap: _isLoading || _messageController.text.trim().isEmpty 
+                    ? null 
+                    : _sendMessage,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(11),
+                    decoration: BoxDecoration(
+                      gradient: _messageController.text.trim().isNotEmpty && !_isLoading
+                        ? LinearGradient(
+                            colors: [AppTheme.sereneTeal, AppTheme.sereneTealLight],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                      color: _messageController.text.trim().isEmpty || _isLoading
+                        ? inputBgColor
+                        : null,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                      boxShadow: _messageController.text.trim().isNotEmpty && !_isLoading ? [
+                        BoxShadow(
+                          color: AppTheme.sereneTeal.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ] : null,
+                    ),
+                    child: _isLoading
+                      ? SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(
+                              isDark ? AppTheme.sereneTealLight : AppTheme.sereneTeal,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.arrow_upward_rounded,
+                          color: _messageController.text.trim().isEmpty
+                            ? (isDark ? Colors.white54 : AppTheme.slate500)
+                            : Colors.white,
+                          size: 22,
+                        ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: _isLoading ? null : _sendMessage,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(gradient: AppTheme.growthGradient, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: AppTheme.emerald.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))]),
-              child: Icon(_isLoading ? Icons.hourglass_empty : Icons.arrow_upward, color: Colors.white, size: 22),
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  // Legacy input area (kept for compatibility)
+  Widget _buildInputArea() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return _buildCompactInputArea(isDark);
   }
 }

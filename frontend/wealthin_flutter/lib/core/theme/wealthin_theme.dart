@@ -12,7 +12,7 @@ class WealthInColors {
   WealthInColors._();
 
   // ============== DARK MODE: "THE EMERALD VAULT" ==============
-  // AMOLED-optimized deep blacks with emerald accents
+  // AMOLED-optimized deep blacks with cyan accents (better on dark)
   
   /// Deep Obsidian - Main background for AMOLED
   static const deepObsidian = Color(0xFF040D08);
@@ -20,7 +20,10 @@ class WealthInColors {
   /// Vault Green - Card surfaces (recessed tray look)
   static const vaultGreen = Color(0xFF0D1F14);
   
-  /// Emerald Glow - Primary action color
+  /// Cyan Glow - Primary action color for dark mode (better than green)
+  static const cyanGlow = Color(0xFF22D3EE);  // Tailwind cyan-400
+  
+  /// Emerald Glow - Secondary/Income color
   static const emeraldGlow = Color(0xFF50C878);
   
   /// Regal Gold - Premium features & high-value alerts
@@ -105,6 +108,7 @@ class WealthInTheme {
   // Dark Mode Colors
   static const deepObsidian = WealthInColors.deepObsidian;
   static const vaultGreen = WealthInColors.vaultGreen;
+  static const cyanGlow = WealthInColors.cyanGlow; // Primary for dark mode
   static const emeraldGlow = WealthInColors.emeraldGlow;
   static const regalGold = WealthInColors.regalGold;
   static const pureFrost = WealthInColors.pureFrost;
@@ -445,15 +449,15 @@ class WealthInTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme.dark(
-        primary: emeraldGlow,
+        primary: cyanGlow, // Using cyan for dark mode (better contrast)
         onPrimary: deepObsidian,
-        primaryContainer: emeraldGlow.withOpacity(0.2),
-        onPrimaryContainer: emeraldGlow,
+        primaryContainer: cyanGlow.withOpacity(0.2),
+        onPrimaryContainer: cyanGlow,
         secondary: regalGold,
         onSecondary: deepObsidian,
         secondaryContainer: regalGold.withOpacity(0.2),
         onSecondaryContainer: regalGold,
-        tertiary: info,
+        tertiary: emeraldGlow, // Keep emerald for tertiary/income
         onTertiary: deepObsidian,
         surface: vaultGreen,
         onSurface: pureFrost,

@@ -1,11 +1,19 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
-/// Universal Bank Statement Parser using Python Backend (Sarvam AI)
-/// Replaces heavy Google ML Kit dependency
+/// Universal Bank Statement Parser using Google ML Kit
+/// Uses on-device OCR for fast, offline text extraction
 /// Handles: PhonePe, HDFC, SBI, ICICI, Axis, Kotak, and generic formats
 class MlKitBankStatementParser {
+  // Singleton text recognizer for efficiency
+  static TextRecognizer? _textRecognizer;
+  
+  static TextRecognizer get _recognizer {
+    _textRecognizer ??= TextRecognizer(script: TextRecognitionScript.latin);
+    return _textRecognizer!;
+  }
   
   // ==================== MERCHANT KEYWORDS ====================
   static final Map<String, String> _merchantPatterns = {
@@ -59,28 +67,31 @@ class MlKitBankStatementParser {
 
   // ==================== PUBLIC METHODS ====================
 
-  /// Parse bank statement from image file
-  /// Uses Python backend with Sarvam AI
+  /// Parse bank statement from image file using ML Kit OCR
   static Future<Map<String, dynamic>> parseFromImageFile(String imagePath) async {
     try {
-      debugPrint('[BankStatementParser] Processing file: $imagePath');
+      debugPrint('[MLKit] Processing file: $imagePath');
       
-      // Read image and prepare for Python backend
       final file = File(imagePath);
       if (!await file.exists()) {
         return {'success': false, 'error': 'File not found: $imagePath'};
       }
       
-      // Return placeholder - actual parsing done via PythonBridgeService
-      // This method is called from the service layer
-      return {
-        'success': true,
-        'needs_python_processing': true,
-        'file_path': imagePath,
-        'message': 'Ready for Sarvam AI processing',
-      };
+      // Use Google ML Kit for on-device OCR
+      final inputImage = InputImage.fromFilePath(imagePath);
+      final recognizedText = await _recognizer.processImage(inputImage);
+      
+      final text = recognizedText.text;
+      debugPrint('[MLKit] Extracted ${text.length} characters');
+      
+      if (text.isEmpty) {
+        return {'success': false, 'error': 'No text found in image'};
+      }
+      
+      // Parse the extracted text
+      return parseFromText(text);
     } catch (e) {
-      debugPrint('[BankStatementParser] Error parsing image: $e');
+      debugPrint('[MLKit] Error parsing image: $e');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -88,15 +99,18 @@ class MlKitBankStatementParser {
   /// Parse bank statement from image bytes
   static Future<Map<String, dynamic>> parseFromImageBytes(Uint8List imageBytes, String tempPath) async {
     try {
-      debugPrint('[BankStatementParser] Writing ${imageBytes.length} bytes to temp file');
+      debugPrint('[MLKit] Writing ${imageBytes.length} bytes to temp file');
       final tempFile = File(tempPath);
       await tempFile.writeAsBytes(imageBytes);
       
       final result = await parseFromImageFile(tempPath);
       
+      // Clean up temp file
+      try { await tempFile.delete(); } catch (_) {}
+      
       return result;
     } catch (e) {
-      debugPrint('[BankStatementParser] Error parsing image bytes: $e');
+      debugPrint('[MLKit] Error parsing image bytes: $e');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -111,7 +125,7 @@ class MlKitBankStatementParser {
     
     // Detect bank/source
     final bankDetected = _detectBank(text);
-    debugPrint('[BankStatementParser] Detected bank: $bankDetected');
+    debugPrint('[MLKit] Detected bank: $bankDetected');
     
     // Split into lines and clean
     final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
@@ -200,9 +214,10 @@ class MlKitBankStatementParser {
   static String? _extractDate(String text) {
     // Common date patterns
     final patterns = [
-      RegExp(r'\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})\b'),
-      RegExp(r'\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})\b'),
-      RegExp(r'\b(\d{4})-(\d{2})-(\d{2})\b'),
+      RegExp(r'\b(\d{1,2})[/\-.](0[1-9]|1[0-2])[/\-.](\d{4})\b'),  // DD/MM/YYYY
+      RegExp(r'\b(\d{1,2})[/\-.](0[1-9]|1[0-2])[/\-.](\d{2})\b'),  // DD/MM/YY
+      RegExp(r'\b(\d{4})-(0[1-9]|1[0-2])-(\d{1,2})\b'),             // YYYY-MM-DD
+      RegExp(r'\b([A-Za-z]{3})\s+(\d{1,2}),?\s*(\d{4})\b'),         // Jan 15, 2025
     ];
     
     for (final pattern in patterns) {
@@ -235,6 +250,19 @@ class MlKitBankStatementParser {
       final day = parts[0].padLeft(2, '0');
       final month = parts[1].padLeft(2, '0');
       final year = '20${parts[2]}';
+      return '$year-$month-$day';
+    }
+    
+    // Month name format: Jan 15, 2025
+    final monthNamePattern = RegExp(r'^([A-Za-z]{3})\s+(\d{1,2}),?\s*(\d{4})$');
+    final monthMatch = monthNamePattern.firstMatch(fullMatch);
+    if (monthMatch != null) {
+      final monthNames = {'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 
+                          'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+                          'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'};
+      final month = monthNames[monthMatch.group(1)!.toLowerCase()] ?? '01';
+      final day = monthMatch.group(2)!.padLeft(2, '0');
+      final year = monthMatch.group(3)!;
       return '$year-$month-$day';
     }
     
@@ -278,8 +306,8 @@ class MlKitBankStatementParser {
     
     final textLower = text.toLowerCase();
     
-    final creditKeywords = ['credit', 'cr', 'credited', 'received', 'salary', 'refund'];
-    final debitKeywords = ['debit', 'dr', 'debited', 'paid', 'payment', 'purchase'];
+    final creditKeywords = ['credit', 'cr', 'credited', 'received', 'salary', 'refund', 'cashback'];
+    final debitKeywords = ['debit', 'dr', 'debited', 'paid', 'payment', 'purchase', 'spent'];
     
     for (final kw in creditKeywords) {
       if (textLower.contains(kw)) return 'income';
@@ -358,6 +386,7 @@ class MlKitBankStatementParser {
 
   /// Dispose resources
   static void dispose() {
-    // No resources to dispose - using Python backend
+    _textRecognizer?.close();
+    _textRecognizer = null;
   }
 }

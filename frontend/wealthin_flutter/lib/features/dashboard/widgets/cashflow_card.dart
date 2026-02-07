@@ -161,12 +161,12 @@ class _CashflowCardState extends State<CashflowCard> {
             ),
             const SizedBox(height: 16),
 
-            // Cashflow Graph
+            // Cashflow Graph - Bar Chart with Income/Expense comparison
             if (_cashflowData.isNotEmpty)
               SizedBox(
-                height: 120,
-                child: LineChart(
-                  _buildChartData(theme, isDark),
+                height: 180,
+                child: BarChart(
+                  _buildBarChartData(theme, isDark),
                 ),
               ).animate().fadeIn(delay: 100.ms),
             
@@ -317,55 +317,137 @@ class _CashflowCardState extends State<CashflowCard> {
     );
   }
 
-  LineChartData _buildChartData(ThemeData theme, bool isDark) {
-    final spots = _cashflowData.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.balance);
-    }).toList();
+  /// Build Bar Chart Data for Income vs Expense visualization
+  BarChartData _buildBarChartData(ThemeData theme, bool isDark) {
+    // Group data by day for the bar chart
+    final Map<String, Map<String, double>> groupedData = {};
+    
+    for (var point in _cashflowData) {
+      final dayKey = point.date.length >= 10 ? point.date.substring(8, 10) : point.date;
+      groupedData[dayKey] ??= {'income': 0, 'expense': 0};
+      
+      // Approximate income/expense from balance changes
+      if (point.balance > 0) {
+        groupedData[dayKey]!['income'] = groupedData[dayKey]!['income']! + point.balance.abs();
+      } else {
+        groupedData[dayKey]!['expense'] = groupedData[dayKey]!['expense']! + point.balance.abs();
+      }
+    }
+    
+    // Use last 7 data points or generate sample data
+    List<String> labels;
+    List<double> incomes;
+    List<double> expenses;
+    
+    if (groupedData.isEmpty) {
+      // Sample data for visualization
+      labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      incomes = [4000, 2000, 3000, 5000, 8000, 3000, 2000];
+      expenses = [2000, 3000, 1500, 4000, 1500, 2000, 1000];
+    } else {
+      final entries = groupedData.entries.toList();
+      final displayEntries = entries.length > 7 ? entries.sublist(entries.length - 7) : entries;
+      labels = displayEntries.map((e) => e.key).toList();
+      incomes = displayEntries.map((e) => e.value['income']!).toList();
+      expenses = displayEntries.map((e) => e.value['expense']!).toList();
+    }
+    
+    // Colors for income and expense
+    const incomeColor = Color(0xFF2ECC71);  // Green
+    const expenseColor = Color(0xFF8E44AD); // Purple
 
-    return LineChartData(
-      gridData: const FlGridData(show: false),
-      titlesData: const FlTitlesData(show: false),
-      borderData: FlBorderData(show: false),
-      lineTouchData: LineTouchData(
-        touchTooltipData: LineTouchTooltipData(
+    return BarChartData(
+      alignment: BarChartAlignment.spaceAround,
+      maxY: (incomes + expenses).reduce((a, b) => a > b ? a : b) * 1.2,
+      barTouchData: BarTouchData(
+        touchTooltipData: BarTouchTooltipData(
           tooltipBgColor: isDark ? WealthInColors.blackCard : Colors.white,
-          getTooltipItems: (touchedSpots) {
-            return touchedSpots.map((spot) {
-              final point = _cashflowData[spot.spotIndex];
-              final date = DateFormat('MMM d').format(DateTime.parse(point.date));
-              return LineTooltipItem(
-                '$date\n₹${_formatAmount(spot.y)}',
-                TextStyle(
-                  color: isDark ? Colors.white : Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              );
-            }).toList();
+          tooltipRoundedRadius: 8,
+          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+            String label = rodIndex == 0 ? 'Income' : 'Expense';
+            return BarTooltipItem(
+              '$label\n₹${_formatAmount(rod.toY)}',
+              TextStyle(
+                color: rodIndex == 0 ? incomeColor : expenseColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            );
           },
         ),
       ),
-      lineBarsData: [
-        LineChartBarData(
-          spots: spots,
-          isCurved: true,
-          color: theme.colorScheme.primary,
-          barWidth: 3,
-          isStrokeCapRound: true,
-          dotData: const FlDotData(show: false),
-          belowBarData: BarAreaData(
-            show: true,
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                theme.colorScheme.primary.withValues(alpha: 0.2),
-                theme.colorScheme.primary.withValues(alpha: 0.0),
-              ],
-            ),
+      titlesData: FlTitlesData(
+        show: true,
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 40,
+            getTitlesWidget: (value, meta) {
+              return Text(
+                _formatAmount(value),
+                style: TextStyle(
+                  color: isDark ? WealthInColors.textSecondaryDark : Colors.grey[600],
+                  fontSize: 10,
+                ),
+              );
+            },
           ),
         ),
-      ],
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            getTitlesWidget: (value, meta) {
+              final idx = value.toInt();
+              if (idx >= 0 && idx < labels.length) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    labels[idx],
+                    style: TextStyle(
+                      color: isDark ? WealthInColors.textSecondaryDark : Colors.grey[600],
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+      borderData: FlBorderData(show: false),
+      gridData: FlGridData(
+        show: true,
+        drawVerticalLine: false,
+        horizontalInterval: (incomes + expenses).reduce((a, b) => a > b ? a : b) / 4,
+        getDrawingHorizontalLine: (value) => FlLine(
+          color: isDark ? WealthInColors.blackBorder : Colors.grey[200]!,
+          strokeWidth: 1,
+        ),
+      ),
+      barGroups: List.generate(labels.length, (i) {
+        return BarChartGroupData(
+          x: i,
+          barRods: [
+            BarChartRodData(
+              toY: incomes[i],
+              color: incomeColor,
+              width: 10,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            ),
+            BarChartRodData(
+              toY: expenses[i],
+              color: expenseColor,
+              width: 10,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            ),
+          ],
+          barsSpace: 4,
+        );
+      }),
     );
   }
 }

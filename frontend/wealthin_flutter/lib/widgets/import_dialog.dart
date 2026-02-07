@@ -9,11 +9,12 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform;
 import '../core/services/backend_config.dart';
-import '../core/services/pdf_to_image_service.dart';
-import '../core/services/mlkit_bank_statement_parser.dart';
 import '../core/services/native_receipt_service.dart';
+import '../core/services/native_pdf_service.dart';
 import '../core/services/data_service.dart';
-import '../core/services/python_bridge_service.dart';
+// SarvamService removed - using NativePdfService (local, fast, offline)
+
+
 
 /// Dialog for importing transactions from PDF/Image files
 /// - PDF icon: For structured bank statements (HDFC, SBI, ICICI, Axis)
@@ -105,100 +106,48 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
 
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
-        // Use Python PDF parser directly - MUCH more accurate than OCR
-        if (pythonBridge.isPythonAvailable) {
-          debugPrint('[ImportDialog] Using Python PDF parser (no OCR)');
-          
-          // Save PDF to temp file for Python to read
-          final tempDir = await getTemporaryDirectory();
-          final tempPath = '${tempDir.path}/statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
-          final tempFile = File(tempPath);
-          await tempFile.writeAsBytes(_fileBytes!);
-          
-          debugPrint('[ImportDialog] PDF saved to: $tempPath');
-          
-          // Call Python PDF parser directly
-          final result = await pythonBridge.executeTool('parse_pdf_statement', {
-            'file_path': tempPath
-          });
-          
-          // Clean up temp file
-          try { await tempFile.delete(); } catch (_) {}
-          
-          // Result is already a Map from executeTool
-          final parsed = result;
-          
-          // Check for page limit exceeded error
-          if (parsed['page_limit_exceeded'] == true) {
-            final pageCount = parsed['page_count'] ?? 'unknown';
-            final maxPages = parsed['max_pages'] ?? 5;
-            throw Exception(
-              'PDF has $pageCount pages. Maximum allowed is $maxPages pages.\n\nPlease split your bank statement into smaller parts.'
-            );
-          }
-          
-          if (parsed['success'] == true && parsed['transactions'] != null) {
-            final transactions = List<Map<String, dynamic>>.from(parsed['transactions']);
-            final deduped = _deduplicateTransactions(transactions);
-            
-            if (deduped.isNotEmpty) {
-              setState(() {
-                _bankDetected = parsed['bank_detected']?.toString() ?? 'Bank Statement';
-                _extractedTransactions = deduped;
-                _showPreview = true;
-                _isLoading = false;
-              });
-              debugPrint('[ImportDialog] Python parser found ${deduped.length} transactions');
-              return;
-            }
-          }
-          
-          // If Python parser failed, fall back to OCR
-          debugPrint('[ImportDialog] Python parser returned no transactions, falling back to OCR');
-        }
-        
-        // Fallback: OCR-based parsing if Python parser unavailable or failed
-        final allImages = await PdfToImageService.convertAllPagesToImages(_fileBytes!);
-        
-        if (allImages.isEmpty) {
-          throw Exception('Failed to convert PDF to images');
-        }
-        
-        debugPrint('[ImportDialog] OCR fallback: Processing ${allImages.length} pages');
-        
-        List<Map<String, dynamic>> allTransactions = [];
-        String? detectedBank;
-        
+        // Save PDF to temp file
         final tempDir = await getTemporaryDirectory();
+        final tempPath = '${tempDir.path}/statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        final tempFile = File(tempPath);
+        await tempFile.writeAsBytes(_fileBytes!);
         
-        for (int pageNum = 0; pageNum < allImages.length; pageNum++) {
-          final imageBase64 = allImages[pageNum];
-          final imageBytes = base64Decode(imageBase64);
-          final tempPath = '${tempDir.path}/statement_page${pageNum}_${DateTime.now().millisecondsSinceEpoch}.png';
-          
-          final result = await MlKitBankStatementParser.parseFromImageBytes(imageBytes, tempPath);
-          
-          if (result['success'] == true) {
-            final txns = List<Map<String, dynamic>>.from(result['transactions'] ?? []);
-            allTransactions.addAll(txns);
-            detectedBank ??= result['bank_detected'];
-          }
+        debugPrint('[ImportDialog] PDF saved to: $tempPath');
+        
+        // Use NativePdfService (local text extraction + regex parsing)
+        // This is fast, offline, and secure
+        final nativePdfService = NativePdfService();
+        final transactions = await nativePdfService.parsePdf(tempPath);
+        
+        List<Map<String, dynamic>> transactionMaps = [];
+        if (transactions.isNotEmpty) {
+          transactionMaps = transactions.map((tx) => {
+            'date': tx.date.toIso8601String().substring(0, 10),
+            'description': tx.description,
+            'amount': tx.amount,
+            'type': tx.type,
+            'category': tx.category,
+            'merchant': tx.merchant,
+          }).toList().cast<Map<String, dynamic>>();
         }
         
-        final deduped = _deduplicateTransactions(allTransactions);
+        // Clean up temp file
+        try { await tempFile.delete(); } catch (_) {}
         
-        if (deduped.isNotEmpty) {
+        if (transactionMaps.isNotEmpty) {
           setState(() {
-            _bankDetected = detectedBank ?? 'Unknown';
-            _extractedTransactions = deduped;
+            _bankDetected = _detectBank(_fileName);
+            _extractedTransactions = transactionMaps;
             _showPreview = true;
             _isLoading = false;
           });
+          debugPrint('[ImportDialog] Found ${transactionMaps.length} transactions');
         } else {
-          throw Exception('No transactions found in the PDF. Try a clearer statement.');
+          throw Exception('No transactions found. Ensure the PDF has selectable text with dates and amounts.');
         }
+
       } else {
-        // Original HTTP logic for desktop
+        // === Desktop: Use HTTP backend ===
         final uri = Uri.parse(
           '${backendConfig.baseUrl}/transactions/import/pdf?user_id=${widget.userId}',
         );
@@ -251,6 +200,7 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
       });
     }
   }
+
 
   Future<void> _extractFromImage() async {
     if (_fileBytes == null) return;
@@ -366,6 +316,25 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
     
     return result;
   }
+
+  /// Detect bank/source from filename
+  String _detectBank(String? filename) {
+    if (filename == null) return 'Statement';
+    final lower = filename.toLowerCase();
+    
+    if (lower.contains('phonepe')) return 'PhonePe';
+    if (lower.contains('gpay') || lower.contains('googlepay')) return 'Google Pay';
+    if (lower.contains('paytm')) return 'Paytm';
+    if (lower.contains('hdfc')) return 'HDFC Bank';
+    if (lower.contains('sbi')) return 'SBI';
+    if (lower.contains('icici')) return 'ICICI Bank';
+    if (lower.contains('axis')) return 'Axis Bank';
+    if (lower.contains('kotak')) return 'Kotak Bank';
+    if (lower.contains('upi')) return 'UPI History';
+    
+    return 'Statement';
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -571,7 +540,7 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                             ),
                           ),
                           title: Text(
-                            t['description'] ?? 'Transaction',
+                            t['merchant'] ?? t['description'] ?? 'Transaction',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
