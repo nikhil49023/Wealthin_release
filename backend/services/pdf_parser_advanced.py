@@ -1,26 +1,23 @@
 """
-Advanced PDF Parser Service with OCR and Receipt Support
-Handles bank statements, receipts, invoices with pymupdf2 OCR
+Advanced PDF Parser Service with Sarvam AI Integration
+Handles bank statements, receipts, invoices with:
+1. Sarvam Doc Intelligence (if API key available)
+2. PyMuPDF (fitz) for fast local text extraction
+3. pdfplumber for table extraction (fallback)
+
+OPTIMIZED FOR MOBILE (Chaquopy/Android):
+- Lazy imports to reduce startup time
+- Progress reporting for long operations
+- Minimal memory footprint
 """
 
 import os
 import re
 import logging
-from typing import List, Dict, Optional, Any, Tuple
-from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Any, Tuple, Generator
+from datetime import datetime
 from dataclasses import dataclass, asdict
 import asyncio
-
-try:
-    import fitz  # pymupdf2
-    HAS_OCR = True
-except ImportError:
-    HAS_OCR = False
-
-try:
-    import pdfplumber
-except ImportError:
-    pdfplumber = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +25,47 @@ logger = logging.getLogger(__name__)
 
 # Suppress noisy pdfminer logs
 logging.getLogger("pdfminer").setLevel(logging.ERROR)
+
+# Lazy imports - these are loaded only when needed
+_fitz = None
+_pdfplumber = None
+_sarvam_service = None
+
+
+def _get_fitz():
+    """Lazy load PyMuPDF (fitz)"""
+    global _fitz
+    if _fitz is None:
+        try:
+            import fitz
+            _fitz = fitz
+        except ImportError:
+            _fitz = False
+    return _fitz if _fitz else None
+
+
+def _get_pdfplumber():
+    """Lazy load pdfplumber"""
+    global _pdfplumber
+    if _pdfplumber is None:
+        try:
+            import pdfplumber
+            _pdfplumber = pdfplumber
+        except ImportError:
+            _pdfplumber = False
+    return _pdfplumber if _pdfplumber else None
+
+
+def _get_sarvam():
+    """Lazy load Sarvam service"""
+    global _sarvam_service
+    if _sarvam_service is None:
+        try:
+            from services.sarvam_service import sarvam_service
+            _sarvam_service = sarvam_service
+        except ImportError:
+            _sarvam_service = False
+    return _sarvam_service if _sarvam_service else None
 
 
 @dataclass
@@ -72,25 +110,6 @@ class ReceiptParser:
     ]
     
     @staticmethod
-    def extract_from_image(image_path: str) -> Dict[str, Any]:
-        """Extract receipt data from image using OCR"""
-        try:
-            if not HAS_OCR:
-                logger.warning("PyMuPDF not available for OCR")
-                return {}
-            
-            doc = fitz.open(image_path)
-            text = ""
-            for page in doc:
-                text += page.get_text()
-            doc.close()
-            
-            return ReceiptParser.parse_receipt_text(text)
-        except Exception as e:
-            logger.error(f"Receipt image extraction error: {e}")
-            return {}
-    
-    @staticmethod
     def parse_receipt_text(text: str) -> Dict[str, Any]:
         """Parse receipt text to extract transaction details"""
         receipt_data = {
@@ -129,11 +148,6 @@ class ReceiptParser:
             if match:
                 receipt_data['date'] = match.group(1)
                 break
-        
-        # Extract items (if present)
-        item_pattern = r'(?:Item|Product|Description)\s*[:\s]+\s*(.+?)(?:\s+₹|$)'
-        items = re.findall(item_pattern, text, re.IGNORECASE)
-        receipt_data['items'] = items[:5]  # Limit to 5 items
         
         return receipt_data
     
@@ -175,29 +189,33 @@ class BankStatementParser:
             'markers': ['Axis Bank', 'AXIS'],
             'table_keywords': ['Date', 'Description', 'Debit', 'Credit', 'Balance'],
         },
+        'phonepe': {
+            'markers': ['PHONEPE', 'PhonePe'],
+            'table_keywords': ['Date', 'Description', 'Amount'],
+        },
     }
     
     @staticmethod
     def detect_bank(text: str) -> str:
         """Detect which bank issued the statement"""
+        text_upper = text.upper()
+        if 'PHONEPE' in text_upper:
+            return 'phonepe'
         for bank, patterns in BankStatementParser.BANK_PATTERNS.items():
             for marker in patterns['markers']:
-                if marker in text.upper():
+                if marker.upper() in text_upper:
                     return bank
         return 'generic'
     
     @staticmethod
     def guess_category(description: str) -> str:
         """Guess category from transaction description"""
-        # Helper for whole word matching
         def contains_word(text, words):
             for word in words:
-                # \b matches word boundary
                 if re.search(r'\b' + re.escape(word) + r'\b', text, re.IGNORECASE):
                     return True
             return False
             
-        # Helper for substring matching (safer for long unique names)
         def contains_substring(text, substrings):
             text_upper = text.upper()
             return any(s in text_upper for s in substrings)
@@ -208,7 +226,6 @@ class BankStatementParser:
             return "Transport"
         elif contains_substring(description, ['GROCERY', 'MART', 'SUPERMARKET', 'BLINKIT', 'ZEPTO', 'BIGBASKET', 'DMART']):
             return "Groceries"
-        # Use whole word matching for short/common terms
         elif contains_word(description, ['JIO', 'AIRTEL', 'BSNL', 'ACT', 'POWER', 'ELECTRICITY', 'BESCOM', 'WATER', 'GAS', 'BROADBAND']):
             return "Utilities"
         elif contains_substring(description, ['HOSPITAL', 'CLINIC', 'PHARMACY', 'MEDPLUS', 'APOLLO', 'DOCTOR', 'LAB', 'DIAGNOSTIC', 'MEDICINE', 'HEALTH']):
@@ -229,42 +246,35 @@ class BankStatementParser:
     @staticmethod
     def parse_transaction_line(line: str, bank_type: str) -> Optional[ExtractedTransaction]:
         """Parse single transaction from text line"""
-        # Remove extra whitespace
         line = ' '.join(line.split())
         
-        # Date pattern
         date_match = re.search(r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', line)
         if not date_match:
             return None
         
         date_str = date_match.group(1)
         
-        # Amount pattern (with optional Dr/Cr indicator)
         amount_matches = re.findall(r'([\d,]+\.?\d+)\s*(Dr|Cr)?', line)
         if not amount_matches:
             return None
         
-        # Get last significant amount (usually transaction amount)
         amount_str = amount_matches[-2][0] if len(amount_matches) > 1 else amount_matches[0][0]
         try:
             amount = float(amount_str.replace(',', ''))
         except ValueError:
             return None
         
-        # Determine type based on Dr/Cr or amount position
         tx_type = amount_matches[-2][1] if len(amount_matches) > 1 and amount_matches[-2][1] else 'expense'
         tx_type = 'expense' if tx_type.upper() == 'DR' else 'income'
         
-        # Description (everything between date and amount)
         desc_match = re.search(rf'{date_str}\s*(.+?)(?:\s*[\d,]+\.?\d+)', line)
         description = desc_match.group(1).strip() if desc_match else 'Transaction'
         
-        # Intelligent Categorization
         category = BankStatementParser.guess_category(description)
         
         return ExtractedTransaction(
             date=date_str,
-            description=description[:100],  # Limit description
+            description=description[:100],
             amount=amount,
             transaction_type=tx_type,
             category=category,
@@ -274,7 +284,12 @@ class BankStatementParser:
 
 
 class AdvancedPDFParser:
-    """Main PDF parser combining text, table, and OCR extraction"""
+    """
+    Main PDF parser with multi-method extraction strategy:
+    1. Sarvam AI (cloud, if API key present)
+    2. PyMuPDF/fitz (fast local, recommended for mobile)
+    3. pdfplumber (tables, slower but reliable)
+    """
     
     def __init__(self):
         self.recent_transactions: Dict[str, ExtractedTransaction] = {}
@@ -283,14 +298,16 @@ class AdvancedPDFParser:
     async def extract_transactions(
         self,
         file_path: str,
-        document_type: str = 'auto',  # auto, receipt, bank_statement
+        document_type: str = 'auto',
+        progress_callback: Optional[callable] = None,
     ) -> Dict[str, Any]:
         """
-        Extract transactions from PDF with multi-method approach
+        Extract transactions from PDF with multi-method approach.
         
         Args:
             file_path: Path to PDF file
-            document_type: Type of document
+            document_type: Type of document ('auto', 'receipt', 'bank_statement')
+            progress_callback: Optional callback(current_page, total_pages, message)
         
         Returns:
             Dictionary with transactions and metadata
@@ -306,78 +323,86 @@ class AdvancedPDFParser:
                 'duplicates_removed': 0,
             }
             
-            # Read file
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"File not found: {file_path}")
             
-            # Auto-detect document type if needed
+            # Auto-detect document type
             if document_type == 'auto':
                 document_type = self._detect_document_type(file_path)
                 results['document_type'] = document_type
             
             transactions = []
             
-            # Method 1: Try table extraction (most reliable for bank statements)
-            if document_type == 'bank_statement' and pdfplumber:
-                table_transactions = await asyncio.to_thread(
-                    self._extract_from_tables,
-                    file_path
-                )
-                if table_transactions:
-                    transactions.extend(table_transactions)
-                    results['method'].append('tables')
+            # === METHOD 1: Sarvam AI (if available) ===
+            sarvam = _get_sarvam()
+            if sarvam and sarvam.is_configured:
+                if progress_callback:
+                    progress_callback(0, 1, "Using Sarvam AI for parsing...")
+                
+                sarvam_result = sarvam.parse_document(file_path)
+                if sarvam_result.get('success'):
+                    logger.info("Sarvam AI parsing successful")
+                    # Parse the structured content from Sarvam
+                    sarvam_transactions = self._parse_sarvam_content(
+                        sarvam_result.get('content', '')
+                    )
+                    if sarvam_transactions:
+                        transactions.extend(sarvam_transactions)
+                        results['method'].append('sarvam_ai')
             
-            # Method 2: OCR-based extraction for scanned documents
-            if HAS_OCR and not transactions:
-                ocr_transactions = await asyncio.to_thread(
-                    self._extract_with_ocr,
-                    file_path
-                )
-                if ocr_transactions:
-                    transactions.extend(ocr_transactions)
-                    results['method'].append('ocr')
-            
-            # Method 3: Pattern-based text extraction
-            print(f"DEBUG: Entering Method 3. Transactions count so far: {len(transactions)}")
+            # === METHOD 2: PyMuPDF/fitz (fast local) ===
             if not transactions:
-                # Check for PhonePe first
-                full_text = ""
-                if pdfplumber:
-                    print("DEBUG: pdfplumber is available")
-                    with pdfplumber.open(file_path) as pdf:
-                        for page in pdf.pages:
-                            full_text += (page.extract_text() or "") + "\n"
-                else:
-                    print("DEBUG: pdfplumber is NOT available")
-                
-                print(f"DEBUG: Full text length: {len(full_text)}")
-                print(f"DEBUG: 'PHONEPE' in text? {'PHONEPE' in full_text.upper()}")
-                
-                if "PHONEPE" in full_text.upper():
-                    results['bank'] = 'phonepe'
-                    print("DEBUG: Calling _extract_phonepe...")
-                    text_transactions = self._extract_phonepe(full_text)
-                    print(f"DEBUG: _extract_phonepe returned {len(text_transactions)} txs")
-                    if text_transactions:
-                         transactions.extend(text_transactions)
-                         results['method'].append('phonepe_parser')
-                
-                if not transactions:
-                    print("DEBUG: Running generic regex fallback")
-                    text_transactions = await asyncio.to_thread(
-                        self._extract_from_text,
+                fitz = _get_fitz()
+                if fitz:
+                    if progress_callback:
+                        progress_callback(0, 1, "Using PyMuPDF for fast extraction...")
+                    
+                    fitz_transactions = await asyncio.to_thread(
+                        self._extract_with_fitz,
                         file_path,
-                        document_type
-                    ) 
-                    if text_transactions:
-                        transactions.extend(text_transactions)
-                        results['method'].append('pattern_matching')
+                        progress_callback
+                    )
+                    if fitz_transactions:
+                        transactions.extend(fitz_transactions)
+                        results['method'].append('pymupdf')
+            
+            # === METHOD 3: pdfplumber (tables) ===
+            if not transactions:
+                pdfplumber = _get_pdfplumber()
+                if pdfplumber and document_type == 'bank_statement':
+                    if progress_callback:
+                        progress_callback(0, 1, "Extracting tables with pdfplumber...")
+                    
+                    table_transactions = await asyncio.to_thread(
+                        self._extract_from_tables,
+                        file_path
+                    )
+                    if table_transactions:
+                        transactions.extend(table_transactions)
+                        results['method'].append('tables')
+            
+            # === METHOD 4: Pattern matching fallback ===
+            if not transactions:
+                if progress_callback:
+                    progress_callback(0, 1, "Trying pattern matching...")
+                
+                text_transactions = await asyncio.to_thread(
+                    self._extract_from_text,
+                    file_path,
+                    document_type
+                )
+                if text_transactions:
+                    transactions.extend(text_transactions)
+                    results['method'].append('pattern_matching')
             
             # Remove duplicates
             unique_transactions, dup_count = self._remove_duplicates(transactions)
             results['transactions'] = [asdict(t) for t in unique_transactions]
             results['count'] = len(unique_transactions)
             results['duplicates_removed'] = dup_count
+            
+            if progress_callback:
+                progress_callback(1, 1, f"Found {results['count']} transactions")
             
             return results
         
@@ -390,8 +415,72 @@ class AdvancedPDFParser:
                 'count': 0,
             }
     
+    def _extract_with_fitz(
+        self,
+        file_path: str,
+        progress_callback: Optional[callable] = None
+    ) -> List[ExtractedTransaction]:
+        """Extract transactions using PyMuPDF (fast)"""
+        fitz = _get_fitz()
+        if not fitz:
+            return []
+        
+        transactions = []
+        try:
+            doc = fitz.open(file_path)
+            total_pages = len(doc)
+            full_text = ""
+            
+            for page_num, page in enumerate(doc):
+                if progress_callback:
+                    progress_callback(page_num + 1, total_pages, f"Reading page {page_num + 1}/{total_pages}")
+                
+                full_text += page.get_text() + "\n"
+            
+            doc.close()
+            
+            # Detect bank type
+            bank_type = BankStatementParser.detect_bank(full_text)
+            
+            # PhonePe special handling
+            if bank_type == 'phonepe':
+                return self._extract_phonepe(full_text)
+            
+            # Generic parsing
+            lines = full_text.split('\n')
+            for line in lines:
+                if not line.strip():
+                    continue
+                
+                tx = BankStatementParser.parse_transaction_line(line, bank_type)
+                if tx:
+                    tx.confidence = 0.85  # Higher confidence with fitz
+                    transactions.append(tx)
+        
+        except Exception as e:
+            logger.error(f"PyMuPDF extraction error: {e}")
+        
+        return transactions
+    
+    def _parse_sarvam_content(self, content: str) -> List[ExtractedTransaction]:
+        """Parse structured content from Sarvam AI response"""
+        transactions = []
+        
+        # Sarvam returns markdown/structured text
+        # Look for transaction patterns in the content
+        lines = content.split('\n')
+        for line in lines:
+            tx = BankStatementParser.parse_transaction_line(line, 'generic')
+            if tx:
+                tx.source = 'sarvam_ai'
+                tx.confidence = 0.95  # High confidence from AI
+                transactions.append(tx)
+        
+        return transactions
+    
     def _extract_from_tables(self, file_path: str) -> List[ExtractedTransaction]:
         """Extract transactions from PDF tables"""
+        pdfplumber = _get_pdfplumber()
         if not pdfplumber:
             return []
         
@@ -417,111 +506,90 @@ class AdvancedPDFParser:
         
         return transactions
     
-    def _extract_with_ocr(self, file_path: str) -> List[ExtractedTransaction]:
-        """Extract transactions using OCR via pymupdf2"""
-        if not HAS_OCR:
-            return []
-        
-        transactions = []
-        try:
-            doc = fitz.open(file_path)
-            full_text = ""
-            
-            for page in doc:
-                # Get text with better recognition
-                full_text += page.get_text() + "\n"
-            
-            doc.close()
-            
-            # Parse extracted text
-            lines = full_text.split('\n')
-            for line in lines:
-                if not line.strip():
-                    continue
-                
-                tx = BankStatementParser.parse_transaction_line(line, 'generic')
-                if tx:
-                    tx.confidence = 0.75  # OCR slightly lower confidence
-                    transactions.append(tx)
-        
-        except Exception as e:
-            logger.error(f"OCR extraction error: {e}")
-        
-        return transactions
-    
     def _extract_from_text(self, file_path: str, doc_type: str) -> List[ExtractedTransaction]:
         """Extract transactions using text pattern matching"""
         transactions = []
         
-        try:
-            if pdfplumber:
+        # Try fitz first (faster)
+        fitz = _get_fitz()
+        if fitz:
+            try:
+                doc = fitz.open(file_path)
+                full_text = ""
+                for page in doc:
+                    full_text += page.get_text() + "\n"
+                doc.close()
+                
+                bank_type = BankStatementParser.detect_bank(full_text)
+                if bank_type == 'phonepe':
+                    return self._extract_phonepe(full_text)
+                
+                for line in full_text.split('\n'):
+                    if not line.strip():
+                        continue
+                    tx = BankStatementParser.parse_transaction_line(line, bank_type)
+                    if tx:
+                        tx.confidence = 0.65
+                        transactions.append(tx)
+                        
+                return transactions
+            except Exception as e:
+                logger.warning(f"Fitz text extraction failed: {e}")
+        
+        # Fallback to pdfplumber
+        pdfplumber = _get_pdfplumber()
+        if pdfplumber:
+            try:
                 with pdfplumber.open(file_path) as pdf:
                     for page in pdf.pages:
                         text = page.extract_text()
                         if not text:
                             continue
                         
-                        lines = text.split('\n')
-                        for line in lines:
+                        for line in text.split('\n'):
                             if not line.strip():
                                 continue
                             
                             tx = BankStatementParser.parse_transaction_line(line, 'generic')
                             if tx:
-                                tx.confidence = 0.65  # Text pattern lower confidence
+                                tx.confidence = 0.65
                                 transactions.append(tx)
-        
-        except Exception as e:
-            logger.error(f"Text extraction error: {e}")
+            except Exception as e:
+                logger.error(f"pdfplumber text extraction error: {e}")
         
         return transactions
     
     def _detect_document_type(self, file_path: str) -> str:
         """Auto-detect if PDF is receipt or bank statement"""
-        # Could use file size, ML, or content analysis
-        # For now, use simple heuristics
+        fitz = _get_fitz()
+        pdfplumber = _get_pdfplumber()
+        
         try:
-            if pdfplumber:
+            text = ""
+            if fitz:
+                doc = fitz.open(file_path)
+                if len(doc) > 0:
+                    text = doc[0].get_text().upper()
+                doc.close()
+            elif pdfplumber:
                 with pdfplumber.open(file_path) as pdf:
-                    first_page_text = pdf.pages[0].extract_text().upper()
-                    
-                    # Check for bank statement markers
-                    if any(marker in first_page_text for marker in ['STATEMENT', 'ACCOUNT', 'BANK']):
-                        return 'bank_statement'
-                    
-                    # Check for receipt markers
-                    if any(marker in first_page_text for marker in ['RECEIPT', 'INVOICE', 'BILL', 'TOTAL', '₹']):
-                        return 'receipt'
-        except:
+                    if pdf.pages:
+                        text = (pdf.pages[0].extract_text() or "").upper()
+            
+            if any(marker in text for marker in ['STATEMENT', 'ACCOUNT', 'BANK']):
+                return 'bank_statement'
+            
+            if any(marker in text for marker in ['RECEIPT', 'INVOICE', 'BILL', 'TOTAL', '₹']):
+                return 'receipt'
+        except Exception:
             pass
         
-        return 'bank_statement'  # Default
+        return 'bank_statement'
     
-    @staticmethod
-    def detect_bank(text: str) -> str:
-        """Detect which bank issued the statement"""
-        if 'PHONEPE' in text.upper():
-            return 'phonepe'
-        for bank, patterns in BankStatementParser.BANK_PATTERNS.items():
-            for marker in patterns['markers']:
-                if marker in text.upper():
-                    return bank
-        return 'generic'
-    
-    @staticmethod
-    def parse_transaction_line(line: str, bank_type: str) -> Optional[ExtractedTransaction]:
-        """Parse single transaction from text line"""
-        # ... (keep existing implementation) ...
-        # (Copied from original for completeness, but I'll trust the user to keep the rest if I use diff correctly)
-        # Actually I need to replace the detect_bank and add extract_phonepe in AdvancedPDFParser
-        return None # Placeholder, I will use insert/replace in proper targets
-
     def _extract_phonepe(self, text: str) -> List[ExtractedTransaction]:
-        """Extract transactions from PhonePe statement (pdfplumber layout)"""
+        """Extract transactions from PhonePe statement"""
         transactions = []
         try:
-            # Pattern: Nov 19, 2025 Received from Google Pay CREDIT ₹2
-            # Regex for the main transaction line
             pattern = r'([A-Z][a-z]{2} \d{1,2}, \d{4})\s+(.+?)\s+(CREDIT|DEBIT)\s+₹?([\d,]+\.?\d*)'
             time_pattern = r'(\d{1,2}:\d{2}\s?(?:am|pm|AM|PM))'
             
@@ -538,39 +606,31 @@ class AdvancedPDFParser:
                     type_str = match.group(3)
                     amount_str = match.group(4).replace(',', '')
                     
-                    # Try to find time in the next line if it looks like a time
                     tx_time = None
                     if i + 1 < len(lines):
                         next_line = lines[i+1].strip()
                         time_match = re.search(time_pattern, next_line)
                         if time_match:
                             tx_time = time_match.group(1)
-                            # Convert to HH:MM format
                             try:
                                 t = datetime.strptime(tx_time.replace(" ", ""), "%I:%M%p")
                                 tx_time = t.strftime("%H:%M")
-                            except:
+                            except Exception:
                                 pass
                     
                     try:
                         amount = float(amount_str)
-                    except:
+                    except ValueError:
                         continue
                         
                     tx_type = 'income' if type_str.upper() == 'CREDIT' else 'expense'
                     
-                    # Enhanced Merchant & Category Extraction
                     merchant = None
-                    category = "Miscellaneous" # Default
-                    
-                    desc_upper = description.upper()
-                    
                     if description.startswith("Paid to "):
                         merchant = description[8:]
                     elif description.startswith("Received from "):
                         merchant = description[14:]
                     
-                    # Enhanced Categorization
                     category = BankStatementParser.guess_category(description)
 
                     transactions.append(ExtractedTransaction(
@@ -579,9 +639,10 @@ class AdvancedPDFParser:
                         amount=amount,
                         transaction_type=tx_type,
                         merchant=merchant,
+                        category=category,
                         source='phonepe_statement',
                         confidence=0.9,
-                        extra_data={'time': tx_time, 'category': category}
+                        extra_data={'time': tx_time}
                     ))
                     
         except Exception as e:
@@ -591,26 +652,23 @@ class AdvancedPDFParser:
 
     def _parse_phonepe_date(self, date_str: str) -> str:
         try:
-            # Nov 19, 2025 -> 2025-11-19
             dt = datetime.strptime(date_str, '%b %d, %Y')
             return dt.strftime('%Y-%m-%d')
-        except:
+        except Exception:
             return date_str
 
     def _remove_duplicates(
         self,
         transactions: List[ExtractedTransaction]
     ) -> Tuple[List[ExtractedTransaction], int]:
-        """Remove duplicate transactions within 24 hours"""
+        """Remove duplicate transactions"""
         unique = []
         duplicates = 0
         
         for tx in sorted(transactions, key=lambda t: t.date):
-            # Check if similar transaction exists
             is_duplicate = False
             
             for existing in unique:
-                # Same amount and description within 24h = likely duplicate
                 if (tx.amount == existing.amount and
                     tx.transaction_type == existing.transaction_type and
                     tx.description.lower() == existing.description.lower()):
@@ -623,7 +681,7 @@ class AdvancedPDFParser:
                             is_duplicate = True
                             duplicates += 1
                             break
-                    except:
+                    except Exception:
                         pass
             
             if not is_duplicate:
