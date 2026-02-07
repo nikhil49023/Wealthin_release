@@ -245,7 +245,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
     
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? WealthInColors.backgroundDark : WealthInColors.backgroundLight,
+        color: isDark ? WealthInColors.deepObsidian : WealthInColors.ivoryMist,
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
@@ -325,7 +325,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                       ),
                       filled: true,
                       fillColor: isDark 
-                          ? WealthInColors.backgroundDark 
+                          ? WealthInColors.deepObsidian 
                           : Colors.grey.shade50,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
