@@ -350,12 +350,28 @@ class AdvancedPDFParser:
                         transactions.extend(sarvam_transactions)
                         results['method'].append('sarvam_ai')
             
-            # === METHOD 2: PyMuPDF/fitz (fast local) ===
+            # === METHOD 2: pdfplumber (tables) - PRIORITIZED for Bank Statements ===
+            # pdfplumber excels at extracting tabular data, which is critical for bank statements.
+            if not transactions and document_type == 'bank_statement':
+                pdfplumber_lib = _get_pdfplumber()
+                if pdfplumber_lib:
+                    if progress_callback:
+                        progress_callback(0, 1, "Extracting tables with pdfplumber (best for bank statements)...")
+                    
+                    table_transactions = await asyncio.to_thread(
+                        self._extract_from_tables,
+                        file_path
+                    )
+                    if table_transactions:
+                        transactions.extend(table_transactions)
+                        results['method'].append('pdfplumber_tables')
+            
+            # === METHOD 3: PyMuPDF/fitz (fast local text) - Fallback/Receipts ===
             if not transactions:
                 fitz = _get_fitz()
                 if fitz:
                     if progress_callback:
-                        progress_callback(0, 1, "Using PyMuPDF for fast extraction...")
+                        progress_callback(0, 1, "Using PyMuPDF for text extraction...")
                     
                     fitz_transactions = await asyncio.to_thread(
                         self._extract_with_fitz,
@@ -365,21 +381,6 @@ class AdvancedPDFParser:
                     if fitz_transactions:
                         transactions.extend(fitz_transactions)
                         results['method'].append('pymupdf')
-            
-            # === METHOD 3: pdfplumber (tables) ===
-            if not transactions:
-                pdfplumber = _get_pdfplumber()
-                if pdfplumber and document_type == 'bank_statement':
-                    if progress_callback:
-                        progress_callback(0, 1, "Extracting tables with pdfplumber...")
-                    
-                    table_transactions = await asyncio.to_thread(
-                        self._extract_from_tables,
-                        file_path
-                    )
-                    if table_transactions:
-                        transactions.extend(table_transactions)
-                        results['method'].append('tables')
             
             # === METHOD 4: Pattern matching fallback ===
             if not transactions:
