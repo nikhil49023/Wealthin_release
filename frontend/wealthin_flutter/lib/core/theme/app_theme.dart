@@ -1,168 +1,190 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// WealthIn 2026 "Sovereign Growth" Theme
-/// A sophisticated palette balancing Wealth (Green) and Intelligence (Purple)
+/// WealthIn 2026 "Premium Finance" Theme
+/// Classic, professional design with refined color palette
 class AppTheme {
-  // ============== CLEAN GROWTH PALETTE ==============
+  // ============== CORE PALETTE - PREMIUM NAVY & GOLD ==============
 
-  // Base Layer - Fresh & Clean
-  static const mint = Color(0xFFF0FDF4); // Very pale green (Tailwind Green-50)
-  static const mintLight = Color(0xFFFFFFFF); // White for cards
-  static const mintDark = Color(0xFFDCFCE7); // Green-100
+  // Base Layer - Clean White
+  static const cream = Color(0xFFFAFBFC); // Soft off-white
+  static const white = Color(0xFFFFFFFF); // Pure white
+  static const surface = Color(0xFFF8F9FA); // Light gray surface
 
-  // Primary Actions - Wealth & Growth
-  static const emerald = Color(0xFF16A34A); // Green-600
-  static const emeraldDark = Color(0xFF15803D); // Green-700
-  static const emeraldLight = Color(0xFF4ADE80); // Green-400
+  // Primary - Deep Navy (Professional Authority)
+  static const navy = Color(0xFF1A365D); // Deep navy blue
+  static const navyLight = Color(0xFF2C5282); // Medium navy
+  static const navyDark = Color(0xFF0F2744); // Extra dark navy
 
-  // Accents - Deep Green & Teal (No Purple/Violet)
-  static const royalPurple = Color(0xFF0F766E); // Teal-700 (Replaces Purple)
-  static const purpleLight = Color(0xFF14B8A6); // Teal-500
-  static const purpleDark = Color(0xFF111827); // Gray-900 (High contrast)
-  static const purpleGlow = Color(0xFF2DD4BF); // Teal-400
+  // Accent - Gold (Wealth & Premium)
+  static const gold = Color(0xFFD69E2E); // Rich gold
+  static const goldLight = Color(0xFFECC94B); // Light gold
+  static const goldDark = Color(0xFFB7791F); // Deep gold
 
-  // Typography & Contrast
-  static const forestGreen = Color(0xFF064E3B); // Green-900
-  static const forestLight = Color(0xFF166534); // Green-800
-  static const forestMuted = Color(0xFF374151); // Gray-700
+  // Success/Income - Emerald
+  static const emerald = Color(0xFF059669); // Rich emerald
+  static const emeraldLight = Color(0xFF10B981); // Light emerald
 
-  // ============== LEGACY ALIASES ==============
-  static const primary = emerald;
-  static const primaryLight = emeraldLight;
-  static const secondary = royalPurple; // Now Teal
-  static const secondaryLight = purpleLight; // Now Teal-Light
-  static const tertiary = mint;
-  static const accent = royalPurple;
-  static const accentLight = purpleLight;
+  // Error/Expense - Coral Red
+  static const coral = Color(0xFFDC2626); // Modern red
+  static const coralLight = Color(0xFFEF4444); // Light coral
 
-  // Premium Gradient Colors - Fresh Green
-  static const gradientStart = emeraldDark;
-  static const gradientMiddle = emerald;
-  static const gradientEnd = emeraldLight;
+  // Typography - Slate Scale
+  static const slate900 = Color(0xFF0F172A); // Near black
+  static const slate700 = Color(0xFF334155); // Dark gray
+  static const slate500 = Color(0xFF64748B); // Medium gray
+  static const slate300 = Color(0xFFCBD5E1); // Light gray
+
+  // ============== SEMANTIC ALIASES ==============
+  static const primary = navy;
+  static const primaryLight = navyLight;
+  static const secondary = gold;
+  static const secondaryLight = goldLight;
+  static const tertiary = cream;
+  static const accent = gold;
+  static const accentLight = goldLight;
+
+  // Gradient Colors
+  static const gradientStart = navyDark;
+  static const gradientMiddle = navy;
+  static const gradientEnd = navyLight;
 
   // Glassmorphism Colors
   static const glassWhite = Color(0xFFFFFFFF);
-  static const glassMint = Color(0xFFF0FDF4);
-  static const glassBorder = Color(0x66FFFFFF);
-  static const glassShadow = Color(0x15064E3B); // Green-tinted shadow
+  static const glassMint = Color(0xFFF8FAFC);
+  static const glassBorder = Color(0x1A000000);
+  static const glassShadow = Color(0x0A000000);
 
-  // Semantic Colors
-  static const incomeGreen = Color(0xFF16A34A);
-  static const expenseRed = Color(0xFFEF4444); // Red-500
+  // Semantic Colors  
+  static const incomeGreen = emerald;
+  static const expenseRed = coral;
   static const success = emerald;
-  static const error = Color(0xFFEF4444);
-  static const warning = Color(0xFFF59E0B); // Amber-500 (Kept for warnings only)
-  static const info = royalPurple; // Teal
+  static const error = coral;
+  static const warning = Color(0xFFF59E0B);
+  static const info = navyLight;
 
   // Scribble/Decorative Colors
-  static const scribblePrimary = emerald;
-  static const scribbleSecondary = purpleLight; // Teal
-  static const scribbleTertiary = mintDark;
+  static const scribblePrimary = navy;
+  static const scribbleSecondary = gold;
+  static const scribbleTertiary = emerald;
 
-  static final TextTheme _textTheme = GoogleFonts.interTextTheme();
+  // ============== BACKWARD COMPATIBILITY - OLD COLOR ALIASES ==============
+  // These map old color names to the new premium palette
+  static const royalPurple = Color(0xFF5B21B6); // Deep purple for AI elements
+  static const purpleLight = Color(0xFFA78BFA); // Light purple
+  static const purpleDark = Color(0xFF3B0D7D); // Darker purple
+  static const purpleGlow = Color(0x33A78BFA); // Purple glow with alpha
+  static const forestGreen = slate900; // Dark text (was green, now neutral)
+  static const forestLight = slate700; // Medium text
+  static const forestMuted = slate500; // Muted text
+  static const mint = cream; // Light background
+  static const mintLight = surface; // Lighter background
+  static const mintDark = slate300; // Border/separator color
+
+  // Modern text themes using Poppins + Source Sans Pro
+  static TextTheme get _modernTextTheme => GoogleFonts.sourceSans3TextTheme();
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: emerald,
-        primary: emerald,
-        secondary: royalPurple,
-        tertiary: mint,
-        surface: mintLight,
-        onSurface: forestGreen,
-        primaryContainer: emeraldLight,
-        secondaryContainer: purpleLight.withValues(alpha: 0.2),
+        seedColor: navy,
+        primary: navy,
+        secondary: gold,
+        tertiary: cream,
+        surface: white,
+        onSurface: slate900,
+        primaryContainer: navyLight,
+        secondaryContainer: goldLight.withValues(alpha: 0.2),
       ),
-      textTheme: _textTheme.copyWith(
-        displayLarge: GoogleFonts.plusJakartaSans(
+      textTheme: _modernTextTheme.copyWith(
+        displayLarge: GoogleFonts.poppins(
           fontSize: 32,
           fontWeight: FontWeight.bold,
-          color: forestGreen,
+          color: slate900,
           letterSpacing: -0.5,
         ),
-        headlineMedium: GoogleFonts.plusJakartaSans(
+        headlineMedium: GoogleFonts.poppins(
           fontSize: 24,
           fontWeight: FontWeight.w600,
-          color: forestGreen,
+          color: slate900,
         ),
-        titleLarge: GoogleFonts.plusJakartaSans(
+        titleLarge: GoogleFonts.poppins(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: forestGreen,
+          color: slate900,
         ),
-        titleMedium: GoogleFonts.plusJakartaSans(
+        titleMedium: GoogleFonts.poppins(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: forestLight,
+          color: slate700,
         ),
-        bodyLarge: GoogleFonts.inter(
+        bodyLarge: GoogleFonts.sourceSans3(
           fontSize: 16,
-          color: forestLight,
+          color: slate700,
           height: 1.5,
         ),
-        bodyMedium: GoogleFonts.inter(
+        bodyMedium: GoogleFonts.sourceSans3(
           fontSize: 14,
-          color: forestMuted,
+          color: slate500,
           height: 1.5,
         ),
-        labelLarge: GoogleFonts.inter(
+        labelLarge: GoogleFonts.sourceSans3(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: forestGreen,
+          color: slate900,
         ),
       ),
-      scaffoldBackgroundColor: mint,
+      scaffoldBackgroundColor: cream,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: GoogleFonts.plusJakartaSans(
+        titleTextStyle: GoogleFonts.poppins(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: forestGreen,
+          color: slate900,
         ),
-        iconTheme: const IconThemeData(color: forestGreen),
+        iconTheme: const IconThemeData(color: slate900),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
         ),
-        color: glassWhite,
+        color: white,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: glassWhite,
+        fillColor: white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: mintDark),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: slate300),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: mintDark),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: slate300),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: emerald, width: 2),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: navy, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 16,
+          horizontal: 16,
+          vertical: 14,
         ),
-        hintStyle: TextStyle(color: forestMuted.withValues(alpha: 0.6)),
+        hintStyle: TextStyle(color: slate500.withValues(alpha: 0.6)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: emerald,
+          backgroundColor: navy,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.poppins(
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -170,39 +192,39 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: forestGreen,
-          side: const BorderSide(color: emerald, width: 1.5),
+          foregroundColor: navy,
+          side: const BorderSide(color: navy, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: emerald,
+        backgroundColor: gold,
         foregroundColor: Colors.white,
         elevation: 4,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: mintLight,
-        selectedColor: emerald.withValues(alpha: 0.2),
-        labelStyle: GoogleFonts.inter(
+        backgroundColor: surface,
+        selectedColor: gold.withValues(alpha: 0.2),
+        labelStyle: GoogleFonts.sourceSans3(
           fontSize: 13,
-          color: forestGreen,
+          color: slate900,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: glassWhite,
-        selectedItemColor: emerald,
-        unselectedItemColor: forestMuted,
+        backgroundColor: white,
+        selectedItemColor: navy,
+        unselectedItemColor: slate500,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
       dividerTheme: DividerThemeData(
-        color: mintDark.withValues(alpha: 0.5),
+        color: slate300.withValues(alpha: 0.5),
         thickness: 1,
       ),
     );

@@ -50,8 +50,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         displayName: _nameController.text.trim(),
       );
 
-      // Send email verification
-      await authService.sendEmailVerification();
+      // Supabase sends email verification automatically if configured
+      // await authService.sendEmailVerification();
+
 
       if (mounted) {
         // Show verification email sent message

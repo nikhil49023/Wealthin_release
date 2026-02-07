@@ -1,8 +1,9 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/services/financial_calculator.dart';
 import '../../core/theme/wealthin_theme.dart';
+
 
 /// Investment Calculator Screen
 /// Provides SIP, FD, EMI, RD calculators with visual results
@@ -78,35 +79,19 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
       final durationMonths =
           (int.tryParse(_sipYearsController.text) ?? 10) * 12;
 
-      final monthlyRate = expectedRate / 12 / 100;
-      double futureValue;
-      if (monthlyRate == 0) {
-        futureValue = monthlyInvestment * durationMonths;
-      } else {
-        futureValue =
-            monthlyInvestment *
-            ((math.pow(1 + monthlyRate, durationMonths) - 1) / monthlyRate) *
-            (1 + monthlyRate);
-      }
-
-      final totalInvested = monthlyInvestment * durationMonths;
-      final wealthGained = futureValue - totalInvested;
-
-      setState(
-        () => _sipResult = {
-          'total_invested': totalInvested.round(),
-          'future_value': futureValue.round(),
-          'wealth_gained': wealthGained.round(),
-          'returns_percentage': totalInvested > 0
-              ? ((wealthGained / totalInvested) * 100).round()
-              : 0,
-        },
+      final result = FinancialCalculator.calculateSIP(
+        monthlyInvestment: monthlyInvestment,
+        expectedRate: expectedRate,
+        durationMonths: durationMonths,
       );
+
+      setState(() => _sipResult = result);
     } catch (e) {
       _showError('SIP calculation failed');
     }
     setState(() => _isCalculating = false);
   }
+
 
   Future<void> _calculateFD() async {
     setState(() => _isCalculating = true);
@@ -115,27 +100,19 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
       final rate = double.tryParse(_fdRateController.text) ?? 7;
       final tenureMonths = (int.tryParse(_fdYearsController.text) ?? 5) * 12;
 
-      const n = 4; // quarterly compounding
-      final r = rate / 100;
-      final t = tenureMonths / 12;
-
-      final maturityAmount = principal * math.pow(1 + r / n, n * t);
-      final interestEarned = maturityAmount - principal;
-      final effectiveRate = (math.pow(1 + r / n, n.toDouble()) - 1) * 100;
-
-      setState(
-        () => _fdResult = {
-          'principal': principal,
-          'maturity_amount': maturityAmount.round(),
-          'interest_earned': interestEarned.round(),
-          'effective_annual_rate': effectiveRate.round(),
-        },
+      final result = FinancialCalculator.calculateFD(
+        principal: principal,
+        rate: rate,
+        tenureMonths: tenureMonths,
       );
+
+      setState(() => _fdResult = result);
     } catch (e) {
       _showError('FD calculation failed');
     }
     setState(() => _isCalculating = false);
   }
+
 
   Future<void> _calculateEMI() async {
     setState(() => _isCalculating = true);
@@ -145,34 +122,19 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
       final rate = double.tryParse(_emiRateController.text) ?? 8.5;
       final tenureMonths = (int.tryParse(_emiYearsController.text) ?? 20) * 12;
 
-      final monthlyRate = rate / 12 / 100;
-      double emi;
-      if (monthlyRate == 0) {
-        emi = principal / tenureMonths;
-      } else {
-        emi =
-            principal *
-            monthlyRate *
-            math.pow(1 + monthlyRate, tenureMonths.toDouble()) /
-            (math.pow(1 + monthlyRate, tenureMonths.toDouble()) - 1);
-      }
-
-      final totalPayment = emi * tenureMonths;
-      final totalInterest = totalPayment - principal;
-
-      setState(
-        () => _emiResult = {
-          'principal': principal,
-          'emi': emi.round(),
-          'total_payment': totalPayment.round(),
-          'total_interest': totalInterest.round(),
-        },
+      final result = FinancialCalculator.calculateEMI(
+        principal: principal,
+        rate: rate,
+        tenureMonths: tenureMonths,
       );
+
+      setState(() => _emiResult = result);
     } catch (e) {
       _showError('EMI calculation failed');
     }
     setState(() => _isCalculating = false);
   }
+
 
   Future<void> _calculateRD() async {
     setState(() => _isCalculating = true);
@@ -181,31 +143,19 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
       final rate = double.tryParse(_rdRateController.text) ?? 6.5;
       final tenureMonths = (int.tryParse(_rdYearsController.text) ?? 5) * 12;
 
-      final quarterlyRate = rate / 4 / 100;
-      double maturityAmount = 0;
-
-      for (int month = 0; month < tenureMonths; month++) {
-        final remainingQuarters = (tenureMonths - month) / 3;
-        final amount =
-            monthlyDeposit * math.pow(1 + quarterlyRate, remainingQuarters);
-        maturityAmount += amount;
-      }
-
-      final totalDeposited = monthlyDeposit * tenureMonths;
-      final interestEarned = maturityAmount - totalDeposited;
-
-      setState(
-        () => _rdResult = {
-          'total_deposited': totalDeposited.round(),
-          'maturity_amount': maturityAmount.round(),
-          'interest_earned': interestEarned.round(),
-        },
+      final result = FinancialCalculator.calculateRD(
+        monthlyDeposit: monthlyDeposit,
+        rate: rate,
+        tenureMonths: tenureMonths,
       );
+
+      setState(() => _rdResult = result);
     } catch (e) {
       _showError('RD calculation failed');
     }
     setState(() => _isCalculating = false);
   }
+
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

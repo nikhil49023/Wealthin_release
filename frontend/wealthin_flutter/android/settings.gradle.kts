@@ -13,6 +13,7 @@ pluginManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://chaquo.com/maven")
         gradlePluginPortal()
     }
 }
@@ -25,6 +26,7 @@ plugins {
     id("com.google.firebase.crashlytics") version("2.8.1") apply false
     // END: FlutterFire Configuration
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("com.chaquo.python") version "15.0.1" apply false
 }
 
 include(":app")

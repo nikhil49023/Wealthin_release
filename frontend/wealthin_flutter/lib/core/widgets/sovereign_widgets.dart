@@ -47,12 +47,12 @@ class GlassCard extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: hasMintTint
                         ? [
-                            AppTheme.glassMint.withOpacity(0.9),
-                            AppTheme.glassWhite.withOpacity(0.85),
+                            AppTheme.glassMint.withValues(alpha: 0.9),
+                            AppTheme.glassWhite.withValues(alpha: 0.85),
                           ]
                         : [
-                            AppTheme.glassWhite.withOpacity(0.9),
-                            AppTheme.glassWhite.withOpacity(0.8),
+                            AppTheme.glassWhite.withValues(alpha: 0.9),
+                            AppTheme.glassWhite.withValues(alpha: 0.8),
                           ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -60,21 +60,21 @@ class GlassCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(borderRadius),
                   border: Border.all(
                     color: hasPurpleGlow
-                        ? AppTheme.royalPurple.withOpacity(0.2)
+                        ? AppTheme.royalPurple.withValues(alpha: 0.2)
                         : AppTheme.glassBorder,
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: hasPurpleGlow
-                          ? AppTheme.royalPurple.withOpacity(0.08)
+                          ? AppTheme.royalPurple.withValues(alpha: 0.08)
                           : AppTheme.glassShadow,
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
                     if (hasPurpleGlow)
                       BoxShadow(
-                        color: AppTheme.purpleGlow.withOpacity(0.1),
+                        color: AppTheme.purpleGlow.withValues(alpha: 0.1),
                         blurRadius: 40,
                         spreadRadius: 2,
                       ),
@@ -149,7 +149,7 @@ class PredictiveProgressBar extends StatelessWidget {
         Container(
           height: height,
           decoration: BoxDecoration(
-            color: AppTheme.mintDark.withOpacity(0.4),
+            color: AppTheme.mintDark.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(height / 2),
           ),
           child: Stack(
@@ -167,14 +167,14 @@ class PredictiveProgressBar extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.purpleGlow.withOpacity(0.3),
-                            AppTheme.purpleGlow.withOpacity(0.1),
+                            AppTheme.purpleGlow.withValues(alpha: 0.3),
+                            AppTheme.purpleGlow.withValues(alpha: 0.1),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(height / 2),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.royalPurple.withOpacity(0.2),
+                            color: AppTheme.royalPurple.withValues(alpha: 0.2),
                             blurRadius: 8,
                             spreadRadius: 1,
                           ),
@@ -197,7 +197,7 @@ class PredictiveProgressBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(height / 2),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.emerald.withOpacity(0.3),
+                          color: AppTheme.emerald.withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -277,7 +277,7 @@ class SovereignStatCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: (iconColor ?? AppTheme.emerald).withOpacity(0.1),
+                  color: (iconColor ?? AppTheme.emerald).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -295,8 +295,8 @@ class SovereignStatCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isPositive
-                        ? AppTheme.emerald.withOpacity(0.1)
-                        : AppTheme.error.withOpacity(0.1),
+                        ? AppTheme.emerald.withValues(alpha: 0.1)
+                        : AppTheme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -371,17 +371,17 @@ class AIInsightChip extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppTheme.royalPurple.withOpacity(0.1),
-                AppTheme.purpleLight.withOpacity(0.05),
+                AppTheme.royalPurple.withValues(alpha: 0.1),
+                AppTheme.purpleLight.withValues(alpha: 0.05),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: AppTheme.royalPurple.withOpacity(0.2),
+              color: AppTheme.royalPurple.withValues(alpha: 0.2),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.royalPurple.withOpacity(0.05),
+                color: AppTheme.royalPurple.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -494,7 +494,7 @@ class SovereignDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     if (label == null) {
       return Divider(
-        color: AppTheme.mintDark.withOpacity(0.5),
+        color: AppTheme.mintDark.withValues(alpha: 0.5),
         thickness: 1,
         height: 32,
       );
@@ -507,7 +507,7 @@ class SovereignDivider extends StatelessWidget {
           Expanded(
             child: Container(
               height: 1,
-              color: AppTheme.mintDark.withOpacity(0.5),
+              color: AppTheme.mintDark.withValues(alpha: 0.5),
             ),
           ),
           Padding(
@@ -524,7 +524,7 @@ class SovereignDivider extends StatelessWidget {
           Expanded(
             child: Container(
               height: 1,
-              color: AppTheme.mintDark.withOpacity(0.5),
+              color: AppTheme.mintDark.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -552,12 +552,12 @@ class AgenticToolBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isActive
-            ? AppTheme.royalPurple.withOpacity(0.15)
-            : AppTheme.mintDark.withOpacity(0.3),
+            ? AppTheme.royalPurple.withValues(alpha: 0.15)
+            : AppTheme.mintDark.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isActive
-              ? AppTheme.royalPurple.withOpacity(0.3)
+              ? AppTheme.royalPurple.withValues(alpha: 0.3)
               : Colors.transparent,
         ),
       ),

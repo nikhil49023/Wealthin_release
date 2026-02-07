@@ -1,0 +1,10 @@
+android {
+    defaultConfig {
+        python {
+            version = "3.8"
+            pip {
+                install "-r", "src/main/python/requirements.txt"
+            }
+        }
+    }
+}

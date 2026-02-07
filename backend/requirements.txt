@@ -31,3 +31,4 @@ Pillow>=9.0.0  # Image processing for OCR
 # Financial Calculations
 numpy>=1.21.0  # Numerical calculations
 requests
+sarvamai

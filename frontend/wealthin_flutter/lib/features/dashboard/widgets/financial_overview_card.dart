@@ -115,7 +115,7 @@ class _FinancialOverviewCardState extends State<FinancialOverviewCard> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.primary.withOpacity(0.8),
+                            AppTheme.primary.withValues(alpha: 0.8),
                             AppTheme.primary,
                           ],
                         ),
@@ -213,7 +213,7 @@ class _FinancialOverviewCardState extends State<FinancialOverviewCard> {
               Text(
                 'Next Due',
                 style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 8),
@@ -284,7 +284,7 @@ class _OverviewItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: WealthInTheme.gray200.withOpacity(0.5)),
+          border: Border.all(color: WealthInTheme.gray200.withValues(alpha: 0.5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,7 +318,7 @@ class _OverviewItem extends StatelessWidget {
             Text(
               title,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 4),
@@ -332,7 +332,7 @@ class _OverviewItem extends StatelessWidget {
             Text(
               subtitle,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 fontSize: 10,
               ),
             ),
@@ -384,8 +384,8 @@ class _UpcomingPaymentRow extends StatelessWidget {
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isUrgent
-                    ? AppTheme.warning.withOpacity(0.1)
-                    : WealthInTheme.gray600.withOpacity(0.1),
+                    ? AppTheme.warning.withValues(alpha: 0.1)
+                    : WealthInTheme.gray600.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(

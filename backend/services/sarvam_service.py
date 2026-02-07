@@ -8,8 +8,9 @@ Uses the official sarvamai SDK for chat completions.
 import os
 import re
 import json
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from dotenv import load_dotenv
+import httpx
 
 load_dotenv()
 
@@ -74,7 +75,7 @@ class SarvamService:
     async def chat(
         self,
         messages: List[Dict[str, str]],
-        model: str = None  # Uses Sarvam's default model
+        model: str = "sarvam-m"  # Valid models: sarvam-m, gemma-4b, gemma-12b
     ) -> str:
         """
         Chat completion using Sarvam AI SDK.
@@ -85,7 +86,11 @@ class SarvamService:
         
         try:
             # Use the sarvamai SDK - synchronous call
-            response = self._client.chat.completions(messages=messages)
+            # Explicitly pass model to avoid API errors
+            response = self._client.chat.completions(
+                messages=messages,
+                model=model
+            )
             
             # Extract the response content
             if hasattr(response, 'choices') and response.choices:
@@ -96,8 +101,55 @@ class SarvamService:
                 return str(response)
                 
         except Exception as e:
+            # If standard model fails, try fallback (e.g. if API expects specific 'sarvam-m')
+            if "sarvam-m" in str(e) and model == "sarvam-2b":
+                 try:
+                    response = self._client.chat.completions(
+                        messages=messages,
+                        model="sarvam-m"
+                    )
+                    if hasattr(response, 'choices') and response.choices:
+                        return response.choices[0].message.content
+                 except Exception:
+                     pass
             raise Exception(f"Sarvam AI error: {str(e)}")
-    
+
+    def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        model: str = "sarvam-2.0-llama-3.1-8b-instruct" # Using a capable model for reasoning
+    ) -> Any:
+        """
+        Raw chat completion with tools support.
+        Returns the full response object to handle tool_calls.
+        """
+        if not self.is_configured:
+             raise Exception("Sarvam AI not configured")
+        
+        try:
+            # Prepare arguments
+            kwargs = {
+                "messages": messages,
+                "model": model,
+            }
+            if tools:
+                kwargs["tools"] = tools
+                
+            # Use the SDK's create method if widely supported, or formatted call
+            # Based on user example: client.chat.completions.create
+            if hasattr(self._client, 'chat') and hasattr(self._client.chat, 'completions'):
+                if hasattr(self._client.chat.completions, 'create'):
+                    return self._client.chat.completions.create(**kwargs)
+                else:
+                    # Fallback to direct call if older SDK structure
+                    return self._client.chat.completions(**kwargs)
+            else:
+                # Direct client call fallback
+                return self._client(**kwargs)
+                
+        except Exception as e:
+            raise Exception(f"Sarvam completion error: {e}")
     async def simple_chat(
         self,
         message: str,

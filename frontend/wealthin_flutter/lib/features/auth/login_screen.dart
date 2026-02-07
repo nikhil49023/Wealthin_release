@@ -71,33 +71,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isGoogleLoading = true;
-      _errorMessage = null;
-    });
 
-    try {
-      final result = await authService.signInWithGoogle();
-
-      if (result != null && mounted) {
-        // Authenticated successfully
-        if (mounted) {
-          setState(() => _isGoogleLoading = false);
-          widget.onLoginSuccess();
-        }
-      } else if (mounted) {
-        setState(() => _isGoogleLoading = false);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isGoogleLoading = false;
-        });
-      }
-    }
-  }
 
   void _showForgotPasswordDialog() {
     final emailController = TextEditingController(text: _emailController.text);
@@ -441,6 +415,8 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 24),
 
             // Divider with "or"
+            // REMOVED GOOGLE SIGN IN TEMPORARILY AS SUPABASE SETUP IS SIMPLER FOR NOW
+            /* 
             Row(
               children: [
                 Expanded(child: Divider(color: Colors.grey[300])),
@@ -455,47 +431,14 @@ class _LoginScreenState extends State<LoginScreen>
               ],
             ),
             const SizedBox(height: 24),
+            */
 
-            // Google Sign-In Button
-            OutlinedButton.icon(
-              onPressed: (_isLoading || _isGoogleLoading)
-                  ? null
-                  : _signInWithGoogle,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                side: BorderSide(color: Colors.grey[300]!),
-              ),
-              icon: _isGoogleLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const _GoogleLogo(),
-                    ),
-              label: Text(
-                _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ),
           ],
         ),
       ),
     ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0);
   }
+
 
   Widget _buildRegisterLink() {
     return Row(

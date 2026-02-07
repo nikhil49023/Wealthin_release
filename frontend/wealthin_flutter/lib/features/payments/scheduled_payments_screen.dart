@@ -820,10 +820,10 @@ class _PaymentCard extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isOverdue
-                          ? AppTheme.expenseRed.withOpacity(0.1)
+                          ? AppTheme.expenseRed.withValues(alpha: 0.1)
                           : isDueSoon
-                          ? AppTheme.warning.withOpacity(0.1)
-                          : AppTheme.primary.withOpacity(0.1),
+                          ? AppTheme.warning.withValues(alpha: 0.1)
+                          : AppTheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -874,7 +874,7 @@ class _PaymentCard extends StatelessWidget {
                         Text(
                           '₹${payment.amount.toStringAsFixed(0)} • ${_capitalizeFirst(payment.frequency)}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                       ],

@@ -1,237 +1,99 @@
-import 'package:firebase_auth/firebase_auth.dart';
-
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import '../../main.dart' show isFirebaseAvailable;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService extends ChangeNotifier {
-  // Only access Firebase instances if Firebase is available
-  FirebaseAuth? _authInstance;
+  
+  User? _user;
+  User? get currentUser => _user;
+  bool get isAuthenticated => _user != null;
 
-
-  FirebaseAuth get _auth {
-    _authInstance ??= isFirebaseAvailable
-        ? FirebaseAuth.instance
-        : throw 'Firebase not available';
-    return _authInstance!;
+  AuthService() {
+    _initialize();
   }
 
-  // Google Sign-In is only available on non-web platforms unless configured
-  // On web, it requires a Google Client ID which is not set
-  bool get _isWebPlatform => kIsWeb;
-
-  // Lazy initialization flag for GoogleSignIn
-  bool _googleSignInInitialized = false;
-  bool _googleSignInAvailable = !kIsWeb; // Disabled on web by default
-  
-  // Store the current signed-in account
-  GoogleSignInAccount? _currentGoogleAccount;
-
-  /// Initialize Google Sign-In (must be called before using it)
-  Future<void> initializeGoogleSignIn() async {
-    if (_isWebPlatform || !isFirebaseAvailable || _googleSignInInitialized) return;
+  void _initialize() {
+    final session = Supabase.instance.client.auth.currentSession;
+    _user = session?.user;
     
-    try {
-      await GoogleSignIn.instance.initialize();
-      _googleSignInInitialized = true;
-      debugPrint('[AuthService] Google Sign-In initialized');
-    } catch (e) {
-      debugPrint('[AuthService] Google Sign-In initialization failed: $e');
-      _googleSignInAvailable = false;
-    }
+    // Listen to auth state changes
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      _user = data.session?.user;
+      notifyListeners();
+      debugPrint('[AuthService] User changed: ${_user?.email}');
+    });
   }
-
-  /// Get the current Google account (if signed in with Google)
-  GoogleSignInAccount? get currentGoogleAccount => _currentGoogleAccount;
-
-  // Firestore removed for local-only setup
-  
-  User? get currentUser => isFirebaseAvailable ? _auth.currentUser : null;
-  bool get isAuthenticated => currentUser != null;
-  Stream<User?> get authStateChanges =>
-      isFirebaseAvailable ? _auth.authStateChanges() : Stream.value(null);
-
-  /// Get current user ID safely (returns 'anonymous' if Firebase unavailable or no user)
-  String get currentUserId => currentUser?.uid ?? 'anonymous';
-
-  /// Check if Google Sign-In is available
-  bool get isGoogleSignInAvailable =>
-      _googleSignInAvailable && !_isWebPlatform && isFirebaseAvailable;
 
   /// Sign in with email and password
-  Future<UserCredential> signInWithEmail({
+  Future<AuthResponse> signInWithEmail({
     required String email,
     required String password,
   }) async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
+      final response = await Supabase.instance.client.auth.signInWithPassword(
         email: email,
         password: password,
       );
-      notifyListeners();
-      return credential;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
+      return response;
+    } on AuthException catch (e) {
+      throw _handleSupabaseError(e);
+    } catch (e) {
+      throw 'An unexpected error occurred: $e';
     }
   }
 
   /// Register with email and password
-  Future<UserCredential> registerWithEmail({
+  Future<AuthResponse> registerWithEmail({
     required String email,
     required String password,
     String? displayName,
   }) async {
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
+      final response = await Supabase.instance.client.auth.signUp(
         email: email,
         password: password,
+        data: displayName != null ? {'display_name': displayName} : null,
       );
-
-      // Update display name if provided
-      if (displayName != null && credential.user != null) {
-        await credential.user!.updateDisplayName(displayName);
-      }
-
-      notifyListeners();
-      return credential;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
-    }
-  }
-
-  /// Sign in with Google
-  /// Note: This only authenticates the user, Drive backup permission is requested separately
-  Future<UserCredential?> signInWithGoogle() async {
-    // Google Sign-In is not available on web without a client ID
-    if (_isWebPlatform) {
-      throw 'Google Sign-In is not available on web. Please use email login.';
-    }
-
-    if (!_googleSignInAvailable) {
-      throw 'Google Sign-In is not configured. Please use email login.';
-    }
-
-    // Ensure Google Sign-In is initialized
-    await initializeGoogleSignIn();
-    
-    if (!_googleSignInInitialized) {
-      throw 'Google Sign-In is not available. Please use email login.';
-    }
-
-    try {
-      // Trigger the authentication flow (no Drive scope - that's requested separately)
-      final GoogleSignInAccount googleUser = await GoogleSignIn.instance.authenticate(
-        scopeHint: ['email'],
-      );
-
-      // Store the account for later use
-      _currentGoogleAccount = googleUser;
-
-      // Get authentication tokens
-      final googleAuth = googleUser.authentication;
-
-      // Create a new credential
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google credential
-      final userCredential = await _auth.signInWithCredential(credential);
-      notifyListeners();
-      return userCredential;
-    } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled) {
-        // User cancelled the sign-in
-        return null;
-      }
-      throw 'Google sign-in failed: ${e.description ?? e.code}';
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
+      return response;
+    } on AuthException catch (e) {
+       throw _handleSupabaseError(e);
     } catch (e) {
-      // Mark Google Sign-In as unavailable if it fails due to configuration
-      if (e.toString().contains('ClientID not set')) {
-        _googleSignInAvailable = false;
-        throw 'Google Sign-In is not configured. Please use email login.';
-      }
-      throw 'Google sign-in failed: $e';
+      throw 'An unexpected error occurred: $e';
     }
   }
 
   /// Sign out
   Future<void> signOut() async {
     try {
-      if (_googleSignInInitialized) {
-        await GoogleSignIn.instance.signOut();
-        _currentGoogleAccount = null;
-      }
-    } catch (_) {
-      // Ignore Google sign-out errors
+      await Supabase.instance.client.auth.signOut();
+      _user = null;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error signing out: $e');
     }
-    await _auth.signOut();
-    notifyListeners();
   }
 
   /// Send password reset email
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
+      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+    } on AuthException catch (e) {
+      throw _handleSupabaseError(e);
     }
   }
 
-  // Helper methods for profile management would go here if using local DB
-  
-  /// Get user profile (Mock implementation for now as Firestore is removed)
-  Future<Map<String, dynamic>?> getUserProfile() async {
-     if (currentUser == null) return null;
-     return {
-       'uid': currentUser!.uid,
-       'email': currentUser!.email,
-       'displayName': currentUser!.displayName,
-     };
-  }
+  /// Get current user ID safely
+  String get currentUserId => currentUser?.id ?? 'anonymous';
 
-  /// Update user preferences (Mock implementation)
-  Future<void> updatePreferences(Map<String, dynamic> preferences) async {
-    // TODO: persist to local DB
-  }
-
-  /// Send email verification to current user
-  Future<void> sendEmailVerification() async {
-    if (currentUser != null && !currentUser!.emailVerified) {
-      await currentUser!.sendEmailVerification();
+  // Helper code to map Supabase errors to user-friendly messages
+  String _handleSupabaseError(AuthException e) {
+    // Supabase error messages are generally readable, but we can customize
+    if (e.message.contains('Invalid login credentials')) {
+      return 'Invalid email or password';
     }
-  }
-
-  /// Check if current user's email is verified
-  bool get isEmailVerified => currentUser?.emailVerified ?? false;
-
-  /// Handle Firebase Auth exceptions with user-friendly messages
-  String _handleAuthException(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return 'No account found with this email';
-      case 'wrong-password':
-        return 'Invalid password';
-      case 'invalid-credential':
-        return 'Invalid email or password';
-      case 'email-already-in-use':
-        return 'An account already exists with this email';
-      case 'weak-password':
-        return 'Password is too weak';
-      case 'invalid-email':
-        return 'Invalid email address';
-      case 'user-disabled':
-        return 'This account has been disabled';
-      case 'too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      case 'operation-not-allowed':
-        return 'This sign-in method is not enabled';
-      case 'network-request-failed':
-        return 'Network error. Please check your connection.';
-      default:
-        return e.message ?? 'Authentication failed';
+    if (e.message.contains('User already registered')) {
+      return 'An account already exists with this email';
     }
+    return e.message;
   }
 }
+

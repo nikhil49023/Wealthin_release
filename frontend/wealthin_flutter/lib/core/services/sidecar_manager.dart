@@ -141,7 +141,7 @@ class SidecarManager {
       final potentialPaths = [
         path.join(path.dirname(Platform.resolvedExecutable), executableName),
         path.join(path.dirname(Platform.resolvedExecutable), 'data', executableName),
-        if (backendDir != null) path.join(backendDir, 'dist', executableName),
+        path.join(backendDir, 'dist', executableName),
       ];
 
       for (final p in potentialPaths) {

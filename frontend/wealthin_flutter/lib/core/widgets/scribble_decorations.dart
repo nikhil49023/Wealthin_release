@@ -16,7 +16,7 @@ class ScribblePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.15)
+      ..color = color.withValues(alpha: 0.15)
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -85,7 +85,7 @@ class ScribblePainter extends CustomPainter {
 
   void _drawDots(Canvas canvas, Size size, Paint paint, math.Random random) {
     final dotPaint = Paint()
-      ..color = color.withOpacity(0.1)
+      ..color = color.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     for (int i = 0; i < 15; i++) {
@@ -194,7 +194,7 @@ class _ScribbleShapePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.3)
+      ..color = color.withValues(alpha: 0.3)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

@@ -1,83 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, kIsWeb;
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme/wealthin_theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/backend_config.dart';
 import 'core/services/sidecar_manager.dart';
+import 'core/services/python_bridge_service.dart';
 import 'features/auth/auth_wrapper.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/finance/finance_hub_screen.dart';
 import 'features/ai_hub/ai_hub_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'core/services/ai_agent_service.dart';
-import 'core/services/llm_inference_router.dart';
+import 'core/services/data_service.dart';
 
-/// Global auth service for Firebase authentication
+
+/// Global auth service for Supabase authentication
 late final AuthService authService;
 
-/// Whether Firebase is available on this platform
-bool isFirebaseAvailable = false;
 
 /// Global theme mode notifier
 final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(
   ThemeMode.light,
 );
 
+/// Global data service for convenience
+final dataService = DataService();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase (not available on Linux desktop)
-  if (defaultTargetPlatform != TargetPlatform.linux) {
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      isFirebaseAvailable = true;
-    } catch (e) {
-      debugPrint('Firebase initialization failed: $e');
-      isFirebaseAvailable = false;
-    }
-  } else {
-    debugPrint(
-      'Running on Linux - Firebase not supported, using local-only mode',
-    );
-    isFirebaseAvailable = false;
-  }
+  await Supabase.initialize(
+    url: 'https://sguzpnegfmeuczgsmtgl.supabase.co',
+    anonKey: 'sb_publishable_ee1UuOOs0ruoqtmdqbRCEg__ls-kja4',
+  );
 
   // Initialize auth service
   authService = AuthService();
 
-  // Start Python backend sidecar (desktop/mobile only, not web)
+  // Initialize credit system
+  await dataService.initCredits();
+  debugPrint('[App] User Credits Initialized: ${dataService.userCredits.value}');
+
+  // Initialize daily streak
+  final streakData = await dataService.initStreak();
+  debugPrint('[App] Daily Streak: ${streakData['current_streak']} days');
+
+  // Initialize backend based on platform
   if (!kIsWeb) {
-    debugPrint('[App] Starting Python backend sidecar...');
-    final sidecarStarted = await sidecarManager.start();
-    if (sidecarStarted) {
-      debugPrint('[App] Sidecar started successfully');
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // On Android, use EMBEDDED Python via Chaquopy (no HTTP backend needed)
+      debugPrint('[App] Initializing embedded Python backend...');
+      final available = await pythonBridge.initialize();
+      debugPrint(available
+          ? '[App] ✓ Python backend initialized - Full embedded mode'
+          : '[App] ⚠ Python unavailable - using Dart fallbacks');
+      
+      // No HTTP backend needed on Android - everything runs locally
+      debugPrint('[App] Mode: Embedded Python (no external backend)');
     } else {
-      debugPrint('[App] Sidecar failed to start - will try to connect to existing backend');
+      // On desktop (Linux/Windows/macOS), try sidecar + HTTP backend
+      debugPrint('[App] Starting Python backend sidecar...');
+      final sidecarStarted = await sidecarManager.start();
+      if (sidecarStarted) {
+        debugPrint('[App] Sidecar started successfully');
+      } else {
+        debugPrint('[App] Sidecar failed - trying existing backend');
+      }
+      
+      // Initialize HTTP backend connection for desktop
+      backendConfig.initialize().then((connected) {
+        debugPrint(connected
+            ? '[Backend] Connected on port ${backendConfig.activePort}'
+            : '[Backend] No HTTP backend - using local calculations');
+      });
     }
   }
 
-  // Initialize backend connection (find active port)
-  final connected = await backendConfig.initialize();
-  debugPrint(
-    connected
-        ? '[Backend] Connected on port ${backendConfig.activePort}'
-        : '[Backend] No backend found - some features may be limited',
-  );
-
-  // Initialize AI Agent Service with Cloud preference (Production Setup)
-  await aiAgentService.initialize(
-    preferredMode: InferenceMode.cloud,
-    allowFallback: true,
-  );
+  // Initialize AI Agent Service with Cloud preference for LLM
+  await aiAgentService.initialize();
 
   runApp(const WealthInApp());
 }
+
 
 class WealthInApp extends StatelessWidget {
   const WealthInApp({super.key});
