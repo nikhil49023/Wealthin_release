@@ -9,6 +9,7 @@ import '../../main.dart' show authService;
 // TODO: Firebase migration - removed main.dart import (was used for Serverpod client)
 // import '../../main.dart';
 import '../../core/services/data_service.dart';
+import '../../widgets/daily_streak_card.dart';
 import 'widgets/metric_card.dart';
 import 'widgets/finbite_card.dart';
 import 'widgets/cashflow_card.dart';
@@ -16,8 +17,11 @@ import 'widgets/financial_overview_card.dart';
 import 'widgets/trend_analysis_card.dart';
 import 'widgets/category_breakdown_card.dart';
 import 'widgets/recent_transactions_card.dart';
+import 'widgets/interactive_banner.dart';
 import '../finance/financial_tools_screen.dart';
 import '../ai_advisor/chat_screen.dart';
+import '../profile/profile_screen.dart';
+import '../payments/scheduled_payments_screen.dart';
 import '../../core/theme/wealthin_theme.dart';
 
 /// Dashboard Screen - Main financial overview with REAL DATA from Python backend
@@ -573,47 +577,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMobileLayout(ThemeData theme) {
+    final userName = authService.currentUser?.email?.split('@').first ?? 'User';
+    final capitalizedName = userName.isNotEmpty 
+        ? userName[0].toUpperCase() + userName.substring(1) 
+        : 'User';
+    
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(theme).animate().fadeIn().slideY(begin: -0.2, end: 0),
-          const SizedBox(height: 24),
-          _buildMobileMetrics().animate().fadeIn(delay: 100.ms).slideX(),
+          // Profile button at top right
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.person_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Profile',
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ).animate().fadeIn().slideX(begin: 0.1),
+          const SizedBox(height: 12),
+          
+          // Interactive Banner (main hero section)
+          InteractiveBanner(
+            userName: capitalizedName,
+            greeting: _greeting,
+            onTap: () => _showUpdatesSheet(context),
+          ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95)),
           const SizedBox(height: 16),
-          IncomeCard(
-            amount: _data?.totalIncome ?? 0,
-            isLoading: _isLoading,
-          ).animate().fadeIn(delay: 200.ms),
-          const SizedBox(height: 16),
-          CashflowCard(
-            data: _data,
-            isLoading: _isLoading,
-          ).animate().fadeIn(delay: 250.ms),
-          const SizedBox(height: 24),
-          const TrendAnalysisCard().animate().fadeIn(delay: 275.ms), 
-          const SizedBox(height: 24),
-          CategoryBreakdownCard(
-            categoryBreakdown: _data?.categoryBreakdown ?? {},
-            isLoading: _isLoading,
-          ).animate().fadeIn(delay: 290.ms),
-          const SizedBox(height: 24),
-          RecentTransactionsCard(
-            transactions: _data?.recentTransactions ?? [],
-            isLoading: _isLoading,
-          ).animate().fadeIn(delay: 295.ms),
-          const SizedBox(height: 24),
-          _buildSuggestionCard(
-            theme,
-          ).animate().shimmer(delay: 1000.ms, duration: 1200.ms),
-          const SizedBox(height: 24),
-          const FinancialOverviewCard().animate().fadeIn(delay: 350.ms),
-          const SizedBox(height: 24),
-          _buildQuickActions(
-            theme,
-          ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2, end: 0),
+          
+          // Daily Streak Card
+          const DailyStreakCard(),
+          const SizedBox(height: 20),
+          
+          // Daily Insight / FinBite Card
+          _buildSuggestionCard(theme).animate().shimmer(delay: 800.ms, duration: 1200.ms),
+          const SizedBox(height: 20),
+          
+          // Quick Actions (Enhanced - 2 rows)
+          _buildQuickActions(theme).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -738,17 +772,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        IconButton(
-          onPressed: () => _showUpdatesSheet(context),
-          icon: const Icon(Icons.notifications_outlined),
-          iconSize: 24,
-          style: IconButton.styleFrom(
-            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-            foregroundColor: theme.colorScheme.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => _showUpdatesSheet(context),
+              icon: const Icon(Icons.notifications_outlined),
+              iconSize: 24,
+              style: IconButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                foregroundColor: theme.colorScheme.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ),
+              icon: const Icon(Icons.person_outlined),
+              iconSize: 24,
+              style: IconButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                foregroundColor: theme.colorScheme.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -813,29 +867,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: 12),
+        // First row
         Row(
           children: [
             Expanded(
               child: _QuickActionButton(
-                icon: Icons.qr_code_scanner_rounded, // Minimalistic
+                icon: Icons.add_card_rounded,
+                label: 'Add',
+                onTap: () => _showAddTransactionDialog(context),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionButton(
+                icon: Icons.qr_code_scanner_rounded,
                 label: 'Scan',
                 onTap: () => _showScannerOptions(context),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionButton(
-                icon: Icons.calculate_outlined, // Minimalistic
-                label: 'Tools',
-                onTap: () {
-                   Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FinancialToolsScreen()),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: _QuickActionButton(
                 icon: Icons.chat_bubble_outline_rounded,
@@ -844,6 +894,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ChatScreen()),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Second row
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionButton(
+                icon: Icons.schedule_rounded,
+                label: 'Payments',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ScheduledPaymentsScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionButton(
+                icon: Icons.calculate_outlined,
+                label: 'Tools',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FinancialToolsScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionButton(
+                icon: Icons.analytics_outlined,
+                label: 'Analysis',
+                onTap: () {
+                  // Navigate to Analysis screen (tab index 1)
+                  // Since we're inside dashboard, we need to use a different approach
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Tap the Analysis tab for detailed insights!'),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      backgroundColor: theme.colorScheme.primary,
+                    ),
                   );
                 },
               ),

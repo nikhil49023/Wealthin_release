@@ -21,6 +21,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   List<TransactionData> _transactions = [];
   String _filterType = 'all'; // 'all', 'income', 'expense'
   
+  // Advanced Filters
+  String? _filterCategory;
+  DateTimeRange? _filterDateRange;
+  double? _filterMinAmount;
+  double? _filterMaxAmount;
+  
+  // Available categories for filtering
+  final List<String> _categories = [
+    'Groceries', 'Food', 'Transport', 'Utilities', 'Rent', 'Housing',
+    'Entertainment', 'Health', 'Medical', 'Education', 'Legal',
+    'Shopping', 'Salary', 'Freelance', 'Other'
+  ];
+  
   // Selection Mode State
   bool _isSelectionMode = false;
   final Set<int> _selectedIds = {};
@@ -175,8 +188,265 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   List<TransactionData> get _filteredTransactions {
-    if (_filterType == 'all') return _transactions;
-    return _transactions.where((t) => t.type == _filterType).toList();
+    var filtered = _transactions;
+    
+    // Filter by type
+    if (_filterType != 'all') {
+      filtered = filtered.where((t) => t.type == _filterType).toList();
+    }
+    
+    // Filter by category
+    if (_filterCategory != null) {
+      filtered = filtered.where((t) => 
+        t.category.toLowerCase() == _filterCategory!.toLowerCase()
+      ).toList();
+    }
+    
+    // Filter by date range
+    if (_filterDateRange != null) {
+      filtered = filtered.where((t) =>
+        t.date.isAfter(_filterDateRange!.start.subtract(const Duration(days: 1))) &&
+        t.date.isBefore(_filterDateRange!.end.add(const Duration(days: 1)))
+      ).toList();
+    }
+    
+    // Filter by amount range
+    if (_filterMinAmount != null) {
+      filtered = filtered.where((t) => t.amount >= _filterMinAmount!).toList();
+    }
+    if (_filterMaxAmount != null) {
+      filtered = filtered.where((t) => t.amount <= _filterMaxAmount!).toList();
+    }
+    
+    return filtered;
+  }
+  
+  bool get _hasActiveFilters => 
+    _filterCategory != null || 
+    _filterDateRange != null || 
+    _filterMinAmount != null || 
+    _filterMaxAmount != null;
+  
+  void _clearAllFilters() {
+    setState(() {
+      _filterCategory = null;
+      _filterDateRange = null;
+      _filterMinAmount = null;
+      _filterMaxAmount = null;
+    });
+  }
+  
+  void _showFilterDialog() {
+    String? tempCategory = _filterCategory;
+    DateTimeRange? tempDateRange = _filterDateRange;
+    double? tempMinAmount = _filterMinAmount;
+    double? tempMaxAmount = _filterMaxAmount;
+    final minController = TextEditingController(text: tempMinAmount?.toStringAsFixed(0) ?? '');
+    final maxController = TextEditingController(text: tempMaxAmount?.toStringAsFixed(0) ?? '');
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: WealthInTheme.gray300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Header
+                  Row(
+                    children: [
+                      Text(
+                        'Filter Transactions',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const Spacer(),
+                      if (_hasActiveFilters)
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() {
+                              tempCategory = null;
+                              tempDateRange = null;
+                              tempMinAmount = null;
+                              tempMaxAmount = null;
+                              minController.clear();
+                              maxController.clear();
+                            });
+                          },
+                          child: const Text('Clear All'),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Date Range Picker
+                  Text('Date Range', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                        initialDateRange: tempDateRange,
+                      );
+                      if (picked != null) {
+                        setModalState(() => tempDateRange = picked);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Theme.of(context).colorScheme.outline),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.date_range),
+                          const SizedBox(width: 12),
+                          Text(
+                            tempDateRange != null
+                              ? '${tempDateRange!.start.day}/${tempDateRange!.start.month} - ${tempDateRange!.end.day}/${tempDateRange!.end.month}'
+                              : 'Select date range',
+                            style: TextStyle(
+                              color: tempDateRange != null 
+                                ? null 
+                                : Theme.of(context).hintColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (tempDateRange != null)
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => setModalState(() => tempDateRange = null),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Category Filter
+                  Text('Category', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: tempCategory,
+                    hint: const Text('All Categories'),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.category),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      suffixIcon: tempCategory != null
+                        ? IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => setModalState(() => tempCategory = null),
+                          )
+                        : null,
+                    ),
+                    items: _categories.map((cat) => 
+                      DropdownMenuItem(value: cat, child: Text(cat))
+                    ).toList(),
+                    onChanged: (value) => setModalState(() => tempCategory = value),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Amount Range
+                  Text('Amount Range (₹)', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: minController,
+                          decoration: InputDecoration(
+                            labelText: 'Min',
+                            prefixIcon: const Icon(Icons.currency_rupee),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            tempMinAmount = double.tryParse(value);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: maxController,
+                          decoration: InputDecoration(
+                            labelText: 'Max',
+                            prefixIcon: const Icon(Icons.currency_rupee),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            tempMaxAmount = double.tryParse(value);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Apply Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _filterCategory = tempCategory;
+                          _filterDateRange = tempDateRange;
+                          _filterMinAmount = double.tryParse(minController.text);
+                          _filterMaxAmount = double.tryParse(maxController.text);
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Text('Apply Filters'),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).padding.bottom),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -216,6 +486,29 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           : AppBar(
               title: const Text('Transactions'),
               actions: [
+                // Filter button with badge for active filters
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.filter_list),
+                      tooltip: 'Filter',
+                      onPressed: _showFilterDialog,
+                    ),
+                    if (_hasActiveFilters)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: WealthInColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
                   tooltip: 'Options',

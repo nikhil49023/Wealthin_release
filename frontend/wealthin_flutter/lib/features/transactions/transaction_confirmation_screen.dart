@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/wealthin_theme.dart';
-import '../../core/models/transaction_model.dart';
+import '../../core/models/models.dart';
 
 /// Screen to review and confirm transactions before saving
 class TransactionConfirmationScreen extends StatefulWidget {

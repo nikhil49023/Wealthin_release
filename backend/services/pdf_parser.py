@@ -6,11 +6,25 @@ Supports Indian bank formats: HDFC, SBI, ICICI, Axis, etc.
 
 import os
 import re
+import logging
+import unicodedata
 import pdfplumber
 from fastapi import UploadFile
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 from dataclasses import dataclass
+
+# Configure logging for PDF parser
+logger = logging.getLogger("pdf_parser")
+logger.setLevel(logging.DEBUG)
+
+# Also log to console with debug info
+if not logger.handlers:
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('[PDF-DEBUG] %(asctime)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
 
 @dataclass
@@ -82,26 +96,50 @@ class PDFParserService:
     
     async def extract_text(self, file: UploadFile) -> str:
         """Extract raw text from PDF"""
+        logger.info(f"[extract_text] Starting extraction for file: {file.filename}")
         text = ""
         temp_filename = None
         try:
             temp_filename = f"temp_{file.filename}"
             content = await file.read()
+            logger.debug(f"[extract_text] Read {len(content)} bytes from file")
+            
             with open(temp_filename, "wb") as f:
                 f.write(content)
             
             with pdfplumber.open(temp_filename) as pdf:
-                for page in pdf.pages:
+                logger.info(f"[extract_text] PDF has {len(pdf.pages)} pages")
+                for page_num, page in enumerate(pdf.pages):
                     page_text = page.extract_text()
                     if page_text:
+                        # Normalize text for Android encoding issues
+                        page_text = self._normalize_text_for_android(page_text)
                         text += page_text + "\n"
+                        logger.debug(f"[extract_text] Page {page_num + 1}: {len(page_text)} chars extracted")
             
+            # Log raw text dump (first 2000 chars) for debugging
+            logger.debug(f"[RAW TEXT DUMP] Total {len(text)} chars:\n{text[:2000]}...")
             return text
         except Exception as e:
+            logger.error(f"[extract_text] Error: {str(e)}")
             return f"Error parsing PDF: {str(e)}"
         finally:
             if temp_filename and os.path.exists(temp_filename):
                 os.remove(temp_filename)
+    
+    def _normalize_text_for_android(self, text: str) -> str:
+        """Normalize text that may have Android-specific encoding issues."""
+        # Normalize Unicode characters (NFKC normalization)
+        text = unicodedata.normalize('NFKC', text)
+        # Fix common Android PDFBox extraction issues
+        text = text.replace('\u00a0', ' ')  # Non-breaking space
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        # Remove zero-width characters
+        text = text.replace('\u200b', '').replace('\u200c', '').replace('\u200d', '')
+        text = text.replace('\ufeff', '')  # BOM
+        # Normalize whitespace
+        text = re.sub(r'[\t\v\f]', ' ', text)
+        return text
     
     async def extract_transactions_from_pdf(
         self, 
@@ -113,11 +151,17 @@ class PDFParserService:
         Returns:
             Dictionary with extracted transactions and metadata
         """
+        logger.info(f"\n{'='*60}")
+        logger.info(f"[PDF EXTRACTION] Starting for file: {file.filename}")
+        logger.info(f"{'='*60}")
+        
         temp_filename = None
         try:
             # Save file temporarily
             temp_filename = f"temp_{file.filename}"
             content = await file.read()
+            logger.debug(f"[PDF] File size: {len(content)} bytes")
+            
             with open(temp_filename, "wb") as f:
                 f.write(content)
             
@@ -126,34 +170,65 @@ class PDFParserService:
             all_tables = []
             
             with pdfplumber.open(temp_filename) as pdf:
-                for page in pdf.pages:
+                logger.info(f"[PDF] Document has {len(pdf.pages)} pages")
+                
+                for page_num, page in enumerate(pdf.pages):
                     page_text = page.extract_text()
                     if page_text:
+                        # Normalize for Android
+                        page_text = self._normalize_text_for_android(page_text)
                         full_text += page_text + "\n"
+                        logger.debug(f"[PDF] Page {page_num + 1}: {len(page_text)} chars text")
                     
                     # Extract tables (often contain structured transaction data)
                     tables = page.extract_tables()
                     if tables:
+                        logger.debug(f"[PDF] Page {page_num + 1}: Found {len(tables)} tables")
+                        for t_idx, table in enumerate(tables):
+                            if table:
+                                logger.debug(f"[PDF] Table {t_idx}: {len(table)} rows")
+                                # Log first 3 rows for debugging
+                                for row_idx, row in enumerate(table[:3]):
+                                    logger.debug(f"  Row {row_idx}: {row}")
                         all_tables.extend(tables)
+            
+            # Log raw text dump for debugging
+            logger.debug(f"\n[RAW TEXT DUMP ({len(full_text)} chars)]:\n{'-'*40}")
+            logger.debug(full_text[:3000] if len(full_text) > 3000 else full_text)
+            logger.debug(f"{'-'*40}")
             
             # Detect bank type
             bank_type = self._detect_bank(full_text)
+            logger.info(f"[PDF] Detected bank: {bank_type or 'unknown'}")
             
             # Extract transactions
             transactions = []
             
             # Try table extraction first (more reliable)
             if all_tables:
+                logger.info(f"[PDF] Attempting table extraction from {len(all_tables)} tables...")
                 transactions = self._extract_from_tables(all_tables, bank_type)
+                logger.info(f"[PDF] Table extraction found {len(transactions)} transactions")
             
             # Fallback to text pattern matching
             if not transactions:
+                logger.info("[PDF] Falling back to text pattern matching...")
                 transactions = self._extract_from_text(full_text, bank_type)
+                logger.info(f"[PDF] Text extraction found {len(transactions)} transactions")
             
             # Auto-categorize transactions
             for tx in transactions:
                 if tx.category == "Other":
                     tx.category = self._detect_category(tx.description)
+            
+            # Log final results
+            logger.info(f"\n[PDF EXTRACTION COMPLETE]")
+            logger.info(f"  Bank: {bank_type or 'unknown'}")
+            logger.info(f"  Transactions found: {len(transactions)}")
+            for i, tx in enumerate(transactions[:5]):
+                logger.debug(f"  [{i+1}] {tx.date} | {tx.description[:30]}... | ₹{tx.amount} ({tx.type})")
+            if len(transactions) > 5:
+                logger.debug(f"  ... and {len(transactions) - 5} more")
             
             return {
                 'success': True,
@@ -174,6 +249,7 @@ class PDFParserService:
             }
             
         except Exception as e:
+            logger.error(f"[PDF] Extraction failed: {str(e)}", exc_info=True)
             return {
                 'success': False,
                 'error': str(e),

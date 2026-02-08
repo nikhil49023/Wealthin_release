@@ -4,13 +4,11 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:read_pdf_text/read_pdf_text.dart';
-import 'sarvam_service.dart';
 import 'backend_config.dart';
 import 'database_helper.dart';
 import 'python_bridge_service.dart';
-import 'native_pdf_service.dart';
 import 'financial_calculator.dart';
+import 'native_pdf_parser.dart';
 import '../models/models.dart';
 
 // Typedefs to bridge previous naming mismatch if needed, or just use Models
@@ -412,6 +410,37 @@ class DataService {
     int reminderDays = 3,
     String? notes,
   }) async {
+    if (_isAndroid) {
+      final row = {
+        'name': name,
+        'amount': amount,
+        'category': category,
+        'due_date': dueDate,
+        'frequency': frequency,
+        'is_autopay': isAutopay ? 1 : 0,
+        'reminder_days': reminderDays,
+        'notes': notes,
+        'is_active': 1,
+      };
+      
+      final id = await databaseHelper.createScheduledPayment(row);
+      if (id > 0) {
+        return ScheduledPaymentData(
+          id: id,
+          name: name,
+          amount: amount,
+          category: category,
+          dueDate: dueDate,
+          frequency: frequency,
+          isAutopay: isAutopay,
+          status: 'active',
+          reminderDays: reminderDays,
+          notes: notes,
+        );
+      }
+      return null;
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/scheduled-payments'),
@@ -434,7 +463,7 @@ class DataService {
         return ScheduledPaymentData.fromJson(data['payment']);
       }
     } catch (e) {
-      print('Error creating scheduled payment: $e');
+      debugPrint('Error creating scheduled payment: $e');
     }
     return null;
   }
@@ -444,11 +473,11 @@ class DataService {
     String userId, {
     String? status,
   }) async {
-    // On Android, scheduled payments are not yet stored locally
-    // Return empty list to avoid HTTP errors
+    // On Android, use local database
     if (_isAndroid) {
-      // TODO: Implement local scheduled payments storage
-      return [];
+      final rows = await databaseHelper.getScheduledPayments();
+      // TODO: Filter by status if needed (e.g. check is_active)
+      return rows.map((row) => ScheduledPaymentData.fromJson(row)).toList();
     }
     
     try {
@@ -483,6 +512,28 @@ class DataService {
     String? status,
     String? notes,
   }) async {
+    if (_isAndroid) {
+       final updates = <String, dynamic>{'id': paymentId};
+       if (name != null) updates['name'] = name;
+       if (amount != null) updates['amount'] = amount;
+       if (category != null) updates['category'] = category;
+       if (frequency != null) updates['frequency'] = frequency;
+       if (isAutopay != null) updates['is_autopay'] = isAutopay ? 1 : 0;
+       if (reminderDays != null) updates['reminder_days'] = reminderDays;
+       if (status != null) updates['is_active'] = status == 'active' ? 1 : 0;
+       if (notes != null) updates['notes'] = notes;
+       
+       await databaseHelper.updateScheduledPayment(updates);
+       
+       // Fetch and return the updated payment to ensure UI refreshes
+       final payments = await databaseHelper.getScheduledPayments();
+       final payment = payments.firstWhere((p) => p['id'] == paymentId, orElse: () => {});
+       if (payment.isNotEmpty) {
+         return ScheduledPaymentData.fromJson(payment);
+       }
+       return null;
+    }
+
     try {
       final updates = <String, dynamic>{};
       if (name != null) updates['name'] = name;
@@ -515,6 +566,52 @@ class DataService {
     String userId,
     int paymentId,
   ) async {
+    if (_isAndroid) {
+      // Simplified local implementation: Advance due date by 1 month
+      // TODO: Implement proper frequency handling and transaction creation
+      final payments = await databaseHelper.getScheduledPayments();
+      final paymentMap = payments.firstWhere((p) => p['id'] == paymentId, orElse: () => {});
+      
+      if (paymentMap.isNotEmpty) {
+        final currentDue = DateTime.parse(paymentMap['due_date']);
+        // Calculate next due date based on frequency
+        DateTime nextDue;
+        final frequency = (paymentMap['frequency'] as String? ?? 'monthly').toLowerCase();
+        
+        switch (frequency) {
+          case 'weekly':
+            nextDue = currentDue.add(const Duration(days: 7));
+            break;
+          case 'biweekly':
+            nextDue = currentDue.add(const Duration(days: 14));
+            break;
+          case 'quarterly':
+            nextDue = DateTime(currentDue.year, currentDue.month + 3, currentDue.day);
+            break;
+          case 'yearly':
+            nextDue = DateTime(currentDue.year + 1, currentDue.month, currentDue.day);
+            break;
+          case 'monthly':
+          default:
+            nextDue = DateTime(currentDue.year, currentDue.month + 1, currentDue.day);
+            break;
+        }
+
+        final nextDueStr = DateFormat('yyyy-MM-dd').format(nextDue);
+        
+        await databaseHelper.updateScheduledPayment({
+          'id': paymentId,
+          'due_date': nextDueStr,
+        });
+        
+        // Return updated map as object
+        final updatedMap = Map<String, dynamic>.from(paymentMap);
+        updatedMap['due_date'] = nextDueStr;
+        return ScheduledPaymentData.fromJson(updatedMap);
+      }
+      return null;
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/scheduled-payments/$userId/$paymentId/mark-paid'),
@@ -533,15 +630,20 @@ class DataService {
 
   /// Delete a scheduled payment
   Future<bool> deleteScheduledPayment(String userId, int paymentId) async {
+    if (_isAndroid) {
+      final count = await databaseHelper.deleteScheduledPayment(paymentId);
+      return count > 0;
+    }
+
     try {
       final response = await http.delete(
         Uri.parse('$_baseUrl/scheduled-payments/$userId/$paymentId'),
       );
       return response.statusCode == 200;
     } catch (e) {
-      print('Error deleting scheduled payment: $e');
+      debugPrint('Error deleting scheduled payment: $e');
+      return false;
     }
-    return false;
   }
 
   /// Get upcoming payments
@@ -979,16 +1081,13 @@ $emiRecommendation
   Future<ImportResult?> importFromPdf(String userId, String filePath) async {
     if (_isAndroid) {
       try {
-        // Native PDF extraction
-        final text = await ReadPdfText.getPDFtext(filePath);
-        if (text.isEmpty) {
-           return ImportResult(success: false, transactions: [], importedCount: 0, message: 'Could not read text from PDF');
-        }
-
-        // AI Extraction via HTTP
-        final result = await SarvamService().extractTransactionsFromText(text);
+        // Use Python bridge to parse PDF and extract transactions
+        final result = await pythonBridge.executeTool(
+          'parse_bank_statement',
+          {'file_path': filePath},
+        );
         
-        if (result['success'] == true) {
+        if (result['success'] == true && result['transactions'] != null) {
           final txs = result['transactions'] as List;
           int imported = 0;
           List<TransactionModel> models = [];
@@ -1002,7 +1101,7 @@ $emiRecommendation
             final row = {
               'amount': (t['amount'] as num?)?.toDouble() ?? 0.0,
               'description': t['description']?.toString() ?? 'Imported PDF',
-              'category': 'Other', // Auto-categorization can be added later
+              'category': t['category']?.toString() ?? 'Other',
               'date': t['date']?.toString() ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
               'type': type,
             };
@@ -1017,11 +1116,11 @@ $emiRecommendation
             success: true,
             transactions: models,
             importedCount: imported,
-            bankDetected: result['bank_detected'],
+            bankDetected: result['bank_detected']?.toString(),
             message: 'Imported $imported transactions from PDF',
           );
         }
-        return ImportResult(success: false, transactions: [], importedCount: 0, message: result['error'] ?? 'Unknown error');
+        return ImportResult(success: false, transactions: [], importedCount: 0, message: result['error']?.toString() ?? 'Unknown error');
       } catch (e) {
         debugPrint('Error importing PDF (Native): $e');
         return ImportResult(success: false, transactions: [], importedCount: 0, message: e.toString());
@@ -1269,19 +1368,9 @@ $emiRecommendation
 
   // ==================== DOCUMENT SCANNING ====================
 
-  /// Scan a receipt image using Sarvam AI Vision
+  /// Scan a receipt image using Python backend
   Future<ReceiptData?> scanReceipt(String filePath) async {
-    // First try Sarvam AI directly (works on all platforms)
-    try {
-      final result = await SarvamService().analyzeReceipt(filePath);
-      if (result['success'] == true) {
-        return ReceiptData.fromJson(result);
-      }
-    } catch (e) {
-      debugPrint('Sarvam Vision failed: $e');
-    }
-    
-    // Fallback to Android Python bridge if available
+    // On Android: Use Python bridge
     if (_isAndroid) {
       try {
         final result = await pythonBridge.extractReceiptFromPath(filePath);
@@ -1289,55 +1378,63 @@ $emiRecommendation
           return ReceiptData.fromJson(result);
         }
       } catch (e) {
-        debugPrint('Error scanning receipt (Android fallback): $e');
+        debugPrint('Error scanning receipt (Python bridge): $e');
       }
     }
     
-    // Last fallback to backend API (for desktop)
-    try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$_baseUrl/agent/scan-receipt'),
-      );
-      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    // On Desktop: Use HTTP backend
+    if (!_isAndroid) {
+      try {
+        var request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$_baseUrl/agent/scan-receipt'),
+        );
+        request.files.add(await http.MultipartFile.fromPath('file', filePath));
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true && data['data'] != null) {
-          return ReceiptData.fromJson(data['data']);
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['success'] == true && data['data'] != null) {
+            return ReceiptData.fromJson(data['data']);
+          }
         }
+      } catch (e) {
+        debugPrint('Error scanning receipt (HTTP backend): $e');
       }
-    } catch (e) {
-      print('Error scanning receipt (backend fallback): $e');
     }
+    
     return null;
   }
 
   /// Scan a PDF bank statement - returns parsed transactions WITHOUT saving
   /// Use saveTransactions() to persist them after user confirmation
+  /// Uses native Dart PDF parser (Syncfusion) - works on all platforms
   Future<List<TransactionModel>> scanBankStatement(String filePath) async {
-    // Start with Native Parsing (Safe & Fast)
+    debugPrint('Parsing PDF with native Dart parser: $filePath');
+    
     try {
-      debugPrint('Parsing PDF natively: $filePath');
-      final transactions = await NativePdfService().parsePdf(filePath);
+      // Use native Dart PDF parser (works on all platforms)
+      final txList = await NativePdfParser.parseStatement(filePath);
       
-      if (transactions.isNotEmpty) {
-        debugPrint('Native parsing successful: ${transactions.length} transactions found.');
+      if (txList.isNotEmpty) {
+        debugPrint('Native PDF parsed ${txList.length} transactions.');
         
-        // Optional: Enhance with AI Categorization from Backend (if online)
-        // We can implement this optimization later if needed.
-        // For now, the native regex-based categorization is robust enough for basic usage.
-        
-        return transactions;
+        return txList.map((tx) => TransactionModel(
+          id: null,
+          date: DateTime.tryParse(tx['date'] ?? '') ?? DateTime.now(),
+          description: tx['description'] ?? 'Transaction',
+          amount: (tx['amount'] as num?)?.toDouble() ?? 0.0,
+          category: tx['category'] ?? 'Other',
+          type: tx['type'] ?? 'expense',
+          merchant: tx['merchant'],
+        )).toList();
       }
     } catch (e) {
-      debugPrint('Native parsing failed: $e');
+      debugPrint('Native PDF parsing failed: $e');
     }
     
-    // Fallback? No, user requested to move away from backend PDF parsing to avoid crashes.
     return [];
   }
 
@@ -1393,39 +1490,55 @@ class ScheduledPaymentData {
 
   ScheduledPaymentData({
     this.id,
-    required this.userId,
+    this.userId = '',  // Optional - not stored in local DB
     required this.name,
     required this.amount,
     required this.category,
-    required this.frequency,
+    this.frequency = 'monthly',
     required this.dueDate,
-    required this.nextDueDate,
-    required this.isAutopay,
-    required this.status,
-    required this.reminderDays,
+    String? nextDueDate,  // Optional - derived from dueDate if not provided
+    this.isAutopay = false,
+    this.status = 'active',  // Default active
+    this.reminderDays = 3,
     this.lastPaidDate,
     this.notes,
-    required this.createdAt,
-    required this.updatedAt,
-  });
+    String? createdAt,  // Optional - default to now
+    String? updatedAt,  // Optional - default to now
+  }) : nextDueDate = nextDueDate ?? dueDate,
+       createdAt = createdAt ?? DateTime.now().toIso8601String(),
+       updatedAt = updatedAt ?? DateTime.now().toIso8601String();
 
   factory ScheduledPaymentData.fromJson(Map<String, dynamic> json) {
+    // Handle local DB format (is_active as int) vs API format (status as string)
+    String status = 'active';
+    if (json['status'] != null) {
+      status = json['status'].toString();
+    } else if (json['is_active'] != null) {
+      status = (json['is_active'] == 1 || json['is_active'] == true) ? 'active' : 'paused';
+    }
+    
+    // Handle is_autopay as int or bool
+    bool isAutopay = false;
+    if (json['is_autopay'] != null) {
+      isAutopay = json['is_autopay'] == 1 || json['is_autopay'] == true;
+    }
+    
     return ScheduledPaymentData(
       id: json['id'],
-      userId: json['user_id'] ?? '',
+      userId: json['user_id']?.toString() ?? '',
       name: json['name'] ?? '',
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       category: json['category'] ?? '',
       frequency: json['frequency'] ?? 'monthly',
       dueDate: json['due_date'] ?? '',
-      nextDueDate: json['next_due_date'] ?? '',
-      isAutopay: json['is_autopay'] ?? false,
-      status: json['status'] ?? 'active',
+      nextDueDate: json['next_due_date'] ?? json['due_date'] ?? '',
+      isAutopay: isAutopay,
+      status: status,
       reminderDays: json['reminder_days'] ?? 3,
       lastPaidDate: json['last_paid_date'],
       notes: json['notes'],
-      createdAt: json['created_at'] ?? '',
-      updatedAt: json['updated_at'] ?? '',
+      createdAt: json['created_at'] ?? DateTime.now().toIso8601String(),
+      updatedAt: json['updated_at'] ?? DateTime.now().toIso8601String(),
     );
   }
 

@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart' show authService;
 import '../../core/theme/app_theme.dart';
 import '../../core/services/data_service.dart';
+import '../../core/services/database_helper.dart';
+import '../../core/services/transaction_categorizer.dart';
 import '../../core/theme/wealthin_theme.dart';
 
 /// Budget Management Screen - Track spending limits by category
@@ -43,6 +45,11 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
   Future<void> _loadBudgets() async {
     setState(() => _isLoading = true);
     try {
+      // Auto-recalculate budget spending from transactions
+      // This ensures budgets always reflect actual transaction data
+      await databaseHelper.recalculateBudgetSpending();
+      debugPrint('[Budgets] Auto-recalculated spending from transactions');
+      
       final budgets = await dataService.getBudgets(_userId);
 
       double totalBudget = 0;
@@ -153,8 +160,13 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
   }
 
   void _showAddBudgetDialog(BuildContext context) {
-    final nameController = TextEditingController();
     final amountController = TextEditingController();
+    String? selectedCategory;
+    // Default to first category if available
+    final categories = TransactionCategorizer.categories;
+    if (categories.isNotEmpty) selectedCategory = categories.first;
+    
+    // Attempt to match icon, fallback to restaurant
     String selectedIcon = 'restaurant';
 
     showModalBottomSheet(
@@ -195,15 +207,44 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  TextField(
-                    controller: nameController,
+                  
+                  // Category Dropdown
+                  DropdownButtonFormField<String>(
+                    value: selectedCategory,
+                    items: categories.map((c) {
+                      return DropdownMenuItem(
+                        value: c,
+                        child: Text(c),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() {
+                          selectedCategory = val;
+                          // Try to auto-select icon based on category name logic
+                          // This is a simple heuristic mapping based on _budgetIcons keys
+                          final lower = val.toLowerCase();
+                          if (lower.contains('food')) selectedIcon = 'restaurant';
+                          else if (lower.contains('shop')) selectedIcon = 'shopping';
+                          else if (lower.contains('transport')) selectedIcon = 'transport';
+                          else if (lower.contains('entertain')) selectedIcon = 'entertainment';
+                          else if (lower.contains('health')) selectedIcon = 'health';
+                          else if (lower.contains('bill') || lower.contains('util')) selectedIcon = 'bills';
+                          else if (lower.contains('grocer')) selectedIcon = 'groceries';
+                          else if (lower.contains('educat')) selectedIcon = 'education';
+                          else if (lower.contains('travel')) selectedIcon = 'travel';
+                          else if (lower.contains('subscript')) selectedIcon = 'subscriptions';
+                          else if (lower.contains('rent') || lower.contains('house')) selectedIcon = 'housing';
+                          else selectedIcon = 'other';
+                        });
+                      }
+                    },
                     decoration: const InputDecoration(
-                      labelText: 'Category Name',
-                      hintText: 'e.g., Food, Transport, Shopping',
+                      labelText: 'Category',
                       prefixIcon: Icon(Icons.category),
                     ),
-                    textCapitalization: TextCapitalization.words,
                   ),
+                  
                   const SizedBox(height: 16),
                   TextField(
                     controller: amountController,
@@ -214,59 +255,24 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Icon',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _budgetIcons.entries.map((entry) {
-                      final isSelected = selectedIcon == entry.key;
-                      return InkWell(
-                        onTap: () =>
-                            setModalState(() => selectedIcon = entry.key),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.1)
-                                :  WealthInTheme.gray100,
-                            borderRadius: BorderRadius.circular(12),
-                            border: isSelected
-                                ? Border.all(color: AppTheme.primary, width: 2)
-                                : null,
-                          ),
-                          child: Icon(
-                            entry.value,
-                            color: isSelected
-                                ? AppTheme.primary
-                                : WealthInTheme.gray600,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  // Icon is automatically determined from category
+                  const SizedBox(height: 24),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () async {
-                        final name = nameController.text.trim();
                         final amount =
                             double.tryParse(amountController.text) ?? 0;
-                        if (name.isNotEmpty && amount > 0) {
+                        if (selectedCategory != null && amount > 0) {
                           // Create budget via API
+                          // Use exact category string as ID and Name
                           final created = await dataService.createBudget(
                             userId: _userId,
-                            name: name,
+                            name: selectedCategory!, 
                             amount: amount,
-                            category: name.toLowerCase().replaceAll(' ', '_'),
-                            icon: selectedIcon,
+                            category: selectedCategory!, // Crucial: Store exact category name
                           );
 
                           if (context.mounted) Navigator.pop(context);
@@ -274,7 +280,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                           if (created != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Budget "$name" created! ✅'),
+                                content: Text('Budget for "$selectedCategory" created! ✅'),
                                 backgroundColor: AppTheme.success,
                               ),
                             );
@@ -346,11 +352,22 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Category Name',
-                      prefixIcon: Icon(Icons.category),
+                  // Display category name (read-only for now as it is PK)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: WealthInTheme.gray100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(TransactionCategorizer.getIcon(budget.category)),
+                        const SizedBox(width: 12),
+                        Text(
+                          budget.category,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -362,39 +379,8 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 16),
-                  Text('Icon', style: Theme.of(context).textTheme.bodyMedium),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _budgetIcons.entries.map((entry) {
-                      final isSelected = selectedIcon == entry.key;
-                      return InkWell(
-                        onTap: () =>
-                            setModalState(() => selectedIcon = entry.key),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.1)
-                                : WealthInTheme.gray100,
-                            borderRadius: BorderRadius.circular(12),
-                            border: isSelected
-                                ? Border.all(color: AppTheme.primary, width: 2)
-                                : null,
-                          ),
-                          child: Icon(
-                            entry.value,
-                            color: isSelected
-                                ? AppTheme.primary
-                                : WealthInTheme.gray600,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  // Icon is fixed based on category
+                  const SizedBox(height: 24),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
@@ -482,25 +468,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
 }
 
 // Icon mapping for budget categories
-const Map<String, IconData> _budgetIcons = {
-  'restaurant': Icons.restaurant,
-  'shopping': Icons.shopping_bag,
-  'transport': Icons.directions_car,
-  'entertainment': Icons.movie,
-  'health': Icons.medical_services,
-  'bills': Icons.receipt_long,
-  'groceries': Icons.local_grocery_store,
-  'education': Icons.school,
-  'travel': Icons.flight,
-  'subscriptions': Icons.subscriptions,
-  'legal': Icons.gavel,
-  'housing': Icons.home,
-  'other': Icons.category,
-};
 
-IconData _getIconForBudget(String iconKey) {
-  return _budgetIcons[iconKey] ?? Icons.category;
-}
 
 /// Overall budget summary card
 class _OverallBudgetCard extends StatelessWidget {
@@ -687,7 +655,7 @@ class _BudgetCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    _getIconForBudget(budget.icon),
+                    TransactionCategorizer.getIcon(budget.category),
                     color: progressColor,
                   ),
                 ),

@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -57,6 +57,23 @@ class DatabaseHelper {
         });
       }
       debugPrint('user_streak table created/verified');
+    }
+
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS scheduled_payments(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          category TEXT NOT NULL,
+          due_date TEXT NOT NULL,
+          frequency TEXT DEFAULT 'monthly',
+          is_autopay INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          reminder_days INTEGER DEFAULT 3,
+          notes TEXT
+        )
+      ''');
     }
   }
 
@@ -98,6 +115,22 @@ class DatabaseHelper {
         saved_amount REAL DEFAULT 0.0,
         deadline TEXT,
         color_hex INTEGER
+      )
+    ''');
+
+    // Scheduled Payments Table
+    await db.execute('''
+      CREATE TABLE scheduled_payments(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        due_date TEXT NOT NULL,
+        frequency TEXT DEFAULT 'monthly',
+        is_autopay INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        reminder_days INTEGER DEFAULT 3,
+        notes TEXT
       )
     ''');
     
@@ -325,10 +358,12 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getBudgets() async {
     final db = await database;
     final now = DateTime.now();
-    final firstDayOfMonth = DateTime(now.year, now.month, 1).toIso8601String();
+    // Format YYYY-MM-DD for first day of month (e.g., "2026-02-01")
+    final firstDayOfMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
 
     // Query budgets and join with current month's transactions
     // We use COALESCE(SUM(amount), 0) to handle categories with no transactions
+    // Using LOWER() for case-insensitive category matching
     final result = await db.rawQuery('''
       SELECT 
         b.*, 
@@ -339,7 +374,7 @@ class DatabaseHelper {
         FROM transactions 
         WHERE LOWER(type) IN ('expense', 'debit') AND date >= ? 
         GROUP BY category
-      ) t ON b.category = t.category
+      ) t ON LOWER(b.category) = LOWER(t.category)
     ''', [firstDayOfMonth]);
     
     return result;
@@ -368,7 +403,28 @@ class DatabaseHelper {
     return await db.query('goals');
   }
 
-  // --- User Streak ---
+  // --- Scheduled Payments ---
+
+  Future<int> createScheduledPayment(Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.insert('scheduled_payments', row);
+  }
+
+  Future<List<Map<String, dynamic>>> getScheduledPayments() async {
+    final db = await database;
+    return await db.query('scheduled_payments', orderBy: 'due_date ASC');
+  }
+
+  Future<int> updateScheduledPayment(Map<String, dynamic> row) async {
+    final db = await database;
+    final id = row['id'];
+    return await db.update('scheduled_payments', row, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteScheduledPayment(int id) async {
+    final db = await database;
+    return await db.delete('scheduled_payments', where: 'id = ?', whereArgs: [id]);
+  }
 
   /// Get current streak data
   Future<Map<String, dynamic>?> getStreak() async {

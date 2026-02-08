@@ -26,6 +26,9 @@ class _ChatScreenState extends State<ChatScreen> {
   
   List<ChatMessage> get _messages => _sessionMessages;
   bool _isLoading = false;
+  
+  // Check if user has sent at least one message (hide chips after first message)
+  bool get _hasUserSentMessage => _messages.any((m) => m.isUser);
 
   @override
   void initState() {
@@ -196,33 +199,13 @@ _Just type or tap a suggestion below!_""",
           );
           success = result != null;
           break;
-        case 'schedule_payment':
-          // Calculate next due date from due_day
-          final now = DateTime.now();
-          final dueDay = actionData['due_day'] as int? ?? 1;
-          // Handle valid days (e.g. 31st in Feb)
-          var nextMonth = now.month;
-          var nextYear = now.year;
-          if (now.day > dueDay) {
-            nextMonth++;
-            if (nextMonth > 12) {
-              nextMonth = 1;
-              nextYear++;
-            }
-          }
-          // Simple safeguard for days like 31st
-          final lastDayOfNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
-          final safeDay = dueDay > lastDayOfNextMonth ? lastDayOfNextMonth : dueDay;
-          
-          final nextDate = DateTime(nextYear, nextMonth, safeDay);
-          final dueDateStr = DateFormat('yyyy-MM-dd').format(nextDate);
-
+        case 'create_scheduled_payment':
           final result = await dataService.createScheduledPayment(
             userId: userId,
             name: actionData['name'] ?? 'Payment',
             amount: _parseAmount(actionData['amount']),
             category: actionData['category'] ?? 'Bills',
-            dueDate: dueDateStr,
+            dueDate: actionData['due_date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 1))),
             frequency: actionData['frequency'] ?? 'monthly',
           );
           success = result != null;
@@ -1004,6 +987,8 @@ _Just type or tap a suggestion below!_""",
         return Icons.flag_outlined;
       case 'add_transaction':
         return Icons.receipt_long_outlined;
+      case 'create_scheduled_payment':
+        return Icons.event_repeat_outlined;
       default:
         return Icons.auto_awesome_outlined;
     }
@@ -1035,6 +1020,8 @@ _Just type or tap a suggestion below!_""",
         return 'Goal';
       case 'add_transaction':
         return 'Transaction';
+      case 'create_scheduled_payment':
+        return 'Schedule Pay';
       default:
         return 'AI Action';
     }
@@ -1557,44 +1544,45 @@ _Just type or tap a suggestion below!_""",
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Quick action chips - always visible
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                _buildQuickActionChip(
-                  'Phones under 20000',
-                  Icons.smartphone_outlined,
-                  isDark,
-                ),
-                const SizedBox(width: 8),
-                _buildQuickActionChip(
-                  'SIP Calculator',
-                  Icons.trending_up_outlined,
-                  isDark,
-                ),
-                const SizedBox(width: 8),
-                _buildQuickActionChip(
-                  'EMI Calculator',
-                  Icons.calculate_outlined,
-                  isDark,
-                ),
-                const SizedBox(width: 8),
-                _buildQuickActionChip(
-                  'Hotels in Goa',
-                  Icons.hotel_outlined,
-                  isDark,
-                ),
-                const SizedBox(width: 8),
-                _buildQuickActionChip(
-                  'Financial News',
-                  Icons.newspaper_outlined,
-                  isDark,
-                ),
-              ],
+          // Quick action chips - only visible before first user message
+          if (!_hasUserSentMessage)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  _buildQuickActionChip(
+                    'Phones under 20000',
+                    Icons.smartphone_outlined,
+                    isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildQuickActionChip(
+                    'SIP Calculator',
+                    Icons.trending_up_outlined,
+                    isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildQuickActionChip(
+                    'EMI Calculator',
+                    Icons.calculate_outlined,
+                    isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildQuickActionChip(
+                    'Hotels in Goa',
+                    Icons.hotel_outlined,
+                    isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildQuickActionChip(
+                    'Financial News',
+                    Icons.newspaper_outlined,
+                    isDark,
+                  ),
+                ],
+              ),
             ),
-          ),
           Row(
             children: [
               // Task switcher
@@ -1706,12 +1694,10 @@ _Just type or tap a suggestion below!_""",
                 child: Icon(Icons.history_outlined, color: WealthInTheme.purple),
               ),
               title: const Text('Chat History'),
-              subtitle: const Text('Previous conversations'),
+              subtitle: Text('${_messages.length} messages'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chat history coming soon!')),
-                );
+                _showChatHistorySheet(context);
               },
             ),
             SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
@@ -1754,6 +1740,149 @@ _Just type or tap a suggestion below!_""",
         }
         _messageController.text = queryMap[label] ?? label;
         _sendMessage();
+      },
+    );
+  }
+
+  void _showChatHistorySheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: isDark ? WealthInColors.black : Colors.white,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.3,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? WealthInColors.blackBorder : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Chat History',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${_messages.length} messages',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Messages list
+                Expanded(
+                  child: _messages.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 64,
+                                color: isDark ? WealthInColors.blackBorder : Colors.grey[300],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No messages yet',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Start a conversation with AI Advisor',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message = _messages[_messages.length - 1 - index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: message.isUser
+                                    ? WealthInColors.primary.withValues(alpha: 0.1)
+                                    : WealthInTheme.regalGold.withValues(alpha: 0.15),
+                                child: Icon(
+                                  message.isUser ? Icons.person_rounded : Icons.smart_toy_rounded,
+                                  color: message.isUser ? WealthInColors.primary : WealthInTheme.regalGold,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                message.isUser ? 'You' : 'AI Advisor',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: Text(
+                                message.text.length > 80
+                                    ? '${message.text.substring(0, 80)}...'
+                                    : message.text,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Text(
+                                _formatTime(message.timestamp),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                                ),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                // Scroll to this message
+                                final targetIndex = _messages.length - 1 - index;
+                                if (_scrollController.hasClients && targetIndex >= 0) {
+                                  // Simple scroll to approximate position
+                                  _scrollController.animateTo(
+                                    targetIndex * 100.0,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeOut,
+                                  );
+                                }
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
