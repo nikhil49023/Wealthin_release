@@ -587,6 +587,24 @@ class PythonBridgeService {
     });
   }
 
+  /// Detect recurring subscriptions from transactions
+  /// Returns list of detected subscriptions with frequency, amounts, and projections
+  Future<Map<String, dynamic>> detectSubscriptions(
+    List<Map<String, dynamic>> transactions,
+  ) async {
+    if (!_isPythonAvailable) {
+      return {
+        'success': false,
+        'error': 'Subscription detection requires Python backend'
+      };
+    }
+
+    return await _callPython('execute_tool', {
+      'tool_name': 'detect_subscriptions',
+      'args_json': json.encode({'transactions': transactions}),
+    });
+  }
+
   // ==================== FINANCIAL ADVICE ====================
 
   /// Get personalized financial advice

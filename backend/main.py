@@ -40,6 +40,7 @@ from services.analytics_service import analytics_service
 from services.financial_calculator import FinancialCalculator
 from services.web_search_service import web_search_service
 from services.pdf_parser_advanced import pdf_parser_service, ReceiptParser, AdvancedPDFParser
+from services.deep_research_agent import get_deep_research_agent
 
 load_dotenv()
 
@@ -169,6 +170,13 @@ class AgenticChatRequest(BaseModel):
     conversation_history: Optional[List[dict]] = None
     user_id: Optional[str] = None
 
+
+class DeepResearchRequest(BaseModel):
+    """Request model for deep agentic research"""
+    query: str
+    user_context: Optional[dict] = None
+    max_iterations: int = 3
+    user_id: Optional[str] = None
 
 class ActionConfirmRequest(BaseModel):
     """Request to confirm and execute an AI-suggested action"""
@@ -596,6 +604,44 @@ async def indic_chat(request: AgentRequest):
     except Exception as e:
         # Fallback on error
         return await agent_chat(request)
+
+
+@app.post("/agent/deep-research")
+async def deep_research(request: DeepResearchRequest):
+    """
+    Deep Research Agentic Loop.
+    Performs multi-step research: PLAN → SEARCH → BROWSE → REFLECT → SYNTHESIZE.
+    
+    Returns:
+    - report: Comprehensive research report (markdown)
+    - sources: List of URLs referenced
+    - status_log: Step-by-step execution log for UI streaming
+    - iterations: Number of research iterations performed
+    """
+    try:
+        agent = get_deep_research_agent()
+        result = await agent.research(
+            query=request.query,
+            context=request.user_context,
+        )
+        
+        return {
+            "success": True,
+            "report": result.get("report", ""),
+            "sources": result.get("sources", []),
+            "status_log": result.get("status_log", []),
+            "iterations": result.get("iterations", 0),
+            "user_id": request.user_id,
+        }
+    except Exception as e:
+        logger.error(f"Deep research error: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "report": f"Research failed: {str(e)}",
+            "sources": [],
+            "status_log": [f"❌ Error: {str(e)}"],
+        }
 
 
 # ============== Investment Calculator Endpoints ==============

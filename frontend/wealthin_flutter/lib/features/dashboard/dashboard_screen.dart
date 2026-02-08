@@ -588,46 +588,120 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Profile button at top right
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.person_rounded,
-                      color: theme.colorScheme.primary,
-                      size: 20,
+          // Header with Wealthin branding and circular profile
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Wealthin logo/branding
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF1E3A5F), Color(0xFF0D1B2A)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFD4AF37).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Profile',
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/wealthin_logo.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [Color(0xFFD4AF37), Color(0xFFF5E6A3)],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'W',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 10),
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [
+                        theme.brightness == Brightness.dark
+                            ? const Color(0xFFD4AF37)
+                            : const Color(0xFF1E3A5F),
+                        theme.brightness == Brightness.dark
+                            ? const Color(0xFFF5E6A3)
+                            : const Color(0xFF4B7BEC),
+                      ],
+                    ).createShader(bounds),
+                    child: Text(
+                      'WealthIn',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              // Circular profile icon
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                ),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        theme.colorScheme.primary.withOpacity(0.2),
+                        theme.colorScheme.primary.withOpacity(0.1),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withOpacity(0.3),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.person_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
                 ),
               ),
-            ),
-          ).animate().fadeIn().slideX(begin: 0.1),
-          const SizedBox(height: 12),
+            ],
+          ).animate().fadeIn().slideY(begin: -0.1),
+          const SizedBox(height: 16),
+          
           
           // Interactive Banner (main hero section)
           InteractiveBanner(
@@ -693,7 +767,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Cash Flow Card
               StaggeredGridTile.count(
                 crossAxisCellCount: crossAxisCount > 2 ? 2 : crossAxisCount,
-                mainAxisCellCount: 1.2,
+                mainAxisCellCount: 1.5,
                 child: CashflowCard(
                   data: _data,
                   isLoading: _isLoading,
@@ -702,7 +776,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Category Breakdown Card
               StaggeredGridTile.count(
                 crossAxisCellCount: crossAxisCount > 2 ? 1 : crossAxisCount,
-                mainAxisCellCount: 1.2,
+                mainAxisCellCount: 1.5,
                 child: CategoryBreakdownCard(
                   categoryBreakdown: _data?.categoryBreakdown ?? {},
                   isLoading: _isLoading,
@@ -710,7 +784,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               StaggeredGridTile.count(
                 crossAxisCellCount: crossAxisCount > 2 ? 1 : crossAxisCount,
-                mainAxisCellCount: 1.2, // Taller for list
+                mainAxisCellCount: 1.5, // Taller for list
                 child: RecentTransactionsCard(
                   transactions: _data?.recentTransactions ?? [],
                   isLoading: _isLoading,
@@ -719,7 +793,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Trend Analysis
               StaggeredGridTile.count(
                 crossAxisCellCount: crossAxisCount > 2 ? 2 : crossAxisCount,
-                mainAxisCellCount: 1.2,
+                mainAxisCellCount: 1.5,
                 child: const TrendAnalysisCard().animate().fadeIn(
                   delay: 270.ms,
                 ),
@@ -727,7 +801,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Financial Overview Card
               StaggeredGridTile.count(
                 crossAxisCellCount: crossAxisCount > 2 ? 1 : crossAxisCount,
-                mainAxisCellCount: crossAxisCount > 2 ? 1.2 : 1.5,
+                mainAxisCellCount: crossAxisCount > 2 ? 1.5 : 1.5,
                 child: const FinancialOverviewCard().animate().fadeIn(
                   delay: 280.ms,
                 ),
@@ -757,20 +831,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Dashboard',
-              style: theme.textTheme.headlineMedium,
-            ),
-            Text(
-              '$_greeting, $_userName',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dashboard',
+                style: theme.textTheme.headlineMedium,
               ),
-            ),
-          ],
+              Text(
+                '$_greeting, $_userName',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
         Row(
           children: [
@@ -807,6 +885,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
     );
   }
+
 
   Widget _buildMobileMetrics() {
     return SizedBox(

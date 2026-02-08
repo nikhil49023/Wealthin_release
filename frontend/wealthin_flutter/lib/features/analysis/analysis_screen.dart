@@ -55,30 +55,69 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   int _calculateHealthScore(DashboardData? data) {
     if (data == null) return 0;
     
-    int score = 50; // Base score
+    int score = 25; // Base score (reduced from 50)
     
-    // Savings rate impact (0-30 points)
+    // === SAVINGS RATE (0-25 points) ===
+    // 30%+ savings = excellent, 20% = good, 10% = fair
     final savingsRate = data.savingsRate;
     if (savingsRate >= 30) {
-      score += 30;
-    } else if (savingsRate >= 20) {
       score += 25;
+    } else if (savingsRate >= 20) {
+      score += 20;
     } else if (savingsRate >= 10) {
-      score += 15;
+      score += 12;
     } else if (savingsRate > 0) {
       score += 5;
     }
     
-    // Expense to income ratio (0-20 points)
+    // === EXPENSE TO INCOME RATIO (0-20 points) ===
+    // Spending less than 70% of income is healthy
     if (data.totalIncome > 0) {
       final ratio = data.totalExpense / data.totalIncome;
       if (ratio < 0.5) {
-        score += 20;
+        score += 20; // Excellent: spending < 50%
       } else if (ratio < 0.7) {
-        score += 15;
-      } else if (ratio < 0.9) {
-        score += 5;
+        score += 15; // Good: spending < 70%
+      } else if (ratio < 0.85) {
+        score += 8;  // Fair: spending < 85%
+      } else if (ratio < 1.0) {
+        score += 3;  // Warning: spending < 100%
       }
+      // No points if spending >= income
+    }
+    
+    // === EMERGENCY FUND PROGRESS (0-15 points) ===
+    // 6 months of expenses is the goal
+    final monthlyExpenses = data.totalExpense;
+    final emergencyFundGoal = monthlyExpenses * 6;
+    final currentSavings = data.totalIncome - data.totalExpense;
+    
+    if (emergencyFundGoal > 0 && currentSavings > 0) {
+      // Calculate how many months of expenses saved
+      final monthsCovered = currentSavings / (monthlyExpenses > 0 ? monthlyExpenses : 1);
+      if (monthsCovered >= 6) {
+        score += 15; // Full emergency fund
+      } else if (monthsCovered >= 3) {
+        score += 10; // 3+ months covered
+      } else if (monthsCovered >= 1) {
+        score += 5;  // At least 1 month covered
+      }
+    }
+    
+    // === INCOME CONSISTENCY (0-10 points) ===
+    // Having regular income is a positive sign
+    if (data.totalIncome > 0) {
+      score += 8; // Base points for having income
+      // Could be enhanced to check transaction regularity
+    }
+    
+    // === DIVERSIFICATION BONUS (0-5 points) ===
+    // Multiple income sources or balanced spending
+    final categoryCount = data.categoryBreakdown.length;
+    if (categoryCount >= 5) {
+      score += 5; // Tracking multiple categories shows awareness
+    } else if (categoryCount >= 3) {
+      score += 3;
     }
     
     return score.clamp(0, 100);
@@ -297,7 +336,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           
           const SizedBox(height: 24),
           
-          // Score breakdown
+          // Score breakdown - 2x2 grid
           Row(
             children: [
               Expanded(
@@ -314,10 +353,36 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 child: _buildScoreFactor(
                   'Expense Ratio',
                   _data != null && _data!.totalIncome > 0
-                      ? '${((_data!.totalExpense / _data!.totalIncome) * 100).toStringAsFixed(1)}%'
+                      ? '${((_data!.totalExpense / _data!.totalIncome) * 100).toStringAsFixed(0)}%'
                       : '0%',
                   Icons.pie_chart,
                   const Color(0xFF2196F3),
+                  isDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildScoreFactor(
+                  'Emergency Fund',
+                  _data != null && _data!.totalExpense > 0
+                      ? '${((_data!.totalIncome - _data!.totalExpense) / _data!.totalExpense).toStringAsFixed(1)}mo'
+                      : '0mo',
+                  Icons.shield,
+                  const Color(0xFF9C27B0),
+                  isDark,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildScoreFactor(
+                  'Categories',
+                  '${_data?.categoryBreakdown.length ?? 0}',
+                  Icons.category,
+                  const Color(0xFFFF9800),
                   isDark,
                 ),
               ),
