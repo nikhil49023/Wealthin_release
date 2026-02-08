@@ -67,16 +67,18 @@ class RecentTransactionsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: transactions.length,
-              separatorBuilder: (context, index) =>
-                  Divider(color: isDark ? WealthInColors.blackBorder : null),
-              itemBuilder: (context, index) {
-                final transaction = transactions[index];
-                return _buildTransactionItem(context, transaction, isDark);
-              },
+            Expanded(
+              child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: transactions.length,
+                separatorBuilder: (context, index) =>
+                    Divider(color: isDark ? WealthInColors.blackBorder : null),
+                itemBuilder: (context, index) {
+                  final transaction = transactions[index];
+                  return _buildTransactionItem(context, transaction, isDark);
+                },
+              ),
             ),
           ],
         ),

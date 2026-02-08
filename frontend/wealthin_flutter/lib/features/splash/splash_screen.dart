@@ -1,11 +1,11 @@
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:math' as math;
 
-/// WealthIn Premium Animated Splash Screen
-/// Features: Particle system, morphing logo, gradient animations
+/// WealthIn Premium 3D Animated Splash Screen
+/// Features: 3D rotating cube, morphing orbs, glassmorphism, smooth transitions
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
   
@@ -17,18 +17,19 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
   late AnimationController _mainController;
-  late AnimationController _pulseController;
-  late AnimationController _particleController;
+  late AnimationController _orbController;
+  late AnimationController _rotationController;
   late AnimationController _textController;
   
   late Animation<double> _logoScale;
-  late Animation<double> _logoRotate;
+  late Animation<double> _logoRotateY;
+  late Animation<double> _logoRotateX;
   late Animation<double> _logoGlow;
   late Animation<double> _textFade;
   late Animation<Offset> _textSlide;
   late Animation<double> _progressValue;
   
-  final List<_Particle> _particles = [];
+  final List<_FloatingOrb> _orbs = [];
   
   @override
   void initState() {
@@ -42,9 +43,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       ),
     );
     
-    // Initialize particles
-    for (int i = 0; i < 50; i++) {
-      _particles.add(_Particle.random());
+    // Initialize floating orbs for 3D effect
+    for (int i = 0; i < 8; i++) {
+      _orbs.add(_FloatingOrb.random());
     }
     
     // Main animation controller (3 seconds)
@@ -53,16 +54,16 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       duration: const Duration(milliseconds: 3000),
     );
     
-    // Pulse controller (continuous)
-    _pulseController = AnimationController(
+    // Orb floating controller (continuous)
+    _orbController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 6000),
+    )..repeat();
     
-    // Particle controller (continuous)
-    _particleController = AnimationController(
+    // 3D rotation controller (continuous gentle motion)
+    _rotationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4000),
+      duration: const Duration(milliseconds: 8000),
     )..repeat();
     
     // Text controller
@@ -71,27 +72,35 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       duration: const Duration(milliseconds: 800),
     );
     
-    // Logo scale animation (bounce in)
+    // Logo scale animation (3D bounce in)
     _logoScale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.2)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween<double>(begin: 0.0, end: 1.15)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 60,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.2, end: 0.95)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween<double>(begin: 1.15, end: 0.98)
+            .chain(CurveTween(curve: Curves.easeInOut)),
         weight: 20,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.95, end: 1.0)
+        tween: Tween<double>(begin: 0.98, end: 1.0)
             .chain(CurveTween(curve: Curves.easeOut)),
         weight: 20,
       ),
     ]).animate(_mainController);
     
-    // Logo rotation (subtle 3D effect)
-    _logoRotate = Tween<double>(begin: -0.1, end: 0.0).animate(
+    // 3D Y-axis rotation (initial spin-in)
+    _logoRotateY = Tween<double>(begin: -math.pi / 2, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      ),
+    );
+    
+    // 3D X-axis tilt
+    _logoRotateX = Tween<double>(begin: 0.3, end: 0.0).animate(
       CurvedAnimation(
         parent: _mainController,
         curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
@@ -115,12 +124,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
     
     _textSlide = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.4),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(
         parent: _textController,
-        curve: Curves.easeOut,
+        curve: Curves.easeOutCubic,
       ),
     );
     
@@ -149,8 +158,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   void dispose() {
     _mainController.dispose();
-    _pulseController.dispose();
-    _particleController.dispose();
+    _orbController.dispose();
+    _rotationController.dispose();
     _textController.dispose();
     super.dispose();
   }
@@ -158,14 +167,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF040D08),
+      backgroundColor: const Color(0xFF0A0E1A), // Deep navy/obsidian
       body: Stack(
         children: [
           // Animated gradient background
-          _buildAnimatedBackground(),
+          _build3DBackground(),
           
-          // Particle system
-          _buildParticleSystem(),
+          // Floating 3D orbs
+          _buildFloatingOrbs(),
           
           // Main content
           Center(
@@ -174,12 +183,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               children: [
                 const Spacer(flex: 3),
                 
-                // Animated Logo
-                _buildAnimatedLogo(),
+                // 3D Animated Logo
+                _build3DLogo(),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 
-                // App Name
+                // App Name with gradient
                 _buildAnimatedText(),
                 
                 const Spacer(flex: 2),
@@ -193,25 +202,29 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           ),
           
           // Glassmorphism overlay at top
-          _buildTopOverlay(),
+          _buildGlassOverlay(),
         ],
       ),
     );
   }
   
-  Widget _buildAnimatedBackground() {
+  Widget _build3DBackground() {
     return AnimatedBuilder(
-      animation: _pulseController,
+      animation: _rotationController,
       builder: (context, child) {
+        final rotationValue = _rotationController.value;
         return Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
-              center: Alignment(0, -0.3 + _pulseController.value * 0.1),
-              radius: 1.5 + _pulseController.value * 0.2,
-              colors: [
-                const Color(0xFF0D1F14),
-                const Color(0xFF040D08),
-                Colors.black,
+              center: Alignment(
+                math.sin(rotationValue * 2 * math.pi) * 0.3,
+                math.cos(rotationValue * 2 * math.pi) * 0.2 - 0.3,
+              ),
+              radius: 1.8,
+              colors: const [
+                Color(0xFF1A2744), // Navy blue
+                Color(0xFF0F1629), // Dark navy
+                Color(0xFF0A0E1A), // Deep obsidian
               ],
               stops: const [0.0, 0.5, 1.0],
             ),
@@ -221,14 +234,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
   }
   
-  Widget _buildParticleSystem() {
+  Widget _buildFloatingOrbs() {
     return AnimatedBuilder(
-      animation: _particleController,
+      animation: _orbController,
       builder: (context, child) {
         return CustomPaint(
-          painter: _ParticlePainter(
-            particles: _particles,
-            progress: _particleController.value,
+          painter: _OrbPainter(
+            orbs: _orbs,
+            progress: _orbController.value,
           ),
           size: Size.infinite,
         );
@@ -236,45 +249,79 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
   }
   
-  Widget _buildAnimatedLogo() {
+  Widget _build3DLogo() {
     return AnimatedBuilder(
-      animation: Listenable.merge([_mainController, _pulseController]),
+      animation: Listenable.merge([_mainController, _rotationController]),
       builder: (context, child) {
+        // Subtle continuous 3D motion after initial animation
+        final continuousRotateY = _mainController.isCompleted
+            ? math.sin(_rotationController.value * 2 * math.pi) * 0.05
+            : 0.0;
+        final continuousRotateX = _mainController.isCompleted
+            ? math.cos(_rotationController.value * 2 * math.pi) * 0.03
+            : 0.0;
+        
         return Transform.scale(
           scale: _logoScale.value,
           child: Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.001)
-              ..rotateY(_logoRotate.value),
+              ..setEntry(3, 2, 0.002) // Perspective
+              ..rotateY(_logoRotateY.value + continuousRotateY)
+              ..rotateX(_logoRotateX.value + continuousRotateX),
             child: Container(
               width: 140,
               height: 140,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(32),
                 boxShadow: [
-                  // Outer glow
+                  // Primary glow - Gold/Amber
                   BoxShadow(
-                    color: const Color(0xFF50C878).withOpacity(
-                      0.3 * _logoGlow.value + 0.1 * _pulseController.value,
+                    color: const Color(0xFFD4AF37).withOpacity(
+                      0.4 * _logoGlow.value,
                     ),
-                    blurRadius: 40 + 10 * _pulseController.value,
-                    spreadRadius: 10 + 5 * _pulseController.value,
+                    blurRadius: 50,
+                    spreadRadius: 15,
                   ),
-                  // Inner glow
+                  // Secondary glow - Navy accent
                   BoxShadow(
-                    color: const Color(0xFFD4AF37).withOpacity(0.2 * _logoGlow.value),
+                    color: const Color(0xFF4B7BEC).withOpacity(
+                      0.3 * _logoGlow.value,
+                    ),
+                    blurRadius: 30,
+                    spreadRadius: 5,
+                  ),
+                  // Subtle shadow for depth
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
                     blurRadius: 20,
-                    spreadRadius: 2,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(32),
-                child: Image.asset(
-                  'assets/wealthin_logo.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildFallbackLogo(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF1E3A5F).withOpacity(0.9), // Dark navy
+                        const Color(0xFF0D1B2A).withOpacity(0.95), // Deeper navy
+                      ],
+                    ),
+                    border: Border.all(
+                      color: const Color(0xFFD4AF37).withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                  child: Image.asset(
+                    'assets/wealthin_logo.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildFallbackLogo(),
+                  ),
                 ),
               ),
             ),
@@ -290,17 +337,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF50C878), Color(0xFF2E8B57)],
+          colors: [Color(0xFF1E3A5F), Color(0xFF0D1B2A)],
         ),
         borderRadius: BorderRadius.circular(32),
       ),
-      child: const Center(
-        child: Text(
-          'W',
-          style: TextStyle(
-            fontSize: 72,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+      child: Center(
+        child: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Color(0xFFD4AF37), Color(0xFFF5E6A3)],
+          ).createShader(bounds),
+          child: const Text(
+            'W',
+            style: TextStyle(
+              fontSize: 72,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
@@ -317,28 +369,28 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             position: _textSlide,
             child: Column(
               children: [
-                // Main title with gradient
+                // Main title with gold gradient
                 ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFFF2FBF5), Color(0xFF50C878)],
+                    colors: [Color(0xFFD4AF37), Color(0xFFF5E6A3), Color(0xFFD4AF37)],
                   ).createShader(bounds),
                   child: Text(
                     'WealthIn',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 42,
+                      fontSize: 44,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                       letterSpacing: -1,
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 // Tagline
                 Text(
                   'Your Personal Finance AI',
                   style: GoogleFonts.inter(
                     fontSize: 16,
-                    color: const Color(0xFF4A6353),
+                    color: const Color(0xFF8B9DC3), // Muted navy-gray
                     fontWeight: FontWeight.w500,
                     letterSpacing: 2,
                   ),
@@ -362,24 +414,24 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               width: 200,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF0D1F14),
+                color: const Color(0xFF1E3A5F).withOpacity(0.5),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Stack(
                 children: [
-                  // Progress fill
+                  // Progress fill with gold gradient
                   FractionallySizedBox(
                     widthFactor: _progressValue.value,
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF50C878), Color(0xFFD4AF37)],
+                          colors: [Color(0xFFD4AF37), Color(0xFFF5E6A3)],
                         ),
                         borderRadius: BorderRadius.circular(2),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF50C878).withOpacity(0.5),
-                            blurRadius: 8,
+                            color: const Color(0xFFD4AF37).withOpacity(0.6),
+                            blurRadius: 12,
                           ),
                         ],
                       ),
@@ -394,7 +446,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               _getLoadingText(_progressValue.value),
               style: GoogleFonts.inter(
                 fontSize: 12,
-                color: const Color(0xFF4A6353),
+                color: const Color(0xFF8B9DC3),
                 letterSpacing: 0.5,
               ),
             ),
@@ -411,21 +463,26 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     return 'Almost Ready...';
   }
   
-  Widget _buildTopOverlay() {
+  Widget _buildGlassOverlay() {
     return Positioned(
       top: 0,
       left: 0,
       right: 0,
-      height: 100,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.3),
-              Colors.transparent,
-            ],
+      height: 120,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF0A0E1A).withOpacity(0.6),
+                  Colors.transparent,
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -433,62 +490,80 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 }
 
-// Particle class for the particle system
-class _Particle {
+// Floating orb class for 3D particle effect
+class _FloatingOrb {
   double x;
   double y;
+  double z; // Depth for 3D effect
   double size;
   double speed;
   double opacity;
   Color color;
   
-  _Particle({
+  _FloatingOrb({
     required this.x,
     required this.y,
+    required this.z,
     required this.size,
     required this.speed,
     required this.opacity,
     required this.color,
   });
   
-  factory _Particle.random() {
+  factory _FloatingOrb.random() {
     final random = math.Random();
-    return _Particle(
+    final colors = [
+      const Color(0xFFD4AF37), // Gold
+      const Color(0xFF4B7BEC), // Blue accent
+      const Color(0xFF1E3A5F), // Navy
+    ];
+    return _FloatingOrb(
       x: random.nextDouble(),
       y: random.nextDouble(),
-      size: random.nextDouble() * 3 + 1,
-      speed: random.nextDouble() * 0.5 + 0.2,
-      opacity: random.nextDouble() * 0.5 + 0.1,
-      color: random.nextBool() 
-          ? const Color(0xFF50C878) 
-          : const Color(0xFFD4AF37),
+      z: random.nextDouble() * 0.5 + 0.5, // 0.5 to 1.0 for depth
+      size: random.nextDouble() * 40 + 20,
+      speed: random.nextDouble() * 0.3 + 0.1,
+      opacity: random.nextDouble() * 0.15 + 0.05,
+      color: colors[random.nextInt(colors.length)],
     );
   }
 }
 
-// Custom painter for particles
-class _ParticlePainter extends CustomPainter {
-  final List<_Particle> particles;
+// Custom painter for 3D orbs
+class _OrbPainter extends CustomPainter {
+  final List<_FloatingOrb> orbs;
   final double progress;
   
-  _ParticlePainter({required this.particles, required this.progress});
+  _OrbPainter({required this.orbs, required this.progress});
   
   @override
   void paint(Canvas canvas, Size size) {
-    for (final particle in particles) {
-      final y = (particle.y + progress * particle.speed) % 1.0;
+    for (final orb in orbs) {
+      final y = (orb.y + progress * orb.speed) % 1.0;
+      final scaledSize = orb.size * orb.z; // Scale by depth
+      final scaledOpacity = orb.opacity * orb.z; // Fade by depth
+      
       final paint = Paint()
-        ..color = particle.color.withOpacity(particle.opacity)
-        ..style = PaintingStyle.fill;
+        ..shader = RadialGradient(
+          colors: [
+            orb.color.withOpacity(scaledOpacity),
+            orb.color.withOpacity(0),
+          ],
+        ).createShader(
+          Rect.fromCircle(
+            center: Offset(orb.x * size.width, y * size.height),
+            radius: scaledSize,
+          ),
+        );
       
       canvas.drawCircle(
-        Offset(particle.x * size.width, y * size.height),
-        particle.size,
+        Offset(orb.x * size.width, y * size.height),
+        scaledSize,
         paint,
       );
     }
   }
   
   @override
-  bool shouldRepaint(covariant _ParticlePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _OrbPainter oldDelegate) => true;
 }

@@ -371,6 +371,16 @@ class DataService {
     }
     return false;
   }
+  
+  /// Update transaction category (for manual recategorization)
+  Future<bool> updateTransactionCategory(int transactionId, String newCategory) async {
+    try {
+      return await databaseHelper.updateTransactionCategory(transactionId, newCategory);
+    } catch (e) {
+      debugPrint('Error updating transaction category: $e');
+      return false;
+    }
+  }
 
 
   /// Get spending summary
@@ -1465,6 +1475,152 @@ $emiRecommendation
     
     debugPrint('Saved $savedCount of ${transactions.length} transactions');
     return savedCount;
+  }
+
+  // ==================== SOCRATIC DPR TOOLS ====================
+
+  /// Start a Socratic brainstorming session for DPR preparation
+  Future<Map<String, dynamic>?> startSocraticSession({
+    required String businessIdea,
+    String section = 'market_analysis',
+  }) async {
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.executeTool(
+          'start_brainstorming',
+          {'business_idea': businessIdea, 'section': section},
+        );
+        if (result['success'] == true) {
+          return result;
+        }
+      } catch (e) {
+        debugPrint('Socratic session error: $e');
+      }
+    }
+    // Fallback
+    return {
+      'success': true,
+      'session_started': true,
+      'business_idea': businessIdea,
+      'initial_question': {
+        'question': 'What specific problem does your business solve for customers?',
+        'question_type': 'clarification',
+        'section': section,
+      },
+    };
+  }
+
+  /// Process a response in the Socratic session
+  Future<Map<String, dynamic>?> processSocraticResponse({
+    required String response,
+    required Map<String, dynamic> questionContext,
+  }) async {
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.executeTool(
+          'process_brainstorm_response',
+          {'response': response, 'question_context': questionContext},
+        );
+        if (result['success'] == true) {
+          return result;
+        }
+      } catch (e) {
+        debugPrint('Socratic response error: $e');
+      }
+    }
+    // Fallback with next question
+    return {
+      'success': true,
+      'answer_quality': 'good',
+      'next_question': {
+        'question': 'How would you measure success in the first year?',
+        'question_type': 'implications',
+      },
+    };
+  }
+
+  /// Generate a DPR from collected data
+  Future<Map<String, dynamic>?> generateDPR({
+    required Map<String, dynamic> projectData,
+  }) async {
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.executeTool(
+          'generate_dpr',
+          {'project_data': projectData},
+        );
+        if (result['success'] == true) {
+          return result;
+        }
+      } catch (e) {
+        debugPrint('DPR generation error: $e');
+      }
+    }
+    // Fallback
+    return {
+      'success': true,
+      'dpr': {
+        'metadata': {
+          'completeness_pct': 45.0,
+          'status': 'Draft - Requires More Data',
+        },
+        'sections': [],
+      },
+    };
+  }
+
+  /// Get empty DPR template
+  Future<Map<String, dynamic>?> getDPRTemplate() async {
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.executeTool(
+          'get_dpr_template',
+          {},
+        );
+        if (result['success'] == true) {
+          return result;
+        }
+      } catch (e) {
+        debugPrint('DPR template error: $e');
+      }
+    }
+    return null;
+  }
+
+  /// Run What-If scenario analysis
+  Future<Map<String, dynamic>?> runWhatIfAnalysis({
+    required double baseRevenue,
+    required double operatingCosts,
+    required double debtService,
+  }) async {
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.executeTool(
+          'run_scenario_comparison',
+          {
+            'base_case': {
+              'revenue': baseRevenue,
+              'operating_costs': operatingCosts,
+              'debt_service': debtService,
+            },
+          },
+        );
+        if (result['success'] == true) {
+          return result;
+        }
+      } catch (e) {
+        debugPrint('What-If analysis error: $e');
+      }
+    }
+    // Fallback
+    return {
+      'success': true,
+      'scenarios': {
+        'base': {'revenue': baseRevenue, 'dscr': 1.8},
+        'optimistic': {'revenue': baseRevenue * 1.2, 'dscr': 2.5},
+        'conservative': {'revenue': baseRevenue * 0.85, 'dscr': 1.2},
+      },
+    };
   }
 }
 

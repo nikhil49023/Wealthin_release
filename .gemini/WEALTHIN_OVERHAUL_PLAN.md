@@ -502,19 +502,20 @@ Widget _buildHeader(ThemeData theme) {
 ### Week 2: PDF & Analysis
 4. ✅ Phase 1.1 - Add logging to PDF parser (extensive debug logging)
 5. ✅ Phase 1.2 - Android encoding fixes (_normalize_text_for_android)
-6. Phase 3.1 - Enhance health score (TODO)
-7. Phase 3.3 - Connect trends service (TODO)
+6. ✅ Phase 3.1 - Enhance health score (5-factor scoring: savings, expense ratio, emergency fund, income, categories)
+7. ✅ Phase 5.1 - Standardize categories (created lib/core/constants/categories.dart)
+8. ✅ Phase 3.3 - Connect trends service (getMonthlyTrends already implemented, TrendAnalysisCard uses it)
 
 ### Week 3: Actions & Integration
-8. Phase 4.1 - Audit payments UI (partially done - navigation added)
-9. Phase 4.3 - Verify AI payment tool (✅ reviewed - looks correct)
-10. Phase 5.1 - Standardize categories (TODO)
-11. Phase 5.2 - Budget recalculation (TODO)
+9. ✅ Phase 4.1 - Audit payments UI (Finance Hub has 4 tabs including Bills/Scheduled Payments)
+10. ✅ Phase 4.3 - Verify AI payment tool (reviewed - works correctly)
+11. ✅ Phase 5.1 - Standardize categories (DONE - lib/core/constants/categories.dart)
+12. ✅ Phase 5.2 - Budget recalculation (already implemented in database_helper.dart)
 
 ### Week 4: Polish
-12. Phase 6.1 - Button audit (TODO - full walkthrough)
-13. Phase 6.2 - Splash enhancements (✅ already has 3D animations)
-14. Final testing
+13. Phase 6.1 - Button audit (TODO - full walkthrough)
+14. ✅ Phase 6.2 - Splash enhancements (already has 3D animations)
+15. Final testing
 
 ---
 

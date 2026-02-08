@@ -660,8 +660,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                   onTap: () {
                                     if (_isSelectionMode && transaction.id != null) {
                                       _toggleSelection(transaction.id!);
-                                    } else {
-                                      // Show details logic if needed, currently nothing
+                                    } else if (transaction.id != null) {
+                                      // Show recategorize dialog
+                                      _showRecategorizeDialog(transaction);
                                     }
                                   },
                                 )
@@ -683,6 +684,172 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               label: const Text('Add'),
             )
           : null,
+    );
+  }
+
+  void _showRecategorizeDialog(TransactionData transaction) {
+    String selectedCategory = transaction.category;
+    final isOther = transaction.category.toLowerCase() == 'other';
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: WealthInTheme.gray300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Header with transaction info
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isOther ? 'Categorize Transaction' : 'Change Category',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              transaction.description,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '₹${transaction.amount.toStringAsFixed(0)}',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  if (isOther) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: WealthInColors.warning.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: WealthInColors.warning.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: WealthInColors.warning, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'This transaction is uncategorized. Select a category for better budget tracking.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Category selection grid
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _categories.map((cat) {
+                      final isSelected = selectedCategory == cat;
+                      return ChoiceChip(
+                        label: Text(cat),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setModalState(() => selectedCategory = cat);
+                          }
+                        },
+                        selectedColor: WealthInColors.primary.withOpacity(0.2),
+                        checkmarkColor: WealthInColors.primary,
+                      );
+                    }).toList(),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: selectedCategory != transaction.category
+                              ? () async {
+                                  Navigator.pop(context);
+                                  
+                                  final success = await dataService.updateTransactionCategory(
+                                    transaction.id!,
+                                    selectedCategory,
+                                  );
+                                  
+                                  if (success && mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Changed to ${selectedCategory}'),
+                                        backgroundColor: WealthInColors.success,
+                                      ),
+                                    );
+                                    _loadTransactions();
+                                  } else if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Failed to update category'),
+                                        backgroundColor: WealthInColors.error,
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: MediaQuery.of(context).padding.bottom),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

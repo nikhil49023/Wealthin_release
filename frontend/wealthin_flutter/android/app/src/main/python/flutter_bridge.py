@@ -249,6 +249,126 @@ AVAILABLE_TOOLS = [
             "frequency": "str - Frequency: 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly' (default: monthly)"
         },
         "requires_confirmation": True
+    },
+    {
+        "name": "detect_subscriptions",
+        "description": "Analyze transaction history to find recurring subscriptions and regular payments. Returns a list of detected subscriptions with their frequency, amounts, and next expected dates.",
+        "parameters": {
+            "transactions": "list - List of transaction objects with fields: description, amount, date, category, merchant (optional)"
+        }
+    },
+    {
+        "name": "check_pmegp_eligibility",
+        "description": "Check eligibility for the PMEGP (Prime Minister Employment Generation Programme) scheme. Returns subsidy amounts, own contribution required, and bank loan needed.",
+        "parameters": {
+            "project_cost": "float - Total project cost in INR",
+            "sector": "str - 'manufacturing' or 'service'",
+            "location": "str - 'urban' or 'rural'",
+            "category": "str - 'general' or 'special' (SC/ST/Women/Minority)"
+        }
+    },
+    {
+        "name": "check_standup_india_eligibility",
+        "description": "Check eligibility for Stand-Up India scheme for SC/ST/Women entrepreneurs. Returns loan terms and eligibility status.",
+        "parameters": {
+            "loan_amount": "float - Required loan amount in INR",
+            "applicant_category": "str - 'sc', 'st', or 'woman'",
+            "is_greenfield": "bool - Is this a first-time venture?",
+            "sector": "str - 'manufacturing', 'services', or 'agri-allied'"
+        }
+    },
+    {
+        "name": "calculate_dscr",
+        "description": "Calculate Debt Service Coverage Ratio for bank loan applications. Banks typically require DSCR >= 1.5.",
+        "parameters": {
+            "net_operating_income": "float - Annual net operating income (EBITDA) in INR",
+            "annual_interest": "float - Annual interest payment in INR",
+            "annual_principal": "float - Annual principal repayment in INR"
+        }
+    },
+    {
+        "name": "calculate_tam_sam_som",
+        "description": "Calculate TAM (Total Addressable Market), SAM (Serviceable Addressable Market), and SOM (Serviceable Obtainable Market) for market sizing.",
+        "parameters": {
+            "total_potential_customers": "int - Total number of potential customers in the market",
+            "average_revenue_per_user": "float - Average revenue per customer (INR)",
+            "geographic_accessibility_pct": "float - % of market accessible geographically (0-100)",
+            "feature_accessibility_pct": "float - % of market your product can serve (0-100)",
+            "operational_capacity_pct": "float - Your operational capacity % (0-100)",
+            "competitive_edge_pct": "float - Expected market share based on competition (0-100)"
+        }
+    },
+    {
+        "name": "generate_socratic_question",
+        "description": "Generate a Socratic question to guide MSME brainstorming. Uses 6 question types: clarification, probing_assumptions, probing_evidence, viewpoints, implications, meta.",
+        "parameters": {
+            "business_idea": "str - The user's business idea or topic",
+            "aspect": "str - Specific aspect to focus on",
+            "question_type": "str - Type of question: 'clarification', 'probing_assumptions', 'probing_evidence', 'viewpoints', 'implications', 'meta'",
+            "current_section": "str - DPR section: 'market_analysis', 'technical_viability', 'financial_projections', 'compliance', 'risk_mitigation'"
+        }
+    },
+    {
+        "name": "start_brainstorming",
+        "description": "Start a structured Socratic brainstorming session for DPR preparation.",
+        "parameters": {
+            "business_idea": "str - The MSME business idea to explore",
+            "section": "str - Starting DPR section (default: 'market_analysis')"
+        }
+    },
+    {
+        "name": "process_brainstorm_response",
+        "description": "Process user's response in brainstorming session and get the next Socratic question.",
+        "parameters": {
+            "user_response": "str - User's answer to the previous question",
+            "current_aspect": "str - Current topic/aspect being discussed"
+        }
+    },
+    {
+        "name": "run_sensitivity_analysis",
+        "description": "Run DSCR sensitivity analysis for bank loan applications. Shows how DSCR changes with revenue/cost/interest variations.",
+        "parameters": {
+            "base_revenue": "float - Annual revenue in INR",
+            "base_costs": "float - Annual operating costs in INR",
+            "loan_amount": "float - Total loan amount in INR",
+            "interest_rate": "float - Annual interest rate % (default: 12)",
+            "loan_tenure_years": "int - Loan repayment period in years (default: 5)",
+            "variation_pct": "float - Percentage variation for sensitivity (default: 20)"
+        }
+    },
+    {
+        "name": "run_scenario_comparison",
+        "description": "Compare optimistic, base, conservative, and worst-case scenarios for MSME projections.",
+        "parameters": {
+            "base_revenue": "float - Annual revenue in INR",
+            "base_costs": "float - Annual operating costs in INR",
+            "loan_amount": "float - Total loan amount in INR",
+            "interest_rate": "float - Annual interest rate % (default: 12)",
+            "loan_tenure_years": "int - Loan repayment period in years (default: 5)"
+        }
+    },
+    {
+        "name": "run_cash_runway_analysis",
+        "description": "Analyze cash runway under normal and stress scenarios. Shows how long the business can survive.",
+        "parameters": {
+            "initial_cash": "float - Starting cash balance in INR",
+            "monthly_revenue": "float - Expected monthly revenue in INR",
+            "monthly_costs": "float - Monthly operating costs in INR",
+            "monthly_debt_service": "float - Monthly loan EMI in INR",
+            "growth_rate_pct": "float - Expected monthly revenue growth % (default: 5)"
+        }
+    },
+    {
+        "name": "generate_dpr",
+        "description": "Generate a complete Detailed Project Report (DPR) in standardized banking format for MSME loan applications.",
+        "parameters": {
+            "project_data": "dict - Project data with sections: executive_summary, promoter_profile, market_analysis, financial_projections, cost_of_project, profitability, compliance"
+        }
+    },
+    {
+        "name": "get_dpr_template",
+        "description": "Get an empty DPR template with all required fields for bank loan applications.",
+        "parameters": {}
     }
 ]
 
@@ -259,12 +379,20 @@ _pending_actions = {}
 
 # ==================== TOOL EXECUTOR ====================
 
-def execute_tool(tool_name: str, args: Dict[str, Any]) -> str:
+def execute_tool(tool_name: str, args_json: str) -> str:
     """
     Execute a tool by name with given arguments.
     This is the main entry point for the LLM to call tools.
+    
+    NOTE: args_json is passed as a JSON string from Kotlin, we need to parse it.
     """
     try:
+        # Parse the JSON string to a dict
+        if isinstance(args_json, str):
+            args = json.loads(args_json)
+        else:
+            args = args_json  # Already a dict
+        
         tool_functions = {
             "calculate_sip": calculate_sip_maturity,
             "calculate_emi": calculate_emi,
@@ -286,6 +414,24 @@ def execute_tool(tool_name: str, args: Dict[str, Any]) -> str:
             "create_savings_goal": prepare_create_goal,
             "add_transaction": prepare_add_transaction,
             "create_scheduled_payment": prepare_create_scheduled_payment,
+            # Pattern Analysis Tools
+            "detect_subscriptions": detect_subscriptions,
+            # MSME Compliance & Financial Tools
+            "check_pmegp_eligibility": check_pmegp_eligibility,
+            "check_standup_india_eligibility": check_standup_india_eligibility,
+            "calculate_dscr": calculate_dscr,
+            "calculate_tam_sam_som": calculate_tam_sam_som,
+            # Socratic Brainstorming Tools
+            "generate_socratic_question": generate_socratic_question,
+            "start_brainstorming": start_brainstorming_session,
+            "process_brainstorm_response": process_brainstorm_response,
+            # What-If Simulator Tools
+            "run_sensitivity_analysis": run_sensitivity_analysis,
+            "run_scenario_comparison": run_scenario_comparison,
+            "run_cash_runway_analysis": run_cash_runway_analysis,
+            # DPR Generator Tools
+            "generate_dpr": generate_dpr,
+            "get_dpr_template": get_dpr_template,
         }
         
         # Route ALL search-related tools to unified web_search
@@ -442,6 +588,923 @@ def cancel_action(action_id: str) -> str:
         "success": True,
         "action_cancelled": True,
         "message": "❌ Action cancelled."
+    })
+
+
+# ==================== SUBSCRIPTION/PATTERN DETECTION ====================
+
+def detect_subscriptions(transactions: List[Dict]) -> str:
+    """
+    Analyze transactions to detect recurring subscriptions and regular payments.
+    Uses time delta standard deviation and amount variance to identify patterns.
+    
+    Args:
+        transactions: List of dicts with: description, amount, date, category, merchant (optional)
+    
+    Returns:
+        JSON with detected subscriptions and recurring habits
+    """
+    import statistics
+    from collections import defaultdict
+    
+    if not transactions or len(transactions) < 2:
+        return json.dumps({
+            "success": True,
+            "subscriptions": [],
+            "recurring_habits": [],
+            "total_monthly_cost": 0,
+            "message": "Not enough transactions to detect patterns."
+        })
+    
+    # Configuration thresholds
+    TIME_DELTA_SD_THRESHOLD = 3.0  # Max SD in days for "regular" recurrence
+    AMOUNT_CV_THRESHOLD = 0.1  # Max coefficient of variation for "fixed" amount
+    MIN_OCCURRENCES = 2
+    
+    # Group transactions by normalized merchant/description
+    grouped = defaultdict(list)
+    for tx in transactions:
+        merchant = tx.get('merchant') or tx.get('description') or 'Unknown'
+        key = _normalize_merchant_for_subscription(merchant)
+        grouped[key].append({
+            'description': tx.get('description', ''),
+            'amount': abs(float(tx.get('amount', 0))),
+            'date': tx.get('date', ''),
+            'category': tx.get('category', 'Other')
+        })
+    
+    subscriptions = []
+    recurring_habits = []
+    
+    for merchant_key, txs in grouped.items():
+        if len(txs) < MIN_OCCURRENCES:
+            continue
+        
+        # Analyze pattern
+        pattern = _analyze_subscription_pattern(txs)
+        
+        if pattern['is_subscription']:
+            subscriptions.append({
+                'merchant': merchant_key,
+                'category': txs[0]['category'],
+                'frequency': pattern['frequency'],
+                'average_amount': pattern['avg_amount'],
+                'last_charge': txs[-1]['date'] if txs else None,
+                'next_expected': pattern['next_expected'],
+                'occurrences': len(txs),
+                'confidence': pattern['confidence']
+            })
+        elif pattern['is_recurring_habit']:
+            recurring_habits.append({
+                'merchant': merchant_key,
+                'category': txs[0]['category'],
+                'frequency': pattern['frequency'],
+                'average_amount': pattern['avg_amount'],
+                'occurrences': len(txs)
+            })
+    
+    # Sort by monthly impact
+    subscriptions.sort(key=lambda x: x['average_amount'], reverse=True)
+    recurring_habits.sort(key=lambda x: x['average_amount'] * x['occurrences'], reverse=True)
+    
+    # Calculate monthly cost
+    monthly_cost = sum(
+        _normalize_amount_to_monthly(s['average_amount'], s['frequency'])
+        for s in subscriptions
+    )
+    
+    return json.dumps({
+        "success": True,
+        "subscriptions": subscriptions[:20],  # Top 20
+        "recurring_habits": recurring_habits[:10],  # Top 10
+        "total_monthly_cost": round(monthly_cost, 2),
+        "annual_projection": round(monthly_cost * 12, 2),
+        "message": f"Found {len(subscriptions)} subscriptions totaling ₹{monthly_cost:,.0f}/month"
+    })
+
+
+def _normalize_merchant_for_subscription(name: str) -> str:
+    """Clean merchant name for grouping."""
+    if not name:
+        return "unknown"
+    cleaned = re.sub(r'[*#\d]+', '', name.lower())
+    cleaned = re.sub(r'[^\w\s]', '', cleaned)
+    for suffix in ['.com', 'com', 'inc', 'ltd', 'pvt', 'private', 'limited']:
+        cleaned = cleaned.replace(suffix, '')
+    return cleaned.strip() or "unknown"
+
+
+def _analyze_subscription_pattern(transactions: List[Dict]) -> Dict:
+    """Analyze transactions to detect subscription patterns."""
+    import statistics
+    
+    amounts = [tx['amount'] for tx in transactions]
+    dates = []
+    for tx in transactions:
+        try:
+            date_str = tx['date'][:10]  # Handle ISO format
+            dates.append(datetime.strptime(date_str, '%Y-%m-%d'))
+        except:
+            continue
+    
+    if len(dates) < 2:
+        return {'is_subscription': False, 'is_recurring_habit': False, 'frequency': 'irregular'}
+    
+    # Sort by date
+    sorted_pairs = sorted(zip(dates, amounts), key=lambda x: x[0])
+    dates = [p[0] for p in sorted_pairs]
+    amounts = [p[1] for p in sorted_pairs]
+    
+    # Time delta analysis
+    deltas = [(dates[i+1] - dates[i]).days for i in range(len(dates)-1)]
+    avg_delta = statistics.mean(deltas)
+    delta_sd = statistics.stdev(deltas) if len(deltas) > 1 else 0
+    
+    # Amount analysis
+    avg_amount = statistics.mean(amounts)
+    amount_sd = statistics.stdev(amounts) if len(amounts) > 1 else 0
+    amount_cv = (amount_sd / avg_amount) if avg_amount > 0 else 0
+    
+    # Determine frequency
+    if avg_delta <= 8:
+        frequency = 'weekly'
+    elif avg_delta <= 16:
+        frequency = 'bi-weekly'
+    elif avg_delta <= 35:
+        frequency = 'monthly'
+    elif avg_delta <= 100:
+        frequency = 'quarterly'
+    else:
+        frequency = 'irregular'
+    
+    # Subscription: regular time + fixed amount
+    is_subscription = delta_sd <= 3.0 and amount_cv <= 0.1 and len(transactions) >= 2
+    
+    # Recurring habit: somewhat regular but variable
+    is_recurring_habit = not is_subscription and avg_delta <= 35 and len(transactions) >= 3
+    
+    # Confidence score
+    occ_score = min(len(transactions) / 12, 1.0)
+    time_score = max(0, 1 - (delta_sd / 10))
+    amount_score = max(0, 1 - (amount_cv / 0.5))
+    confidence = occ_score * 0.4 + time_score * 0.3 + amount_score * 0.3
+    
+    # Next expected date
+    next_expected = None
+    if frequency != 'irregular' and dates:
+        next_expected = (max(dates) + timedelta(days=avg_delta)).strftime('%Y-%m-%d')
+    
+    return {
+        'is_subscription': is_subscription,
+        'is_recurring_habit': is_recurring_habit,
+        'frequency': frequency,
+        'avg_amount': round(avg_amount, 2),
+        'next_expected': next_expected,
+        'confidence': round(confidence, 2)
+    }
+
+
+def _normalize_amount_to_monthly(amount: float, frequency: str) -> float:
+    """Convert amount to monthly equivalent."""
+    multipliers = {
+        'weekly': 4.33, 'bi-weekly': 2.17, 'monthly': 1.0,
+        'quarterly': 0.33, 'irregular': 1.0
+    }
+    return amount * multipliers.get(frequency, 1.0)
+
+
+# ==================== MSME COMPLIANCE & FINANCIAL TOOLS ====================
+
+# MSME Classification Limits (2025-26 Budget Update)
+MSME_CLASSIFICATION = {
+    "micro": {"investment_limit": 2_50_00_000, "turnover_limit": 10_00_00_000},
+    "small": {"investment_limit": 25_00_00_000, "turnover_limit": 100_00_00_000},
+    "medium": {"investment_limit": 125_00_00_000, "turnover_limit": 500_00_00_000},
+}
+
+# PMEGP Scheme Parameters
+PMEGP_SCHEME = {
+    "max_project_cost_manufacturing": 50_00_000,
+    "max_project_cost_service": 20_00_000,
+    "subsidy_general_urban": 0.15,
+    "subsidy_general_rural": 0.25,
+    "subsidy_special_urban": 0.25,
+    "subsidy_special_rural": 0.35,
+}
+
+def check_pmegp_eligibility(
+    project_cost: float,
+    sector: str,
+    location: str,
+    category: str,
+    is_existing_unit: bool = False,
+) -> str:
+    """Check eligibility for PMEGP scheme."""
+    issues = []
+    
+    # Check project cost limit
+    max_cost = PMEGP_SCHEME["max_project_cost_manufacturing"] if sector == "manufacturing" else PMEGP_SCHEME["max_project_cost_service"]
+    if project_cost > max_cost:
+        issues.append(f"Project cost ₹{project_cost/100000:.1f}L exceeds limit ₹{max_cost/100000:.0f}L for {sector}")
+    
+    if is_existing_unit:
+        issues.append("PMEGP is only for new units, not existing businesses")
+    
+    # Calculate subsidy based on location and category
+    if location.lower() == "rural":
+        subsidy_rate = PMEGP_SCHEME["subsidy_special_rural"] if category.lower() == "special" else PMEGP_SCHEME["subsidy_general_rural"]
+    else:
+        subsidy_rate = PMEGP_SCHEME["subsidy_special_urban"] if category.lower() == "special" else PMEGP_SCHEME["subsidy_general_urban"]
+    
+    subsidy_amount = project_cost * subsidy_rate
+    own_contribution = project_cost * (0.05 if category.lower() == "special" else 0.10)
+    bank_loan = project_cost - subsidy_amount - own_contribution
+    
+    return json.dumps({
+        "success": True,
+        "eligible": len(issues) == 0,
+        "issues": issues,
+        "subsidy_rate": f"{subsidy_rate*100:.0f}%",
+        "subsidy_amount": round(subsidy_amount, 2),
+        "own_contribution": round(own_contribution, 2),
+        "bank_loan_required": round(bank_loan, 2),
+        "breakdown": {
+            "project_cost": project_cost,
+            "subsidy": subsidy_amount,
+            "own_contribution": own_contribution,
+            "bank_loan": bank_loan
+        },
+        "implementing_agency": "KVIC, KVIB, or DIC",
+        "notes": [
+            "Subsidy is credit-linked and released to bank",
+            "Land cost cannot be included in project cost",
+            "VIII pass required for projects > ₹10 Lakh",
+            "Age: 18-45 years for new units"
+        ]
+    })
+
+
+def check_standup_india_eligibility(
+    loan_amount: float,
+    applicant_category: str,
+    is_greenfield: bool,
+    sector: str,
+) -> str:
+    """Check eligibility for Stand-Up India scheme."""
+    issues = []
+    
+    # Category validation
+    valid_categories = ["sc", "st", "woman"]
+    if applicant_category.lower() not in valid_categories:
+        issues.append(f"Stand-Up India is only for SC/ST and Women entrepreneurs (got: {applicant_category})")
+    
+    if not is_greenfield:
+        issues.append("Only greenfield (first-time) ventures are eligible")
+    
+    # Loan range check
+    min_loan, max_loan = 10_00_000, 1_00_00_000
+    if loan_amount < min_loan:
+        issues.append(f"Minimum loan amount is ₹10 Lakh")
+    if loan_amount > max_loan:
+        issues.append(f"Maximum loan amount is ₹1 Crore")
+    
+    # Sector validation
+    valid_sectors = ["manufacturing", "services", "agri-allied"]
+    if sector.lower() not in valid_sectors:
+        issues.append(f"Sector must be Manufacturing, Services, or Agri-allied (got: {sector})")
+    
+    return json.dumps({
+        "success": True,
+        "eligible": len(issues) == 0,
+        "issues": issues,
+        "loan_amount": loan_amount,
+        "terms": {
+            "repayment_period": "7 years",
+            "moratorium": "18 months",
+            "composite_loan": "Yes (term loan + working capital)",
+            "margin_money": "Up to 25% from CGTMSE/NCGTC subsidy"
+        },
+        "eligibility_criteria": {
+            "target_group": "SC/ST and Women entrepreneurs",
+            "project_type": "Greenfield only",
+            "sectors": ["Manufacturing", "Services", "Agri-allied"],
+            "loan_range": "₹10 Lakh - ₹1 Crore"
+        }
+    })
+
+
+def calculate_dscr(
+    net_operating_income: float,
+    annual_interest: float,
+    annual_principal: float,
+) -> str:
+    """
+    Calculate Debt Service Coverage Ratio.
+    DSCR = Net Operating Income / (Interest + Principal)
+    Banks typically require DSCR >= 1.5
+    """
+    total_debt_service = annual_interest + annual_principal
+    
+    if total_debt_service == 0:
+        return json.dumps({
+            "success": True,
+            "dscr": "N/A",
+            "status": "No debt obligations",
+            "bankable": True,
+            "message": "No debt service required"
+        })
+    
+    dscr = net_operating_income / total_debt_service
+    
+    if dscr >= 2.0:
+        status = "Excellent"
+        recommendation = "Strong debt repayment capacity. Likely loan approval."
+        bankable = True
+    elif dscr >= 1.5:
+        status = "Good"
+        recommendation = "Meets typical bank requirements. Standard processing expected."
+        bankable = True
+    elif dscr >= 1.25:
+        status = "Marginal"
+        recommendation = "May require additional collateral or guarantor."
+        bankable = True
+    elif dscr >= 1.0:
+        status = "Weak"
+        recommendation = "High risk of rejection. Consider reducing loan amount."
+        bankable = False
+    else:
+        status = "Critical"
+        recommendation = "Insufficient cash flow. Loan unlikely to be approved."
+        bankable = False
+    
+    return json.dumps({
+        "success": True,
+        "dscr": round(dscr, 2),
+        "status": status,
+        "bankable": bankable,
+        "recommendation": recommendation,
+        "calculation": {
+            "net_operating_income": net_operating_income,
+            "annual_interest": annual_interest,
+            "annual_principal": annual_principal,
+            "total_debt_service": total_debt_service
+        },
+        "bank_requirements": {
+            "minimum_dscr": 1.5,
+            "preferred_dscr": 2.0,
+            "formula": "DSCR = Net Operating Income / (Interest + Principal)"
+        }
+    })
+
+
+def calculate_tam_sam_som(
+    total_potential_customers: int,
+    average_revenue_per_user: float,
+    geographic_accessibility_pct: float,
+    feature_accessibility_pct: float,
+    operational_capacity_pct: float,
+    competitive_edge_pct: float,
+) -> str:
+    """
+    Calculate TAM/SAM/SOM market sizing for DPR preparation.
+    
+    TAM = Total Addressable Market
+    SAM = Serviceable Addressable Market  
+    SOM = Serviceable Obtainable Market
+    """
+    # TAM = Total potential customers × ARPU
+    tam = total_potential_customers * average_revenue_per_user
+    
+    # SAM = TAM × Geographic × Feature accessibility
+    sam = tam * (geographic_accessibility_pct / 100) * (feature_accessibility_pct / 100)
+    
+    # SOM = SAM × Operational capacity × Competitive edge
+    som = sam * (operational_capacity_pct / 100) * (competitive_edge_pct / 100)
+    
+    # Format for display
+    def format_inr(value):
+        if value >= 1_00_00_000:
+            return f"₹{value/1_00_00_000:.2f} Cr"
+        elif value >= 1_00_000:
+            return f"₹{value/1_00_000:.2f} L"
+        else:
+            return f"₹{value:,.0f}"
+    
+    return json.dumps({
+        "success": True,
+        "market_sizing": {
+            "TAM": {
+                "value": round(tam, 2),
+                "formatted": format_inr(tam),
+                "description": "Total revenue if 100% market captured"
+            },
+            "SAM": {
+                "value": round(sam, 2),
+                "formatted": format_inr(sam),
+                "description": "Segment reachable with current products/geography"
+            },
+            "SOM": {
+                "value": round(som, 2),
+                "formatted": format_inr(som),
+                "description": "Realistic market share in short term (1-3 years)"
+            }
+        },
+        "inputs": {
+            "total_potential_customers": total_potential_customers,
+            "average_revenue_per_user": average_revenue_per_user,
+            "geographic_accessibility_pct": geographic_accessibility_pct,
+            "feature_accessibility_pct": feature_accessibility_pct,
+            "operational_capacity_pct": operational_capacity_pct,
+            "competitive_edge_pct": competitive_edge_pct
+        },
+        "methodology": "Bottom-up calculation",
+        "notes": [
+            "TAM/SAM/SOM is required in Section 3 of bank DPR",
+            "Use conservative SOM estimates (5-15% is typical)",
+            "Back up with industry data and citations"
+        ]
+    })
+
+
+# ==================== SOCRATIC BRAINSTORMING TOOLS ====================
+
+import random as socratic_random
+
+# Socratic Question Templates (6 Types)
+SOCRATIC_TEMPLATES = {
+    "clarification": [
+        "What specific metrics define '{aspect}' in the context of your business?",
+        "When you say '{aspect}', what exactly do you mean by that?",
+        "Could you clarify what success looks like for '{aspect}'?",
+        "How would you measure '{aspect}' in concrete terms?",
+    ],
+    "probing_assumptions": [
+        "What evidence leads you to believe {aspect} will work?",
+        "Have you considered what happens if your assumption about {aspect} is wrong?",
+        "Why do you assume {aspect}? What's the basis for this?",
+        "Is it possible that {aspect} is an industry myth rather than fact?",
+    ],
+    "probing_evidence": [
+        "Why is {aspect} important to your business model?",
+        "What's the root cause behind {aspect}?",
+        "What data or research supports your claim about {aspect}?",
+        "Can you trace {aspect} back to a fundamental customer need?",
+    ],
+    "viewpoints": [
+        "How would a large-scale competitor respond to your approach on {aspect}?",
+        "What would a skeptical investor ask about {aspect}?",
+        "How might a potential customer view {aspect}?",
+        "What would a bank loan officer think about {aspect}?",
+    ],
+    "implications": [
+        "What are the financial ramifications if {aspect} fails?",
+        "If {aspect} doesn't work, what's your Plan B?",
+        "How would a 30-day disruption in {aspect} affect operations?",
+        "What are the long-term implications of investing in {aspect}?",
+    ],
+    "meta": [
+        "Why is it important to define {aspect} at this stage?",
+        "Are we asking the right questions about {aspect}?",
+        "What question haven't we asked about {aspect} that we should?",
+        "How does clarifying {aspect} strengthen your DPR?",
+    ],
+}
+
+# Session state
+_brainstorm_session = {
+    "active": False,
+    "business_idea": "",
+    "current_section": "market_analysis",
+    "history": [],
+    "covered_types": set(),
+}
+
+DPR_SECTIONS = ["market_analysis", "technical_viability", "financial_projections", "compliance", "risk_mitigation"]
+
+
+def generate_socratic_question(
+    business_idea: str,
+    aspect: str,
+    question_type: str = "clarification",
+    current_section: str = "market_analysis",
+) -> str:
+    """Generate a Socratic question for brainstorming."""
+    qtype = question_type.lower() if question_type else "clarification"
+    templates = SOCRATIC_TEMPLATES.get(qtype, SOCRATIC_TEMPLATES["clarification"])
+    
+    template = socratic_random.choice(templates)
+    question = template.format(aspect=aspect or business_idea[:50])
+    
+    # Track session
+    _brainstorm_session["covered_types"].add(qtype)
+    _brainstorm_session["history"].append({
+        "type": qtype,
+        "question": question,
+        "section": current_section,
+    })
+    
+    hints = {
+        "clarification": ["Be specific with numbers and metrics", "Think about how this appears in your DPR"],
+        "probing_assumptions": ["Consider if you have data to back this up", "Think about what industry reports say"],
+        "probing_evidence": ["Cite sources if you have them", "Consider primary vs secondary research"],
+        "viewpoints": ["Think from the bank's perspective", "Consider what competitors would do"],
+        "implications": ["Calculate potential financial impact", "Think about contingency plans"],
+        "meta": ["Reflect on the overall DPR structure", "Consider what sections need more depth"],
+    }
+    
+    return json.dumps({
+        "success": True,
+        "question_type": qtype,
+        "question": question,
+        "hints": hints.get(qtype, []),
+        "section": current_section,
+    })
+
+
+def start_brainstorming_session(business_idea: str, section: str = "market_analysis") -> str:
+    """Start a structured Socratic brainstorming session."""
+    _brainstorm_session["active"] = True
+    _brainstorm_session["business_idea"] = business_idea
+    _brainstorm_session["current_section"] = section
+    _brainstorm_session["history"] = []
+    _brainstorm_session["covered_types"] = set()
+    
+    # Generate initial clarification question
+    initial_q = generate_socratic_question(
+        business_idea=business_idea,
+        aspect="your business idea",
+        question_type="clarification",
+        current_section=section,
+    )
+    initial_question = json.loads(initial_q)
+    
+    return json.dumps({
+        "success": True,
+        "session_started": True,
+        "business_idea": business_idea,
+        "current_section": section,
+        "sections_to_cover": DPR_SECTIONS,
+        "initial_question": initial_question,
+        "guidance": "Let's explore your business idea systematically. I'll guide you through Socratic questioning for each DPR section.",
+    })
+
+
+def process_brainstorm_response(user_response: str, current_aspect: str) -> str:
+    """Process user response and generate next Socratic question."""
+    # Assess response quality
+    word_count = len(user_response.split())
+    has_numbers = any(char.isdigit() for char in user_response)
+    has_reasoning = any(word in user_response.lower() for word in ["because", "since", "therefore", "as a result"])
+    
+    score = 0
+    feedback = []
+    
+    if word_count < 10:
+        feedback.append("Consider adding more detail to strengthen your DPR.")
+    else:
+        score += 25
+    
+    if has_numbers:
+        score += 30
+        feedback.append("Good use of specific data/numbers.")
+    else:
+        feedback.append("Adding specific metrics would strengthen your case.")
+    
+    if has_reasoning:
+        score += 25
+        feedback.append("Strong reasoning provided.")
+    
+    if word_count > 30:
+        score += 20
+    
+    # Determine next question type
+    all_types = set(SOCRATIC_TEMPLATES.keys())
+    covered = _brainstorm_session.get("covered_types", set())
+    uncovered = all_types - covered
+    
+    if not has_numbers:
+        next_type = "probing_evidence"
+    elif uncovered:
+        next_type = socratic_random.choice(list(uncovered))
+    else:
+        next_type = socratic_random.choice(list(all_types))
+    
+    # Generate next question
+    next_q = generate_socratic_question(
+        business_idea=_brainstorm_session.get("business_idea", ""),
+        aspect=current_aspect,
+        question_type=next_type,
+        current_section=_brainstorm_session.get("current_section", "market_analysis"),
+    )
+    
+    return json.dumps({
+        "success": True,
+        "response_quality": {
+            "score": min(score, 100),
+            "word_count": word_count,
+            "has_specifics": has_numbers,
+            "feedback": feedback,
+        },
+        "next_question": json.loads(next_q),
+        "covered_types": list(covered),
+        "session_progress": len(_brainstorm_session.get("history", [])),
+    })
+
+
+# ==================== WHAT-IF SIMULATOR TOOLS ====================
+
+# DSCR risk thresholds
+DSCR_THRESHOLDS = {"LOW": 2.0, "MEDIUM": 1.5, "HIGH": 1.25}
+
+
+def _calculate_dscr_internal(revenue: float, costs: float, interest: float, principal: float, tax_rate: float = 0.25) -> float:
+    """Calculate DSCR from financial inputs."""
+    ebitda = revenue - costs
+    net_income = ebitda * (1 - tax_rate)
+    debt_service = interest + principal
+    return net_income / debt_service if debt_service > 0 else float('inf')
+
+
+def _get_risk_level(dscr: float) -> str:
+    """Get risk level based on DSCR."""
+    if dscr >= DSCR_THRESHOLDS["LOW"]:
+        return "LOW"
+    elif dscr >= DSCR_THRESHOLDS["MEDIUM"]:
+        return "MEDIUM"
+    elif dscr >= DSCR_THRESHOLDS["HIGH"]:
+        return "HIGH"
+    return "CRITICAL"
+
+
+def run_sensitivity_analysis(
+    base_revenue: float,
+    base_costs: float,
+    loan_amount: float,
+    interest_rate: float = 12.0,
+    loan_tenure_years: int = 5,
+    variation_pct: float = 20.0,
+) -> str:
+    """Run DSCR sensitivity analysis."""
+    annual_interest = loan_amount * (interest_rate / 100)
+    annual_principal = loan_amount / loan_tenure_years
+    
+    base_dscr = _calculate_dscr_internal(base_revenue, base_costs, annual_interest, annual_principal)
+    
+    results = {
+        "base_case": {
+            "dscr": round(base_dscr, 2),
+            "risk_level": _get_risk_level(base_dscr),
+            "revenue": base_revenue,
+            "costs": base_costs,
+            "annual_debt_service": annual_interest + annual_principal,
+        },
+        "sensitivity": {},
+    }
+    
+    # Analyze each variable
+    for var in ["revenue", "costs", "interest"]:
+        sensitivity_data = []
+        for pct in [-variation_pct, -variation_pct/2, 0, variation_pct/2, variation_pct]:
+            factor = 1 + (pct / 100)
+            
+            if var == "revenue":
+                test_rev, test_costs, test_int = base_revenue * factor, base_costs, annual_interest
+            elif var == "costs":
+                test_rev, test_costs, test_int = base_revenue, base_costs * factor, annual_interest
+            else:
+                test_rev, test_costs, test_int = base_revenue, base_costs, annual_interest * factor
+            
+            dscr = _calculate_dscr_internal(test_rev, test_costs, test_int, annual_principal)
+            sensitivity_data.append({
+                "variation_pct": pct,
+                "dscr": round(dscr, 2),
+                "risk_level": _get_risk_level(dscr),
+                "bankable": dscr >= 1.5,
+            })
+        results["sensitivity"][var] = sensitivity_data
+    
+    # Break-even calculation
+    target_dscr = 1.5
+    target_ebitda = target_dscr * (annual_interest + annual_principal) / 0.75
+    break_even_revenue = target_ebitda + base_costs
+    
+    results["break_even"] = {
+        "minimum_revenue_for_dscr_1_5": round(break_even_revenue, 2),
+        "margin_from_base": round(((base_revenue / break_even_revenue) - 1) * 100, 1) if break_even_revenue > 0 else 0,
+    }
+    
+    return json.dumps({"success": True, **results})
+
+
+def run_scenario_comparison(
+    base_revenue: float,
+    base_costs: float,
+    loan_amount: float,
+    interest_rate: float = 12.0,
+    loan_tenure_years: int = 5,
+) -> str:
+    """Compare optimistic/base/conservative/worst case scenarios."""
+    annual_interest = loan_amount * (interest_rate / 100)
+    annual_principal = loan_amount / loan_tenure_years
+    
+    scenarios = {
+        "optimistic": {"rev": 1.25, "cost": 0.90, "desc": "25% higher revenue, 10% lower costs"},
+        "base": {"rev": 1.0, "cost": 1.0, "desc": "As per DPR projections"},
+        "conservative": {"rev": 0.85, "cost": 1.10, "desc": "15% lower revenue, 10% higher costs"},
+        "worst_case": {"rev": 0.70, "cost": 1.20, "desc": "30% lower revenue, 20% higher costs"},
+    }
+    
+    results = {}
+    for name, params in scenarios.items():
+        revenue = base_revenue * params["rev"]
+        costs = base_costs * params["cost"]
+        dscr = _calculate_dscr_internal(revenue, costs, annual_interest, annual_principal)
+        ebitda = revenue - costs
+        
+        results[name] = {
+            "description": params["desc"],
+            "revenue": round(revenue, 2),
+            "costs": round(costs, 2),
+            "ebitda": round(ebitda, 2),
+            "net_margin_pct": round((ebitda / revenue) * 100, 1) if revenue > 0 else 0,
+            "dscr": round(dscr, 2),
+            "risk_level": _get_risk_level(dscr),
+            "bankable": dscr >= 1.5,
+        }
+    
+    return json.dumps({"success": True, "scenarios": results})
+
+
+def run_cash_runway_analysis(
+    initial_cash: float,
+    monthly_revenue: float,
+    monthly_costs: float,
+    monthly_debt_service: float,
+    growth_rate_pct: float = 5.0,
+) -> str:
+    """Analyze cash runway under normal and stress scenarios."""
+    # Normal scenario
+    cash = initial_cash
+    normal_runway = 0
+    cash_history = [cash]
+    
+    for month in range(1, 37):
+        revenue = monthly_revenue * ((1 + growth_rate_pct/100) ** month)
+        cash_flow = revenue - monthly_costs - monthly_debt_service
+        cash += cash_flow
+        cash_history.append(round(cash, 2))
+        if cash > 0:
+            normal_runway = month
+        else:
+            break
+    
+    # Stress scenario (50% revenue drop for 3 months)
+    cash = initial_cash
+    stress_runway = 0
+    
+    for month in range(1, 37):
+        if month <= 3:
+            revenue = monthly_revenue * 0.5
+        else:
+            revenue = monthly_revenue * ((1 + growth_rate_pct/100) ** (month - 3))
+        cash_flow = revenue - monthly_costs - monthly_debt_service
+        cash += cash_flow
+        if cash > 0:
+            stress_runway = month
+        else:
+            break
+    
+    # Recommendation
+    if stress_runway >= 12:
+        recommendation = "Strong cash position. Business can weather significant stress."
+    elif stress_runway >= 6:
+        recommendation = "Adequate buffer. Consider building 3 months additional reserves."
+    elif stress_runway >= 3:
+        recommendation = "Tight margins. Recommend increasing initial working capital."
+    else:
+        recommendation = "High risk. Working capital is insufficient for debt servicing."
+    
+    return json.dumps({
+        "success": True,
+        "normal_scenario": {
+            "runway_months": normal_runway,
+            "cash_history_first_12": cash_history[:13],
+        },
+        "stress_scenario": {
+            "runway_months": stress_runway,
+            "scenario": "50% revenue drop for first 3 months",
+        },
+        "recommendation": recommendation,
+    })
+
+
+# ==================== DPR GENERATOR TOOLS ====================
+
+# DPR Section Structure (standardized banking format)
+DPR_STRUCTURE = [
+    "1. Executive Summary",
+    "2. Promoter Profile & Background",
+    "3. Business Description & Market Analysis",
+    "4. Technical Aspects & Production Process",
+    "5. Financial Projections",
+    "6. Cost of Project & Means of Finance",
+    "7. Profitability & Break-Even Analysis",
+    "8. Risk Analysis & Mitigation",
+    "9. Statutory Compliance & Approvals",
+    "10. Annexures",
+]
+
+
+def generate_dpr(project_data: Dict[str, Any]) -> str:
+    """Generate a complete DPR from project data."""
+    dpr = {
+        "metadata": {
+            "generated_on": datetime.now().isoformat(),
+            "version": "1.0",
+            "format": "Standardized Banking Format (MSME)",
+        },
+        "sections": []
+    }
+    
+    # Process each section
+    section_data = [
+        ("executive_summary", "1. Executive Summary", ["business_name", "nature_of_business", "msme_category", "project_cost", "loan_required", "dscr"]),
+        ("promoter_profile", "2. Promoter Profile", ["promoter_name", "qualification", "udyam_number", "pan", "gst_number"]),
+        ("market_analysis", "3. Market Analysis", ["target_market", "tam", "sam", "som", "competitors", "competitive_advantage"]),
+        ("financial_projections", "5. Financial Projections", ["year_1", "year_2", "year_3", "year_4", "year_5"]),
+        ("cost_of_project", "6. Cost of Project", ["land_building", "plant_machinery", "working_capital_margin", "term_loan", "subsidy"]),
+        ("profitability", "7. Profitability", ["dscr", "current_ratio", "break_even_revenue", "payback_period_years"]),
+        ("compliance", "9. Compliance", ["udyam_registration", "gst_registration", "msme_schemes"]),
+    ]
+    
+    total_fields = 0
+    filled_fields = 0
+    
+    for key, title, fields in section_data:
+        section_content = project_data.get(key, {})
+        section = {"title": title, "content": section_content}
+        dpr["sections"].append(section)
+        
+        for field in fields:
+            total_fields += 1
+            if section_content.get(field):
+                filled_fields += 1
+    
+    # Calculate completeness
+    completeness = (filled_fields / total_fields * 100) if total_fields > 0 else 0
+    dpr["metadata"]["completeness_pct"] = round(completeness, 1)
+    dpr["metadata"]["status"] = "Ready for Submission" if completeness >= 80 else "Draft - Requires More Data"
+    dpr["metadata"]["sections_structure"] = DPR_STRUCTURE
+    
+    return json.dumps({"success": True, "dpr": dpr})
+
+
+def get_dpr_template() -> str:
+    """Get empty DPR template with all required fields."""
+    template = {
+        "executive_summary": {
+            "business_name": "", "nature_of_business": "", "msme_category": "Micro/Small/Medium",
+            "project_cost": 0, "loan_required": 0, "promoter_contribution": 0,
+            "expected_employment": 0, "projected_revenue_year1": 0, "break_even_months": 0, "dscr": 0,
+        },
+        "promoter_profile": {
+            "promoter_name": "", "qualification": "", "experience_years": 0,
+            "udyam_number": "UDYAM-XX-00-0000000", "pan": "", "gst_number": "", "address": "",
+        },
+        "market_analysis": {
+            "product_description": "", "target_market": "", "tam": 0, "sam": 0, "som": 0,
+            "competitors": [], "competitive_advantage": "", "pricing_strategy": "",
+        },
+        "financial_projections": {
+            "year_1": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "year_2": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "year_3": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "year_4": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "year_5": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "growth_rate": 15,
+        },
+        "cost_of_project": {
+            "land_building": 0, "plant_machinery": 0, "furniture_fixtures": 0,
+            "preliminary_expenses": 0, "working_capital_margin": 0, "contingency": 0,
+            "total_project_cost": 0, "term_loan": 0, "working_capital_loan": 0,
+            "subsidy": 0, "promoter_contribution": 0,
+        },
+        "profitability": {
+            "dscr": 0, "current_ratio": 0, "gross_profit_margin": 0, "net_profit_margin": 0,
+            "break_even_revenue": 0, "break_even_months": 0, "payback_period_years": 0, "roe": 0,
+        },
+        "compliance": {
+            "udyam_registration": "Pending", "gst_registration": "Pending",
+            "trade_license": "Pending", "pollution_noc": "Not Required",
+            "msme_schemes": ["PMEGP", "Stand-Up India", "Mudra", "ZED"],
+        },
+    }
+    
+    return json.dumps({
+        "success": True,
+        "template": template,
+        "sections": DPR_STRUCTURE,
+        "instructions": "Fill in the template and call generate_dpr() with the completed data.",
     })
 
 

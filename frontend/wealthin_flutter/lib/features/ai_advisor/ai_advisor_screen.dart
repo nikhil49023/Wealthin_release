@@ -164,6 +164,8 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
       await _handleBudgetRequest(text);
     } else if (_containsGoalIntent(lowerText)) {
       await _handleGoalRequest(text);
+    } else if (_containsPaymentIntent(lowerText)) {
+      await _handlePaymentRequest(text);
     } else if (_containsCalculationIntent(lowerText)) {
       await _handleCalculationRequest(text);
     } else {
@@ -192,6 +194,13 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
     return text.contains('sip') || text.contains('emi') ||
            text.contains('calculate') || text.contains('interest') ||
            text.contains('fire') || text.contains('invest');
+  }
+
+  bool _containsPaymentIntent(String text) {
+    return text.contains('schedule') || text.contains('remind') ||
+           text.contains('bill') || text.contains('emi') ||
+           text.contains('rent') || text.contains('payment') ||
+           text.contains('recurring') || text.contains('subscription');
   }
 
   Future<void> _handleSearchRequest(String query, String lowerText) async {
@@ -274,47 +283,29 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
     _updateActivity(AIActivityState.executing, 'Understanding your budget request...');
     
     try {
-      // Extract budget details using AI
-      final context = await _buildUserContext();
-      final response = await aiAgentService.chat(
-        "Extract budget details from this request and return JSON only: $text\n"
-        "Format: {\"category\": \"...\", \"amount\": number, \"period\": \"monthly/weekly/yearly\"}",
-        userId: authService.currentUserId,
-        userContext: context,
-      );
-
-      // Try to parse budget from response or use defaults
-      Map<String, dynamic>? budgetData;
-      try {
-        final jsonMatch = RegExp(r'\{[^}]+\}').firstMatch(response.response);
-        if (jsonMatch != null) {
-          budgetData = json.decode(jsonMatch.group(0)!);
-        }
-      } catch (_) {}
-
-      budgetData ??= _extractBudgetFromText(text);
+      // Extract budget details directly from user text
+      final budgetData = _extractBudgetFromText(text);
 
       if (budgetData != null && budgetData['amount'] != null) {
-        // Create confirmation action
+        // Call Python bridge to prepare the action
         final result = await pythonBridge.executeTool('create_budget', {
           'category': budgetData['category'] ?? 'General',
           'amount': (budgetData['amount'] as num).toDouble(),
           'period': budgetData['period'] ?? 'monthly',
         });
 
-        final resultStr = result.toString();
-        final parsed = json.decode(resultStr);
-        
-        if (parsed['requires_confirmation'] == true) {
+        // pythonBridge.executeTool returns Map<String, dynamic> directly
+        if (result['requires_confirmation'] == true) {
+          final actionData = result['action_data'] as Map<String, dynamic>?;
           setState(() {
             _messages.add(_ChatMessage(
-              text: parsed['confirmation_message'] ?? 'Create this budget?',
+              text: result['confirmation_message']?.toString() ?? 'Create this budget?',
               isUser: false,
               timestamp: DateTime.now(),
               messageType: MessageType.confirmation,
-              actionId: parsed['action_id'],
-              actionType: parsed['action_type'],
-              actionData: parsed['action_data'],
+              actionId: result['action_id']?.toString(),
+              actionType: result['action_type']?.toString(),
+              actionData: actionData,
             ));
             _isLoading = false;
             _currentActivity = AIActivityState.idle;
@@ -326,9 +317,11 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
 
       _addAIMessage("I'd love to help you set a budget! 💰\n\nJust tell me:\n• **Category** (Food, Transport, Shopping, etc.)\n• **Amount** in rupees\n• **Period** (weekly, monthly, yearly)\n\nExample: *\"Set a monthly budget of ₹5000 for food\"*");
     } catch (e) {
+      debugPrint('Budget request error: $e');
       _addAIMessage("Let me help you create a budget! Tell me the category and amount. 📊");
     }
   }
+
 
   Future<void> _handleGoalRequest(String text) async {
     _updateActivity(AIActivityState.executing, 'Setting up your savings goal...');
@@ -343,19 +336,18 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
           'deadline': goalData['deadline'],
         });
 
-        final resultStr = result.toString();
-        final parsed = json.decode(resultStr);
-        
-        if (parsed['requires_confirmation'] == true) {
+        // pythonBridge.executeTool returns Map<String, dynamic> directly
+        if (result['requires_confirmation'] == true) {
+          final actionData = result['action_data'] as Map<String, dynamic>?;
           setState(() {
             _messages.add(_ChatMessage(
-              text: parsed['confirmation_message'] ?? 'Create this goal?',
+              text: result['confirmation_message']?.toString() ?? 'Create this goal?',
               isUser: false,
               timestamp: DateTime.now(),
               messageType: MessageType.confirmation,
-              actionId: parsed['action_id'],
-              actionType: parsed['action_type'],
-              actionData: parsed['action_data'],
+              actionId: result['action_id']?.toString(),
+              actionType: result['action_type']?.toString(),
+              actionData: actionData,
             ));
             _isLoading = false;
             _currentActivity = AIActivityState.idle;
@@ -367,9 +359,11 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
 
       _addAIMessage("🎯 Let's create a savings goal!\n\nTell me:\n• What are you saving for?\n• How much do you need?\n• When do you want to reach it?\n\nExample: *\"Save 50000 for a vacation by December\"*");
     } catch (e) {
+      debugPrint('Goal request error: $e');
       _addAIMessage("I'd love to help you set a savings goal! What would you like to save for? 🎯");
     }
   }
+
 
   Future<void> _handleCalculationRequest(String text) async {
     _updateActivity(AIActivityState.calculating, 'Crunching the numbers...');
@@ -381,6 +375,89 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
     } catch (e) {
       _addAIMessage("Let me help you with that calculation! 🧮 Could you provide the specific numbers?");
     }
+  }
+
+  Future<void> _handlePaymentRequest(String text) async {
+    _updateActivity(AIActivityState.executing, 'Setting up your payment reminder...');
+    
+    try {
+      final paymentData = _extractPaymentFromText(text);
+
+      if (paymentData != null && paymentData['amount'] != null) {
+        final result = await pythonBridge.executeTool('create_scheduled_payment', {
+          'name': paymentData['name'] ?? 'Payment',
+          'amount': (paymentData['amount'] as num).toDouble(),
+          'category': paymentData['category'] ?? 'Bills',
+          'due_date': paymentData['due_date'] ?? DateTime.now().add(const Duration(days: 1)).toIso8601String().substring(0, 10),
+          'frequency': paymentData['frequency'] ?? 'monthly',
+        });
+
+        // pythonBridge.executeTool returns Map<String, dynamic> directly
+        if (result['requires_confirmation'] == true) {
+          final actionData = result['action_data'] as Map<String, dynamic>?;
+          setState(() {
+            _messages.add(_ChatMessage(
+              text: result['confirmation_message']?.toString() ?? 'Schedule this payment?',
+              isUser: false,
+              timestamp: DateTime.now(),
+              messageType: MessageType.confirmation,
+              actionId: result['action_id']?.toString(),
+              actionType: result['action_type']?.toString(),
+              actionData: actionData,
+            ));
+            _isLoading = false;
+            _currentActivity = AIActivityState.idle;
+          });
+          _scrollToBottom();
+          return;
+        }
+      }
+
+      _addAIMessage("📅 Let's schedule a payment reminder!\n\nTell me:\n• **Name** (Netflix, Rent, EMI, etc.)\n• **Amount** in rupees\n• **Frequency** (monthly, weekly, yearly)\n\nExample: *\"Remind me to pay 499 for Netflix every month\"*");
+    } catch (e) {
+      debugPrint('Payment request error: $e');
+      _addAIMessage("I'd love to help you schedule a payment! Tell me the name and amount. 📅");
+    }
+  }
+
+  Map<String, dynamic>? _extractPaymentFromText(String text) {
+    // Extract amount
+    final amountMatch = RegExp(r'(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:₹|rs|rupees?)?', caseSensitive: false).firstMatch(text);
+    if (amountMatch == null) return null;
+
+    final amount = double.tryParse(amountMatch.group(1)!.replaceAll(',', ''));
+    if (amount == null) return null;
+
+    // Extract name - common payment names
+    String name = 'Payment';
+    final paymentNames = ['netflix', 'amazon', 'spotify', 'rent', 'electricity', 'water', 'gas', 'internet', 'phone', 'insurance', 'emi', 'loan'];
+    for (final paymentName in paymentNames) {
+      if (text.toLowerCase().contains(paymentName)) {
+        name = paymentName[0].toUpperCase() + paymentName.substring(1);
+        break;
+      }
+    }
+
+    // Extract frequency
+    String frequency = 'monthly';
+    if (text.toLowerCase().contains('week')) frequency = 'weekly';
+    if (text.toLowerCase().contains('year')) frequency = 'yearly';
+    if (text.toLowerCase().contains('quarter')) frequency = 'quarterly';
+
+    // Extract category based on name
+    String category = 'Bills';
+    if (['netflix', 'amazon', 'spotify'].contains(name.toLowerCase())) category = 'Entertainment';
+    if (['rent'].contains(name.toLowerCase())) category = 'Housing';
+    if (['electricity', 'water', 'gas', 'internet', 'phone'].contains(name.toLowerCase())) category = 'Utilities';
+    if (['insurance'].contains(name.toLowerCase())) category = 'Insurance';
+    if (['emi', 'loan'].contains(name.toLowerCase())) category = 'Debt';
+
+    return {
+      'name': name,
+      'amount': amount,
+      'category': category,
+      'frequency': frequency,
+    };
   }
 
   Future<void> _handleGeneralChat(String text) async {
@@ -455,40 +532,85 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
   }
 
   Future<void> _confirmAction(String actionId, String actionType, Map<String, dynamic> actionData) async {
+    debugPrint('[AIAdvisor] Confirming action: $actionType with data: $actionData');
     setState(() => _isLoading = true);
 
     try {
       if (actionType == 'create_budget') {
-        await dataService.createBudget(
+        final category = actionData['category']?.toString() ?? 'General';
+        final amount = (actionData['amount'] as num?)?.toDouble() ?? 0.0;
+        final period = actionData['period']?.toString() ?? 'monthly';
+        
+        debugPrint('[AIAdvisor] Creating budget: category=$category, amount=$amount, period=$period');
+        final result = await dataService.createBudget(
           userId: authService.currentUserId,
-          name: actionData['category'],
-          amount: (actionData['amount'] as num).toDouble(),
-          category: actionData['category'],
-          period: actionData['period'] ?? 'monthly',
+          name: category,
+          amount: amount,
+          category: category,
+          period: period,
         );
-        _addSuccessMessage("✅ Budget created successfully!\n\n📊 **${actionData['category']}**: ₹${actionData['amount']}/month\n\nYou can view it in the Budgets section.");
+        debugPrint('[AIAdvisor] Budget created: $result');
+        _addSuccessMessage("✅ Budget created successfully!\n\n📊 **$category**: ₹${amount.toStringAsFixed(0)}/$period\n\nYou can view it in the Budgets section.");
       } else if (actionType == 'create_savings_goal') {
-        await dataService.createGoal(
+        final name = actionData['name']?.toString() ?? 'Savings Goal';
+        final targetAmount = (actionData['target_amount'] as num?)?.toDouble() ?? 0.0;
+        final deadline = actionData['deadline']?.toString();
+        
+        debugPrint('[AIAdvisor] Creating goal: name=$name, targetAmount=$targetAmount, deadline=$deadline');
+        final result = await dataService.createGoal(
           userId: authService.currentUserId,
-          name: actionData['name'],
-          targetAmount: (actionData['target_amount'] as num).toDouble(),
-          deadline: actionData['deadline'],
+          name: name,
+          targetAmount: targetAmount,
+          deadline: deadline,
         );
-        _addSuccessMessage("✅ Savings goal created!\n\n🎯 **${actionData['name']}**: ₹${actionData['target_amount']}\n\nTrack your progress in the Goals section.");
+        debugPrint('[AIAdvisor] Goal created: $result');
+        _addSuccessMessage("✅ Savings goal created!\n\n🎯 **$name**: ₹${targetAmount.toStringAsFixed(0)}\n\nTrack your progress in the Goals section.");
       } else if (actionType == 'add_transaction') {
+        final amount = (actionData['amount'] as num?)?.toDouble() ?? 0.0;
+        final description = actionData['description']?.toString() ?? 'Transaction';
+        final category = actionData['category']?.toString() ?? 'Other';
+        final txType = actionData['type']?.toString() ?? 'expense';
+        
+        debugPrint('[AIAdvisor] Creating transaction: description=$description, amount=$amount, category=$category, type=$txType');
         await dataService.createTransaction(
           userId: authService.currentUserId,
-          amount: (actionData['amount'] as num).toDouble(),
-          description: actionData['description'],
-          category: actionData['category'],
-          type: actionData['type'],
+          amount: amount,
+          description: description,
+          category: category,
+          type: txType,
         );
-        _addSuccessMessage("✅ Transaction added!\n\n💰 **${actionData['description']}**: ₹${actionData['amount']}");
+        debugPrint('[AIAdvisor] Transaction created');
+        _addSuccessMessage("✅ Transaction added!\n\n💰 **$description**: ₹${amount.toStringAsFixed(0)}");
+      } else if (actionType == 'create_scheduled_payment') {
+        final name = actionData['name']?.toString() ?? 'Payment';
+        final amount = (actionData['amount'] as num?)?.toDouble() ?? 0.0;
+        final category = actionData['category']?.toString() ?? 'Bills';
+        final dueDate = actionData['due_date']?.toString() ?? DateTime.now().toIso8601String().substring(0, 10);
+        final frequency = actionData['frequency']?.toString() ?? 'monthly';
+        
+        debugPrint('[AIAdvisor] Creating scheduled payment: name=$name, amount=$amount, category=$category, dueDate=$dueDate, frequency=$frequency');
+        await dataService.createScheduledPayment(
+          userId: authService.currentUserId,
+          name: name,
+          amount: amount,
+          category: category,
+          dueDate: dueDate,
+          frequency: frequency,
+        );
+        debugPrint('[AIAdvisor] Scheduled payment created');
+        _addSuccessMessage("✅ Payment scheduled!\n\n📅 **$name**: ₹${amount.toStringAsFixed(0)} ($frequency)\n\nView in the Payments section.");
+      } else {
+        debugPrint('[AIAdvisor] Unknown action type: $actionType');
+        _addAIMessage("⚠️ Unknown action type: $actionType. Please try again.");
       }
-    } catch (e) {
-      _addAIMessage("❌ Couldn't complete that action. Please try again or do it manually in the app.");
+    } catch (e, stackTrace) {
+      debugPrint('[AIAdvisor] Error confirming action: $e');
+      debugPrint('[AIAdvisor] Stack trace: $stackTrace');
+      _addAIMessage("❌ Couldn't complete that action. Error: $e\n\nPlease try again or do it manually in the app.");
     }
   }
+
+
 
   void _cancelAction(String actionId) {
     _addAIMessage("No problem! Let me know if you'd like to do something else. 😊");
@@ -648,6 +770,7 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
                   ? textColor 
                   : subtitleColor,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           // Clear button
@@ -1158,12 +1281,31 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Text(price.toString(), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                        Flexible(
+                          child: Text(
+                            price.toString(),
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.emerald,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                          child: Text(source, style: GoogleFonts.inter(fontSize: 10, color: Colors.blue[700])),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              source,
+                              style: GoogleFonts.inter(fontSize: 10, color: Colors.blue[700]),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ),
                       ],
                     ),

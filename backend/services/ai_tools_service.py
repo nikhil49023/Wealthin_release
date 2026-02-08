@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 from .sarvam_service import sarvam_service
 from .zoho_vision_service import zoho_vision_service
 from .web_search_service import web_search_service
+from .socratic_engine import inquiry_engine
+from .whatif_simulator import simulator as whatif_simulator
+from .dpr_generator import dpr_generator
 
 # Check which services are available
 SARVAM_AVAILABLE = sarvam_service.is_configured
@@ -291,10 +294,72 @@ FINANCIAL_TOOLS = [
             },
             "required": ["idea"]
         }
+    },
+    {
+        "name": "generate_socratic_question",
+        "description": "Generate a Socratic question to guide MSME brainstorming. Uses 6 question types.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "business_idea": {"type": "string"},
+                "aspect": {"type": "string"},
+                "section": {"type": "string"}
+            },
+            "required": ["business_idea"]
+        }
+    },
+    {
+        "name": "start_brainstorming",
+        "description": "Start a structured Socratic brainstorming session.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "business_idea": {"type": "string"},
+                "section": {"type": "string"}
+            },
+            "required": ["business_idea"]
+        }
+    },
+    {
+        "name": "process_brainstorm_response",
+        "description": "Process user response in Socratic session.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "response": {"type": "string"},
+                "question_context": {"type": "object"}
+            },
+            "required": ["response"]
+        }
+    },
+    {
+        "name": "run_sensitivity_analysis",
+        "description": "Run DSCR sensitivity analysis.",
+        "parameters": {"type": "object", "properties": {"base_dscr": {"type": "number"}, "revenue": {"type": "number"}, "operating_costs": {"type": "number"}, "debt_service": {"type": "number"}}, "required": ["base_dscr"]}
+    },
+    {
+        "name": "run_scenario_comparison",
+        "description": "Compare 4 financial scenarios.",
+        "parameters": {"type": "object", "properties": {"base_case": {"type": "object"}}, "required": ["base_case"]}
+    },
+    {
+        "name": "run_cash_runway_analysis",
+        "description": "Analyze cash runway.",
+        "parameters": {"type": "object", "properties": {"initial_cash": {"type": "number"}, "monthly_revenue": {"type": "number"}, "monthly_costs": {"type": "number"}, "monthly_debt_service": {"type": "number"}}, "required": ["initial_cash", "monthly_revenue", "monthly_costs"]}
+    },
+    {
+        "name": "generate_dpr",
+        "description": "Generate Detailed Project Report.",
+        "parameters": {"type": "object", "properties": {"project_data": {"type": "object"}}, "required": ["project_data"]}
+    },
+    {
+        "name": "get_dpr_template",
+        "description": "Get empty DPR template.",
+        "parameters": {"type": "object", "properties": {}, "required": []}
     }
 ]
 
-# System prompt for the AI advisor - Enhanced for Agentic Behavior
+# System prompt for the AI advisor - Enhanced for Agentic Behavior with RBI Guidelines
 SYSTEM_PROMPT = """You are WealthIn AI, a powerful and intelligent financial advisor for Indian users.
 
 You operate as a FULLY AGENTIC AI - you can think step-by-step, perform multiple searches, compare results, and validate information before responding.
@@ -307,20 +372,69 @@ You can help users with:
 - Getting spending analysis
 - Calculating SIP returns and loan EMIs
 - Tax information (Income Tax, GST)
-- **Market Research & Price Comparison** (NEW - use search tools agentically!)
+- **Market Research & Price Comparison** (use search tools agentically!)
+- **Business Idea Analysis** (deep research with multiple searches)
 
-### AGENTIC SEARCH BEHAVIOR ###
+### RBI (RESERVE BANK OF INDIA) FINANCIAL GUIDELINES - MANDATORY ###
+**CRITICAL: You MUST apply these RBI-recommended parameters in EVERY financial analysis. Non-compliance is UNACCEPTABLE.**
+
+**Debt Management (STRICT CHECKS):**
+- ⚠️ Debt-to-Income Ratio (DTI): MUST be < 40% of monthly income. FLAG if exceeded.
+- ⚠️ EMI-to-Income Ratio: Total EMIs MUST NOT exceed 50% of net income. WARN if > 40%.
+- ⚠️ Credit utilization: MUST be below 30% of credit limit. ALERT if > 25%.
+
+**Savings & Investment (MANDATORY TARGETS):**
+- ✅ 50-30-20 Rule: 50% needs, 30% wants, 20% savings/investments - ALWAYS CALCULATE
+- ✅ Emergency Fund: MINIMUM 6 months of expenses - CHECK if user has this
+- ✅ Insurance: Term insurance = 10-15x annual income - RECOMMEND if missing
+- ✅ Retirement: SIP at 15-20% of income - ALWAYS SUGGEST if not in place
+
+**Liquidity Ratios (STRICT MONITORING):**
+- Current Ratio: Liquid assets MUST cover 3-6 months expenses
+- Savings Rate: MINIMUM 20% of income - WARN if below
+- DTI Check: ALWAYS calculate before recommending any loan or EMI
+
+**MANDATORY ANALYSIS CHECKLIST:**
+For EVERY financial query, you MUST:
+1. Calculate DTI ratio if debt is involved
+2. Check savings rate against 20% benchmark
+3. Verify emergency fund status
+4. Apply 50-30-20 rule to budget recommendations
+5. Warn about RBI non-compliance with specific improvement steps
+
+**RBI COMPLIANCE SCORING:**
+When analyzing finances, assign a score:
+- 🟢 EXCELLENT (90-100): All RBI parameters met
+- 🟡 GOOD (70-89): Minor deviations, provide specific fixes
+- 🟠 CAUTION (50-69): Multiple parameters exceeded, urgent action needed
+- 🔴 CRITICAL (<50): Serious financial risk, immediate restructuring required
+
+### DEEP RESEARCH & AGENTIC BEHAVIOR ###
 When a user asks about products, prices, or market research:
 1. **Multi-Step Search**: First search for the product, then search for reviews, then compare prices.
 2. **Price Comparison**: Search on Amazon AND Flipkart, compare and present best deals.
 3. **Validation**: Cross-reference information from multiple sources.
-4. **Deep Research**: For investment queries, search for news, expert opinions, and historical data.
+4. **Deep Research**: For investment/business queries, search for news, expert opinions, RBI guidelines, and historical data.
 
 Example agentic flow for "Find best price for iPhone 15":
 - Step 1: Call `web_search` with "iPhone 15 price Amazon India"
 - Step 2: Call `web_search` with "iPhone 15 price Flipkart"
 - Step 3: Call `web_search` with "iPhone 15 reviews"
 - Step 4: Compare results and provide a comprehensive answer with recommendations.
+
+### BUSINESS IDEA ANALYSIS FLOW ###
+When analyzing a business idea with `brainstorm_business_idea`:
+1. Research market size and potential in India
+2. Analyze competition and existing players
+3. Search for relevant government schemes (MSME, Startup India, etc.)
+4. Check for RBI compliance requirements (for fintech/banking ideas)
+5. Evaluate against financial viability metrics
+
+### RESPONSE STYLE ###
+- Be CONCISE but THOROUGH - avoid unnecessary verbosity
+- End every response with a relevant FOLLOW-UP QUESTION to encourage engagement
+- Use bullet points and formatting for readability
+- Provide ACTIONABLE insights, not just information
 
 ### ACTION GUIDELINES ###
 When a user's request requires taking an action (like creating a budget or adding a transaction), 
@@ -700,6 +814,28 @@ Use this information to provide personalized, relevant advice. Reference specifi
         # Business Idea Brainstorming Tool
         elif function_name == "brainstorm_business_idea":
             return await self._brainstorm_business_idea(arguments)
+            
+        # Socratic Brainstorming
+        elif function_name == "generate_socratic_question":
+            return inquiry_engine.generate_question(arguments.get("business_idea", ""), arguments.get("aspect", ""), arguments.get("section", "market_analysis"))
+        elif function_name == "start_brainstorming":
+            return inquiry_engine.start_session(arguments.get("business_idea", ""), arguments.get("section", "market_analysis"))
+        elif function_name == "process_brainstorm_response":
+            return inquiry_engine.process_response(arguments.get("response", ""), arguments.get("question_context", {}))
+            
+        # What-If Simulator
+        elif function_name == "run_sensitivity_analysis":
+            return json.loads(whatif_simulator.run_sensitivity_analysis(arguments))
+        elif function_name == "run_scenario_comparison":
+            return json.loads(whatif_simulator.run_scenario_comparison(arguments))
+        elif function_name == "run_cash_runway_analysis":
+            return json.loads(whatif_simulator.run_cash_runway_analysis(arguments))
+            
+        # DPR Generator
+        elif function_name == "generate_dpr":
+            return json.loads(dpr_generator.generate_dpr(arguments.get("project_data", {})))
+        elif function_name == "get_dpr_template":
+            return json.loads(dpr_generator.get_template())
             
         else:
             return {"success": False, "message": f"Unknown action: {function_name}"}
