@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
@@ -14,9 +15,10 @@ import 'features/dashboard/dashboard_screen.dart';
 import 'features/finance/finance_hub_screen.dart';
 import 'features/ai_hub/ai_hub_screen.dart';
 import 'features/brainstorm/brainstorm_screen.dart';
-import 'features/profile/profile_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'core/services/ai_agent_service.dart';
 import 'core/services/data_service.dart';
+import 'features/analysis/analysis_screen.dart';
 
 
 /// Global auth service for Supabase authentication
@@ -97,9 +99,32 @@ class WealthInApp extends StatefulWidget {
 
 class _WealthInAppState extends State<WealthInApp> {
   bool _showSplash = true;
+  bool _showOnboarding = false;
+  bool _checkingOnboarding = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+    if (mounted) {
+      setState(() {
+        _showOnboarding = !onboardingComplete;
+        _checkingOnboarding = false;
+      });
+    }
+  }
 
   void _onSplashComplete() {
     setState(() => _showSplash = false);
+  }
+
+  void _onOnboardingComplete() {
+    setState(() => _showOnboarding = false);
   }
 
   @override
@@ -113,13 +138,31 @@ class _WealthInAppState extends State<WealthInApp> {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
-          home: _showSplash
-            ? SplashScreen(onComplete: _onSplashComplete)
-            : const AuthWrapper(
-                child: MainNavigationShell(),
-              ),
+          home: _buildHome(),
         );
       },
+    );
+  }
+
+  Widget _buildHome() {
+    if (_showSplash) {
+      return SplashScreen(onComplete: _onSplashComplete);
+    }
+    
+    // Still checking onboarding status
+    if (_checkingOnboarding) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    // Show onboarding for first-time users
+    if (_showOnboarding) {
+      return OnboardingScreen(onComplete: _onOnboardingComplete);
+    }
+    
+    return const AuthWrapper(
+      child: MainNavigationShell(),
     );
   }
 }
@@ -139,8 +182,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     DashboardScreen(),
     FinanceHubScreen(),
     AiHubScreen(),
+    AnalysisScreen(),
     BrainstormScreen(),
-    ProfileScreen(),
+    // ProfileScreen removed - accessible from dashboard header
   ];
 
   @override
@@ -161,7 +205,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     NavigationRailDestination(
                       icon: Icon(Icons.dashboard_outlined),
                       selectedIcon: Icon(Icons.dashboard),
-                      label: Text('Dashboard'),
+                      label: Text('Home'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Icons.account_balance_wallet_outlined),
@@ -174,14 +218,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       label: Text('AI Tools'),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Icons.lightbulb_outline),
-                      selectedIcon: Icon(Icons.lightbulb),
-                      label: Text('Brainstorm'),
+                      icon: Icon(Icons.analytics_outlined),
+                      selectedIcon: Icon(Icons.analytics),
+                      label: Text('Analysis'),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Icons.person_outline),
-                      selectedIcon: Icon(Icons.person),
-                      label: Text('Profile'),
+                      icon: Icon(Icons.lightbulb_outline),
+                      selectedIcon: Icon(Icons.lightbulb),
+                      label: Text('Ideas'),
                     ),
                   ],
                 ),
@@ -234,11 +278,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) =>
                   setState(() => _selectedIndex = index),
-              destinations: const [
+                destinations: const [
                 NavigationDestination(
                   icon: Icon(Icons.dashboard_outlined),
                   selectedIcon: Icon(Icons.dashboard_rounded),
-                  label: 'Dashboard',
+                  label: 'Home',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.account_balance_wallet_outlined),
@@ -248,17 +292,17 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 NavigationDestination(
                   icon: Icon(Icons.auto_awesome_outlined),
                   selectedIcon: Icon(Icons.auto_awesome_rounded),
-                  label: 'AI Tools',
+                  label: 'AI',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.analytics_outlined),
+                  selectedIcon: Icon(Icons.analytics_rounded),
+                  label: 'Analysis',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.lightbulb_outline),
                   selectedIcon: Icon(Icons.lightbulb_rounded),
-                  label: 'Brainstorm',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(Icons.person_rounded),
-                  label: 'Profile',
+                  label: 'Ideas',
                 ),
               ],
             ),

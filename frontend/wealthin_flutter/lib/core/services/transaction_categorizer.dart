@@ -88,6 +88,9 @@ class TransactionCategorizer {
     ]
   };
 
+  /// Get list of all supported categories
+  static List<String> get categories => _categoryKeywords.keys.toList();
+
   /// Categorize transaction based on description
   static String categorize(String description) {
     if (description.isEmpty) return otherParams;

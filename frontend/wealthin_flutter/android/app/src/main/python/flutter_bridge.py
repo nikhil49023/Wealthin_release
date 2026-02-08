@@ -65,16 +65,11 @@ def health_check() -> str:
     
     # Check if PDF parser is available
     try:
-        import fitz
+        from pypdf import PdfReader
         components["pdf_parser_available"] = True
-        components["pdf_engine"] = "pymupdf"
+        components["pdf_engine"] = "pypdf"
     except ImportError:
-        try:
-            import pdfplumber
-            components["pdf_parser_available"] = True
-            components["pdf_engine"] = "pdfplumber"
-        except ImportError:
-            components["pdf_engine"] = "none"
+        components["pdf_engine"] = "none"
     
     return json.dumps({
         "success": True,
@@ -242,6 +237,18 @@ AVAILABLE_TOOLS = [
         "parameters": {
             "file_path": "str - Path to the PDF file"
         }
+    },
+    {
+        "name": "create_scheduled_payment",
+        "description": "Create a new scheduled payment or bill reminder",
+        "parameters": {
+            "name": "str - Payment name (e.g., Netflix, Rent, Electricity)",
+            "amount": "float - Payment amount in INR",
+            "category": "str - Payment category",
+            "due_date": "str - First due date (YYYY-MM-DD)",
+            "frequency": "str - Frequency: 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly' (default: monthly)"
+        },
+        "requires_confirmation": True
     }
 ]
 
@@ -278,6 +285,7 @@ def execute_tool(tool_name: str, args: Dict[str, Any]) -> str:
             "create_budget": prepare_create_budget,
             "create_savings_goal": prepare_create_goal,
             "add_transaction": prepare_add_transaction,
+            "create_scheduled_payment": prepare_create_scheduled_payment,
         }
         
         # Route ALL search-related tools to unified web_search
@@ -363,7 +371,6 @@ def prepare_add_transaction(amount: float, description: str, category: str, type
         "data": {"amount": amount, "description": description, "category": category, "type": type},
         "created_at": datetime.now().isoformat()
     }
-    icon = "💸" if type == "expense" else "💰"
     return json.dumps({
         "success": True,
         "requires_confirmation": True,
@@ -375,8 +382,40 @@ def prepare_add_transaction(amount: float, description: str, category: str, type
             "category": category,
             "type": type
         },
-        "confirmation_message": f"{icon} Add **{type}** of **₹{amount:,.0f}** for **{description}** ({category})?",
+        "confirmation_message": f"💸 Add **{type}**: **₹{amount:,.0f}** for **{description}** ({category})?",
         "buttons": ["✅ Yes, add it", "❌ Cancel"]
+    })
+
+
+def prepare_create_scheduled_payment(name: str, amount: float, category: str, due_date: str, frequency: str = "monthly") -> str:
+    """Prepare scheduled payment creation - requires user confirmation."""
+    action_id = f"sch_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    _pending_actions[action_id] = {
+        "type": "create_scheduled_payment",
+        "data": {
+            "name": name,
+            "amount": amount,
+            "category": category,
+            "dueDate": due_date,
+            "frequency": frequency,
+            "isAutopay": False
+        },
+        "created_at": datetime.now().isoformat()
+    }
+    return json.dumps({
+        "success": True,
+        "requires_confirmation": True,
+        "action_id": action_id,
+        "action_type": "create_scheduled_payment",
+        "action_data": {
+            "name": name,
+            "amount": amount,
+            "category": category,
+            "due_date": due_date,
+            "frequency": frequency
+        },
+        "confirmation_message": f"📅 Schedule **{frequency}** payment: **₹{amount:,.0f}** for **{name}**?",
+        "buttons": ["✅ Yes, schedule it", "❌ Cancel"]
     })
 
 
@@ -411,22 +450,11 @@ def cancel_action(action_id: str) -> str:
 MAX_PDF_PAGES = 5  # Maximum pages allowed for PDF parsing
 
 def _get_pdf_page_count(file_path: str) -> int:
-    """Get the number of pages in a PDF file."""
+    """Get the number of pages in a PDF file using pypdf."""
     try:
-        try:
-            import pdfplumber
-            with pdfplumber.open(file_path) as pdf:
-                return len(pdf.pages)
-        except ImportError:
-            try:
-                import fitz  # PyMuPDF
-                doc = fitz.open(file_path)
-                count = len(doc)
-                doc.close()
-                return count
-            except ImportError:
-                # If no PDF library available, return -1 to skip validation
-                return -1
+        from pypdf import PdfReader
+        reader = PdfReader(file_path)
+        return len(reader.pages)
     except Exception:
         return -1
 
@@ -604,82 +632,75 @@ def _parse_pdf_with_sarvam(file_path: str) -> dict:
 
 
 def parse_pdf_directly(file_path: str) -> str:
-    """Parse bank statement from PDF. Uses Sarvam Document Intelligence when available,
-    falls back to local parsing with pdfplumber/PyMuPDF."""
+    """
+    Parse bank statement from PDF using pypdf (pure Python).
+    Simple and reliable - works on Android without native dependencies.
+    """
     try:
-        # Check page count first
-        page_count = _get_pdf_page_count(file_path)
-        if page_count > MAX_PDF_PAGES:
+        print(f"[PDF Parser] Parsing: {file_path}")
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
             return json.dumps({
                 "success": False,
-                "error": f"PDF has {page_count} pages. Maximum allowed is {MAX_PDF_PAGES} pages. Please upload a shorter document.",
-                "page_limit_exceeded": True,
-                "page_count": page_count,
-                "max_pages": MAX_PDF_PAGES
+                "error": f"File not found: {file_path}"
             })
         
-        if page_count > 0:
-            print(f"[PDF Parser] Processing PDF with {page_count} page(s)")
-        
-        # Try Sarvam Document Intelligence first (if API key available)
-        if _sarvam_api_key:
-            print("[PDF Parser] Attempting Sarvam Document Intelligence...")
-            sarvam_result = _parse_pdf_with_sarvam(file_path)
-            
-            if sarvam_result.get('success') and sarvam_result.get('text'):
-                print("[PDF Parser] Sarvam DI succeeded, parsing extracted text...")
-                return parse_bank_statement_text(sarvam_result['text'])
-            else:
-                print(f"[PDF Parser] Sarvam DI failed: {sarvam_result.get('error')}, falling back to local parsing")
-        
-        # Fallback to local PDF parsing
         text = ""
         
-        # Try pdfplumber first
+        # Use pypdf (pure Python, works on Android via Chaquopy)
         try:
-            import pdfplumber
-            with pdfplumber.open(file_path) as pdf:
-                for page in pdf.pages:
-                    page_text = page.extract_text() or ""
-                    text += page_text + "\n\n--- PAGE BREAK ---\n\n"
-        except ImportError:
-            # Fallback to PyMuPDF
-            try:
-                import fitz  # PyMuPDF
-                doc = fitz.open(file_path)
-                for page in doc:
-                    text += page.get_text() + "\n\n--- PAGE BREAK ---\n\n"
-                doc.close()
-            except ImportError:
-                # Last resort: use system poppler-utils
-                import subprocess
-                try:
-                    result = subprocess.run(
-                        ["pdftotext", "-layout", file_path, "-"],
-                        capture_output=True, text=True, timeout=30
-                    )
-                    text = result.stdout
-                except:
-                    return json.dumps({
-                        "success": False,
-                        "error": "No PDF parser available. Install pdfplumber or PyMuPDF."
-                    })
+            from pypdf import PdfReader
+            print("[PDF Parser] Using pypdf...")
+            
+            reader = PdfReader(file_path)
+            page_count = len(reader.pages)
+            print(f"[PDF Parser] Found {page_count} page(s)")
+            
+            if page_count > 10:
+                return json.dumps({
+                    "success": False,
+                    "error": f"PDF too large ({page_count} pages). Maximum 10 pages supported."
+                })
+            
+            for i, page in enumerate(reader.pages):
+                page_text = page.extract_text() or ""
+                if page_text:
+                    text += page_text + "\n\n"
+                print(f"[PDF Parser] Page {i+1}: {len(page_text)} chars")
+                
+        except ImportError as ie:
+            print(f"[PDF Parser] pypdf not available: {ie}")
+            return json.dumps({
+                "success": False,
+                "error": "PDF parser not installed. Please reinstall the app."
+            })
+        except Exception as pdf_err:
+            print(f"[PDF Parser] pypdf error: {pdf_err}")
+            return json.dumps({
+                "success": False,
+                "error": f"Failed to read PDF: {str(pdf_err)}"
+            })
         
         if not text.strip():
             return json.dumps({
                 "success": False,
-                "error": "Could not extract text from PDF"
+                "error": "PDF has no readable text. Try a different statement."
             })
         
-        # Parse the extracted text
+        print(f"[PDF Parser] Extracted {len(text)} chars, parsing transactions...")
+        # DEBUG DUMP: Print first 500 chars to help debug
+        print(f"[PDF Parser] TEXT DUMP (first 500 chars): {text[:500]}")
+        
+        # Parse the extracted text for transactions
         return parse_bank_statement_text(text)
         
     except Exception as e:
+        print(f"[PDF Parser] Error: {e}")
         return json.dumps({
             "success": False,
             "error": f"PDF parsing error: {str(e)}"
         })
-
 
 
 def get_available_tools() -> str:
@@ -1795,34 +1816,37 @@ Response: ```json
 {{"tool_call": {{"name": "calculate_sip", "arguments": {{"monthly_investment": 5000, "annual_rate": 12, "years": 10}}}}}}
 ```
 
+## RESPONSE STYLE - CRITICAL
+1. **Keep responses SHORT**: 3-5 sentences maximum. No lengthy explanations.
+2. **Be conversational**: Talk like a friendly advisor, not a textbook.
+3. **Use bullet points**: For lists of 3+ items, use • bullets.
+4. **Numbers matter**: Always include specific amounts in ₹.
+5. **ALWAYS end with a follow-up question** like:
+   - "Would you like me to calculate the EMI for this?"
+   - "Should I set this up as a savings goal?"
+   - "Want me to search for better options?"
+   - "Would you like more details on this?"
+   - "Should I create a budget for this category?"
+
 ## PERSONALIZED ADVICE RULES
 You have access to the user's COMPLETE FINANCIAL PROFILE. Use this to give personalized advice:
 
 1. **Purchase Decisions**: When user asks about buying something:
    - Check their savings rate and disposable income
    - If savings rate < 10%: Strongly recommend EMI or delaying purchase
-   - If savings rate 10-20%: Suggest EMI for purchases > ₹10,000
-   - If savings rate 20-30%: Cash OK for < ₹20,000, EMI for larger
    - If savings rate > 30%: Cash purchase is fine for most items
    
-2. **EMI Calculations**: Always calculate EMI when suggesting it:
-   - Use calculate_emi tool with typical rates (12-18% for personal loans)
-   - Show monthly EMI amount vs monthly savings capacity
+2. **EMI Calculations**: Always calculate EMI when suggesting it
    
-3. **Budget Impact**: Explain how a purchase affects their budget:
-   - Compare purchase price to their monthly savings
-   - Suggest how many months it would take to save for it
-   
-4. **Goal Alignment**: Check if purchase aligns with their savings goals:
-   - If they have active goals, mention the trade-off
-   - Suggest adding the item as a new savings goal if appropriate
+3. **Budget Impact**: Briefly explain how a purchase affects their budget
 
 ## CRITICAL RULES
 1. The "query" parameter must be a SIMPLE search string
 2. Keep queries short and specific
-3. After tool results, provide PERSONALIZED advice based on user's financial situation
-4. Always mention specific numbers (their income, savings, how purchase affects them)
-5. Use ₹ for Indian Rupees
+3. After tool results, give a BRIEF summary with key points
+4. Use ₹ for Indian Rupees
+5. **NEVER give responses longer than 5 sentences without bullet points**
+6. **ALWAYS end with a follow-up question to continue the conversation**
 
 """
     
@@ -3275,6 +3299,8 @@ def parse_bank_statement_text(text: str) -> str:
                 bank_detected = bank
                 break
         
+        print(f"[Parser] Detected bank: {bank_detected}")
+        
         # Date patterns - comprehensive
         date_patterns = [
             # MMM DD, YYYY (PhonePe style)
@@ -3321,114 +3347,94 @@ def parse_bank_statement_text(text: str) -> str:
         lines = text.split('\n')
         last_date = None
         
-        # Strategy 1: PhonePe-specific "Paid to" / "Received from" parsing
+        # Strategy 1: PhonePe multi-line block parsing
+        # Format: Date -> Time -> DEBIT/CREDIT -> ₹Amount -> Description
         if bank_detected == "PHONEPE":
-            # Find all amounts in text
-            all_amounts = []
-            for pattern in amount_patterns:
-                for match in re.finditer(pattern, text, re.IGNORECASE):
-                    try:
-                        amt_str = match.group(1).replace(',', '')
-                        amt = float(amt_str)
-                        if 10 <= amt < 10000000:  # ₹10 to ₹1 crore
-                            all_amounts.append(amt)
-                    except:
-                        pass
-            
-            amount_idx = 0
-            for i, line in enumerate(lines):
-                # Extract date
-                for pattern in date_patterns:
-                    match = re.search(pattern, line, re.IGNORECASE)
-                    if match:
-                        try:
-                            groups = match.groups()
-                            if groups[0].isalpha():  # MMM DD, YYYY
-                                month = month_map.get(groups[0].lower()[:3], '01')
-                                day = groups[1].zfill(2)
-                                year = groups[2]
-                            elif len(groups) >= 3 and groups[1].isalpha():  # DD MMM YYYY
-                                day = groups[0].zfill(2)
-                                month = month_map.get(groups[1].lower()[:3], '01')
-                                year = groups[2]
-                            else:  # DD/MM/YYYY
-                                day = groups[0].zfill(2)
-                                month = groups[1].zfill(2)
-                                year = groups[2] if len(groups[2]) == 4 else f"20{groups[2]}"
-                            last_date = f"{year}-{month}-{day}"
-                        except:
-                            pass
-                        break
+            print("[Parser] Using PhonePe multi-line block parser")
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
                 
-                # Check for "Paid to" pattern
-                paid_match = re.search(r'(?:Paid to|Payment to)\s+(.+)', line, re.IGNORECASE)
-                if paid_match:
-                    merchant = paid_match.group(1).strip()[:50]
+                # Look for date pattern to start a transaction block
+                date_match = re.search(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s*(\d{4})', line, re.IGNORECASE)
+                if date_match:
+                    # Parse date
+                    month = month_map.get(date_match.group(1).lower()[:3], '01')
+                    day = date_match.group(2).zfill(2)
+                    year = date_match.group(3)
+                    tx_date = f"{year}-{month}-{day}"
                     
-                    # Try to get amount from nearby lines
+                    # Look ahead for DEBIT/CREDIT, amount, and description within next 6 lines
+                    tx_type = None
                     tx_amount = None
-                    for j in range(i, min(i + 5, len(lines))):
-                        for pattern in amount_patterns:
-                            amt_match = re.search(pattern, lines[j], re.IGNORECASE)
+                    tx_desc = None
+                    
+                    for j in range(i + 1, min(i + 7, len(lines))):
+                        next_line = lines[j].strip()
+                        
+                        # Check for DEBIT/CREDIT
+                        if next_line.upper() == 'DEBIT':
+                            tx_type = 'expense'
+                        elif next_line.upper() == 'CREDIT':
+                            tx_type = 'income'
+                        
+                        # Check for amount (₹ followed by number)
+                        if tx_amount is None:
+                            amt_match = re.search(r'₹\s*([0-9,]+(?:\.\d{0,2})?)', next_line)
                             if amt_match:
                                 try:
                                     tx_amount = float(amt_match.group(1).replace(',', ''))
-                                    break
                                 except:
                                     pass
-                        if tx_amount:
-                            break
+                        
+                        # Check for description patterns (only after finding amount)
+                        if tx_desc is None and tx_amount is not None:
+                            # Get description from lines after amount
+                            desc_patterns = [
+                                (r'Paid to\s+(.+)', True),
+                                (r'Received from\s+(.+)', True),
+                                (r'Mobile recharged\s+(.+)', True),
+                                (r'Bill Payment\s+(.+)', True),
+                                (r'Added to wallet', False),
+                                (r'DTH Recharge', False),
+                                (r'Electricity bill', False),
+                            ]
+                            for dp, has_group in desc_patterns:
+                                dm = re.search(dp, next_line, re.IGNORECASE)
+                                if dm:
+                                    tx_desc = dm.group(1).strip() if has_group and dm.lastindex else dm.group(0).strip()
+                                    break
+                            # If no pattern matched but line has meaningful text
+                            if tx_desc is None and len(next_line) > 5:
+                                skip_patterns = ['Transaction ID', 'UTR No', 'Paid by', 'Credited to', 
+                                               'Reference', 'XXXX', 'Page', 'Date', 'Amount', 'Type',
+                                               'support.phonepe', 'system generated']
+                                if not any(sp.lower() in next_line.lower() for sp in skip_patterns):
+                                    # Check if it's not just a time
+                                    if not re.match(r'^\d{1,2}[f:]\d{2}\s*(am|pm)?$', next_line, re.IGNORECASE):
+                                        tx_desc = next_line[:60]
                     
-                    # Use from all_amounts if not found
-                    if not tx_amount and amount_idx < len(all_amounts):
-                        tx_amount = all_amounts[amount_idx]
-                        amount_idx += 1
-                    
-                    # Use the centralized categorization logic to confirm/refine
-                    cat_result = json.loads(categorize_transaction(merchant, tx_amount or 0.0))
-                    
-                    transactions.append({
-                        'date': last_date or datetime.now().strftime('%Y-%m-%d'),
-                        'description': merchant,
-                        'amount': tx_amount or 0.0,
-                        'type': 'expense',
-                        'category': cat_result.get('category', 'Other'),
-                        'merchant': cat_result.get('merchant', merchant)
-                    })
+                    # Create transaction if we have enough info
+                    if tx_type and tx_amount and tx_amount >= 1:
+                        if tx_desc is None:
+                            tx_desc = 'PhonePe Transaction'
+                        
+                        # Clean description
+                        tx_desc = tx_desc.strip()[:60]
+                        
+                        # Get category
+                        cat_result = json.loads(categorize_transaction(tx_desc, tx_amount))
+                        
+                        transactions.append({
+                            'date': tx_date,
+                            'description': tx_desc,
+                            'amount': tx_amount,
+                            'type': tx_type,
+                            'category': cat_result.get('category', 'Other'),
+                            'merchant': cat_result.get('merchant', tx_desc)
+                        })
                 
-                # Check for "Received from" pattern
-                received_match = re.search(r'Received from\s+(.+)', line, re.IGNORECASE)
-                if received_match:
-                    sender = received_match.group(1).strip()[:50]
-                    
-                    tx_amount = None
-                    for j in range(i, min(i + 5, len(lines))):
-                        for pattern in amount_patterns:
-                            amt_match = re.search(pattern, lines[j], re.IGNORECASE)
-                            if amt_match:
-                                try:
-                                    tx_amount = float(amt_match.group(1).replace(',', ''))
-                                    break
-                                except:
-                                    pass
-                        if tx_amount:
-                            break
-                    
-                    if not tx_amount and amount_idx < len(all_amounts):
-                        tx_amount = all_amounts[amount_idx]
-                        amount_idx += 1
-                    
-                    # Use the centralized categorization logic
-                    cat_result = json.loads(categorize_transaction(f"Received from {sender}", tx_amount or 0.0))
-                    
-                    transactions.append({
-                        'date': last_date or datetime.now().strftime('%Y-%m-%d'),
-                        'description': f'Received from {sender}',
-                        'amount': tx_amount or 0.0,
-                        'type': 'income',
-                        'category': cat_result.get('category', 'Income'),
-                        'merchant': cat_result.get('merchant', sender)
-                    })
+                i += 1
         
         # Strategy 2: Generic line-by-line parsing for other banks
         if not transactions:

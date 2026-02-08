@@ -1,28 +1,25 @@
 import 'dart:async';
-import 'nemotron_inference_service.dart';
 import 'backend_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-/// LLM Inference Router - Routes between local, cloud, and fallback inference
-/// Implements failover logic: local → cloud nemotron → openai fallback
+/// LLM Inference Router - Routes between cloud and fallback inference
 class LLMInferenceRouter {
   static final LLMInferenceRouter _instance = LLMInferenceRouter._internal();
   factory LLMInferenceRouter() => _instance;
   LLMInferenceRouter._internal();
 
-  final nemotron = NemotronInferenceService();
   String? _cloudEndpoint;
   String? _openaiApiKey;
 
   // Configuration
-  InferenceMode _preferredMode = InferenceMode.local;
+  InferenceMode _preferredMode = InferenceMode.cloud;
   bool _allowFallback = true;
   Duration _inferenceTimeout = const Duration(seconds: 30);
 
   /// Initialize router with configuration
   Future<void> initialize({
-    InferenceMode preferredMode = InferenceMode.local,
+    InferenceMode preferredMode = InferenceMode.cloud,
     String? cloudEndpoint,
     String? openaiApiKey,
     bool allowFallback = true,
@@ -33,21 +30,6 @@ class LLMInferenceRouter {
     _allowFallback = allowFallback;
 
     print('[LLMRouter] Initializing with mode: $_preferredMode');
-
-    // Initialize nemotron service
-    await nemotron.initialize();
-
-    // Try to load optimal model if preferred mode is local
-    if (_preferredMode == InferenceMode.local) {
-      try {
-        await nemotron.loadOptimalModel();
-      } catch (e) {
-        print('[LLMRouter] Failed to load local model: $e');
-        if (_allowFallback) {
-          _preferredMode = InferenceMode.cloud;
-        }
-      }
-    }
   }
 
   /// Route inference request through preferred mode with fallback
@@ -62,42 +44,28 @@ class LLMInferenceRouter {
 
     // Try preferred mode
     try {
-      switch (_preferredMode) {
-        case InferenceMode.local:
-          return await _inferenceWithTimeout(
-            () => _inferLocal(
-              prompt,
-              tools: tools,
-              maxTokens: maxTokens,
-              temperature: temperature,
-              systemPrompt: systemPrompt,
-            ),
-          );
-
-        case InferenceMode.cloud:
-          return await _inferenceWithTimeout(
-            () => _inferCloud(
-              prompt,
-              tools: tools,
-              maxTokens: maxTokens,
-              temperature: temperature,
-            ),
-          );
-
-        case InferenceMode.openai:
-          return await _inferenceWithTimeout(
-            () => _inferOpenAI(
-              prompt,
-              tools: tools,
-              maxTokens: maxTokens,
-              temperature: temperature,
-            ),
-          );
+      if (_preferredMode == InferenceMode.cloud) {
+        return await _inferenceWithTimeout(
+          () => _inferCloud(
+            prompt,
+            tools: tools,
+            maxTokens: maxTokens,
+            temperature: temperature,
+          ),
+        );
+      } else {
+        return await _inferenceWithTimeout(
+          () => _inferOpenAI(
+            prompt,
+            tools: tools,
+            maxTokens: maxTokens,
+            temperature: temperature,
+          ),
+        );
       }
     } catch (e) {
       print('[LLMRouter] Preferred mode failed: $e');
 
-      // Attempt fallback
       if (!_allowFallback) {
         return InferenceResult(
           success: false,
@@ -106,60 +74,40 @@ class LLMInferenceRouter {
         );
       }
 
-      // Try next modes in order
-      return await _tryFallback(
-        prompt,
-        tools: tools,
-        maxTokens: maxTokens,
-        temperature: temperature,
-        systemPrompt: systemPrompt,
-      );
-    }
-  }
+      // Try fallback
+      final fallbackMode = _preferredMode == InferenceMode.cloud
+          ? InferenceMode.openai
+          : InferenceMode.cloud;
+          
+      print('[LLMRouter] Attempting fallback with mode: $fallbackMode');
 
-  /// Infer locally with Nemotron
-  Future<InferenceResult> _inferLocal(
-    String prompt, {
-    List<Map<String, dynamic>>? tools,
-    int maxTokens = 2048,
-    double temperature = 0.7,
-    Map<String, dynamic>? systemPrompt,
-  }) async {
-    try {
-      print('[LLMRouter] Using local inference');
-
-      // Load model if not already loaded
-      if (nemotron.isModelLoaded == false) {
-        await nemotron.loadOptimalModel();
+      try {
+        if (fallbackMode == InferenceMode.cloud) {
+          return await _inferCloud(
+            prompt,
+            tools: tools,
+            maxTokens: maxTokens,
+            temperature: temperature,
+          );
+        } else {
+          return await _inferOpenAI(
+            prompt,
+            tools: tools,
+            maxTokens: maxTokens,
+            temperature: temperature,
+          );
+        }
+      } catch (e) {
+        return InferenceResult(
+          success: false,
+          error: 'All inference modes failed: $e',
+          mode: null,
+        );
       }
-
-      // Perform inference
-      final response = await nemotron.inferLocal(
-        prompt,
-        tools: tools,
-        maxTokens: maxTokens,
-        temperature: temperature,
-        systemPrompt: systemPrompt,
-      );
-
-      return InferenceResult(
-        success: true,
-        response: response.text,
-        toolCall: response.toolCall,
-        tokensUsed: response.tokensUsed,
-        mode: InferenceMode.local,
-        latency: response.timestamp,
-      );
-    } catch (e) {
-      return InferenceResult(
-        success: false,
-        error: 'Local inference failed: $e',
-        mode: InferenceMode.local,
-      );
     }
   }
 
-  /// Infer via cloud Nemotron endpoint
+  /// Infer via cloud endpoint
   Future<InferenceResult> _inferCloud(
     String prompt, {
     List<Map<String, dynamic>>? tools,
@@ -167,28 +115,40 @@ class LLMInferenceRouter {
     double temperature = 0.7,
   }) async {
     try {
-      print('[LLMRouter] Using cloud Nemotron inference');
+      print('[LLMRouter] Using cloud inference');
 
       if (_cloudEndpoint == null) {
         throw Exception('Cloud endpoint not configured');
       }
+      
+      // Call backend API
+      final response = await http.post(
+        Uri.parse('$_cloudEndpoint/agent/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+            'query': prompt,
+            'user_id': 'user', // Default
+            'context': {
+                'tools': tools,
+                'max_tokens': maxTokens,
+                'temperature': temperature
+            }
+        }),
+      ).timeout(_inferenceTimeout);
 
-      final response = await nemotron.inferCloud(
-        prompt,
-        cloudEndpoint: _cloudEndpoint!,
-        tools: tools,
-        maxTokens: maxTokens,
-        temperature: temperature,
-      );
+      if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return InferenceResult(
+            success: true,
+            response: data['response'],
+            tokensUsed: 0,
+            mode: InferenceMode.cloud,
+            latency: DateTime.now(),
+          );
+      }
+      
+      throw Exception('Backend returned ${response.statusCode}');
 
-      return InferenceResult(
-        success: true,
-        response: response.text,
-        toolCall: response.toolCall,
-        tokensUsed: response.tokensUsed,
-        mode: InferenceMode.cloud,
-        latency: response.timestamp,
-      );
     } catch (e) {
       return InferenceResult(
         success: false,
@@ -213,8 +173,7 @@ class LLMInferenceRouter {
       }
 
       final systemMessage =
-          'You are a financial advisor AI for the WealthIn app. Provide helpful, accurate financial guidance. '
-          'When suggesting actions, format tool calls as JSON: {"type": "tool_call", "tool_call": {"name": "...", "arguments": {...}}}';
+          'You are a financial advisor AI for the WealthIn app. Provide helpful, accurate financial guidance. ';
 
       final response = await http
           .post(
@@ -231,14 +190,6 @@ class LLMInferenceRouter {
               ],
               'max_tokens': maxTokens,
               'temperature': temperature,
-              if (tools != null && tools.isNotEmpty)
-                'tools': [
-                  for (final tool in tools)
-                    {
-                      'type': 'function',
-                      'function': tool,
-                    },
-                ],
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -253,16 +204,9 @@ class LLMInferenceRouter {
       final message = data['choices']?[0]?['message']?['content'] ?? '';
       final tokensUsed = data['usage']?['total_tokens'] ?? 0;
 
-      // Try to parse tool call from response
-      ToolCall? toolCall;
-      if (message.contains('tool_call')) {
-        toolCall = NemotronInferenceService.parseToolCall(message);
-      }
-
       return InferenceResult(
         success: true,
         response: message,
-        toolCall: toolCall,
         tokensUsed: tokensUsed,
         mode: InferenceMode.openai,
         latency: DateTime.now(),
@@ -274,65 +218,6 @@ class LLMInferenceRouter {
         mode: InferenceMode.openai,
       );
     }
-  }
-
-  /// Try fallback modes
-  Future<InferenceResult> _tryFallback(
-    String prompt, {
-    List<Map<String, dynamic>>? tools,
-    int maxTokens = 2048,
-    double temperature = 0.7,
-    Map<String, dynamic>? systemPrompt,
-  }) async {
-    final modesInOrder = [
-      InferenceMode.local,
-      InferenceMode.cloud,
-      InferenceMode.openai,
-    ];
-
-    for (final mode in modesInOrder) {
-      if (mode == _preferredMode) continue; // Skip already-tried mode
-
-      print('[LLMRouter] Attempting fallback with mode: $mode');
-
-      try {
-        switch (mode) {
-          case InferenceMode.local:
-            return await _inferLocal(
-              prompt,
-              tools: tools,
-              maxTokens: maxTokens,
-              temperature: temperature,
-              systemPrompt: systemPrompt,
-            );
-
-          case InferenceMode.cloud:
-            return await _inferCloud(
-              prompt,
-              tools: tools,
-              maxTokens: maxTokens,
-              temperature: temperature,
-            );
-
-          case InferenceMode.openai:
-            return await _inferOpenAI(
-              prompt,
-              tools: tools,
-              maxTokens: maxTokens,
-              temperature: temperature,
-            );
-        }
-      } catch (e) {
-        print('[LLMRouter] Fallback $mode failed: $e');
-        continue;
-      }
-    }
-
-    return InferenceResult(
-      success: false,
-      error: 'All inference modes failed',
-      mode: null,
-    );
   }
 
   /// Apply timeout to inference
@@ -355,22 +240,10 @@ class LLMInferenceRouter {
     _preferredMode = mode;
     print('[LLMRouter] Preferred mode switched to: $_preferredMode');
   }
-
-  /// Get current status
-  Map<String, dynamic> getStatus() {
-    return {
-      'preferredMode': _preferredMode.toString(),
-      'allowFallback': _allowFallback,
-      'nemotronStatus': nemotron.getStatus(),
-      'cloudEndpoint': _cloudEndpoint,
-      'hasOpenAIKey': _openaiApiKey != null,
-    };
-  }
 }
 
 /// Inference mode enumeration
 enum InferenceMode {
-  local,
   cloud,
   openai,
 }
@@ -379,7 +252,6 @@ enum InferenceMode {
 class InferenceResult {
   final bool success;
   final String? response;
-  final ToolCall? toolCall;
   final int tokensUsed;
   final InferenceMode? mode;
   final String? error;
@@ -388,7 +260,6 @@ class InferenceResult {
   InferenceResult({
     required this.success,
     this.response,
-    this.toolCall,
     this.tokensUsed = 0,
     this.mode,
     this.error,
@@ -398,7 +269,6 @@ class InferenceResult {
   Map<String, dynamic> toJson() => {
     'success': success,
     'response': response,
-    'tool_call': toolCall?.toJson(),
     'tokens_used': tokensUsed,
     'mode': mode?.toString(),
     'error': error,

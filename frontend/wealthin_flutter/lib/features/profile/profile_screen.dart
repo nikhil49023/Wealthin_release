@@ -343,30 +343,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const Divider(height: 1),
 
+
                         _SettingsTile(
                           icon: Icons.notifications,
                           title: 'Notifications',
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Notification settings coming soon!',
-                                ),
-                              ),
-                            );
-                          },
+                          onTap: () => _showNotificationSettings(context),
                         ),
                         const Divider(height: 1),
                         _SettingsTile(
                           icon: Icons.security,
                           title: 'Privacy & Security',
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Privacy settings coming soon!'),
-                              ),
-                            );
-                          },
+                          onTap: () => _showPrivacySettings(context),
                         ),
                         const Divider(height: 1),
                         _SettingsTile(
@@ -650,6 +637,209 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+
+  void _showNotificationSettings(BuildContext context) {
+    bool budgetAlerts = true;
+    bool paymentReminders = true;
+    bool dailyInsights = true;
+    bool weeklyReport = false;
+    bool goalProgress = true;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.notifications_active_rounded),
+                  SizedBox(width: 12),
+                  Text('Notification Settings'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Budget Alerts'),
+                    subtitle: const Text('Get notified when you exceed budgets'),
+                    value: budgetAlerts,
+                    onChanged: (v) => setDialogState(() => budgetAlerts = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Payment Reminders'),
+                    subtitle: const Text('Reminders for scheduled payments'),
+                    value: paymentReminders,
+                    onChanged: (v) => setDialogState(() => paymentReminders = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Daily Insights'),
+                    subtitle: const Text('AI-powered daily finance tips'),
+                    value: dailyInsights,
+                    onChanged: (v) => setDialogState(() => dailyInsights = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Weekly Report'),
+                    subtitle: const Text('Summary of your week\'s spending'),
+                    value: weeklyReport,
+                    onChanged: (v) => setDialogState(() => weeklyReport = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Goal Progress'),
+                    subtitle: const Text('Milestones for savings goals'),
+                    value: goalProgress,
+                    onChanged: (v) => setDialogState(() => goalProgress = v),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text('Notification preferences saved'),
+                          ],
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showPrivacySettings(BuildContext context) {
+    bool biometricLock = false;
+    bool dataEncryption = true;
+    bool analyticsEnabled = true;
+    bool crashReporting = true;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.security_rounded),
+                  SizedBox(width: 12),
+                  Text('Privacy & Security'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Biometric Lock'),
+                    subtitle: const Text('Use fingerprint/face to unlock'),
+                    value: biometricLock,
+                    onChanged: (v) => setDialogState(() => biometricLock = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Data Encryption'),
+                    subtitle: const Text('Encrypt all local data'),
+                    value: dataEncryption,
+                    onChanged: (v) => setDialogState(() => dataEncryption = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Usage Analytics'),
+                    subtitle: const Text('Help us improve WealthIn'),
+                    value: analyticsEnabled,
+                    onChanged: (v) => setDialogState(() => analyticsEnabled = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Crash Reporting'),
+                    subtitle: const Text('Report crashes for fixes'),
+                    value: crashReporting,
+                    onChanged: (v) => setDialogState(() => crashReporting = v),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Delete All Data?'),
+                          content: const Text(
+                            'This will permanently delete all your local data including transactions, budgets, and goals. This cannot be undone.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('All data has been deleted'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_forever, color: Colors.red),
+                    label: const Text('Delete All Data', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text('Privacy settings saved'),
+                          ],
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

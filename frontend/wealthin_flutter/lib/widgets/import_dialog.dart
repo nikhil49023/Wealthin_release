@@ -9,11 +9,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform;
 import '../core/services/backend_config.dart';
-import '../core/services/native_receipt_service.dart';
-import '../core/services/native_pdf_service.dart';
 import '../core/services/data_service.dart';
-// SarvamService removed - using NativePdfService (local, fast, offline)
-
+import '../core/services/python_bridge_service.dart';
 
 
 /// Dialog for importing transactions from PDF/Image files
@@ -114,10 +111,8 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
         
         debugPrint('[ImportDialog] PDF saved to: $tempPath');
         
-        // Use NativePdfService (local text extraction + regex parsing)
-        // This is fast, offline, and secure
-        final nativePdfService = NativePdfService();
-        final transactions = await nativePdfService.parsePdf(tempPath);
+        // Use DataService which calls Python backend (pdfplumber)
+        final transactions = await dataService.scanBankStatement(tempPath);
         
         List<Map<String, dynamic>> transactionMaps = [];
         if (transactions.isNotEmpty) {
@@ -212,20 +207,22 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
 
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
-        // Use Native ML Kit Service
+        // Use Python bridge for image OCR
         final tempDir = await getTemporaryDirectory();
         final tempFile = File('${tempDir.path}/$_fileName');
         await tempFile.writeAsBytes(_fileBytes!);
         
-        // Use Native Receipt Service
-        final result = await NativeReceiptService().extractReceipt(tempFile.path);
+        // Use Python bridge for receipt extraction
+        final result = await pythonBridge.executeTool(
+          'extract_receipt',
+          {'file_path': tempFile.path},
+        );
         
         setState(() {
-          if (result['success'] == true) {
-            // Unwrap the inner transaction object
-            _extractedTransactions = [result['transaction']];
+          if (result['success'] == true && result['transaction'] != null) {
+            _extractedTransactions = [result['transaction'] as Map<String, dynamic>];
           } else {
-             _error = result['error'] ?? 'Failed to recognize text';
+             _error = result['error']?.toString() ?? 'Failed to extract from image';
           }
           _showPreview = true;
           _isLoading = false;
