@@ -185,7 +185,14 @@ class DatabaseService:
                     last_paid_date TEXT,
                     notes TEXT,
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
+                    -- Debt Management Fields (Phase 3)
+                    payment_type TEXT DEFAULT 'regular',  -- 'regular', 'loan', 'emi'
+                    interest_rate REAL DEFAULT 0,
+                    total_tenure INTEGER DEFAULT 0,
+                    principal_outstanding REAL DEFAULT 0,
+                    total_interest_paid REAL DEFAULT 0,
+                    total_principal_paid REAL DEFAULT 0
                 )
             ''')
             
@@ -459,6 +466,10 @@ class DatabaseService:
             return await self.get_scheduled_payment(payment_id, user_id)
 
     async def mark_payment_paid(self, payment_id: int, user_id: str) -> Optional[ScheduledPayment]:
+        """
+        Mark a scheduled payment as paid.
+        For loan/EMI payments, calculates principal/interest split (reducing balance method).
+        """
         payment = await self.get_scheduled_payment(payment_id, user_id)
         if not payment:
             return None
@@ -482,18 +493,67 @@ class DatabaseService:
             'next_due_date': next_due.isoformat()
         }
         
+        # EMI Split Calculation (for loan/emi type payments)
+        interest_component = 0.0
+        principal_component = payment.amount
+        
+        # Check if this is a loan payment with interest
+        async with aiosqlite.connect(PLANNING_DB_PATH) as db:
+            cursor = await db.execute(
+                'SELECT payment_type, interest_rate, principal_outstanding, total_interest_paid, total_principal_paid '
+                'FROM scheduled_payments WHERE id = ?', 
+                (payment_id,)
+            )
+            row = await cursor.fetchone()
+            
+            if row and row[0] in ('loan', 'emi') and row[1] and row[1] > 0:
+                # Existing loan data
+                interest_rate = row[1]  # Annual rate
+                principal_outstanding = row[2] if row[2] else payment.amount * 12  # Estimate if not set
+                total_interest_paid = row[3] if row[3] else 0
+                total_principal_paid = row[4] if row[4] else 0
+                
+                # Calculate monthly interest (Reducing Balance Method)
+                monthly_rate = interest_rate / 12 / 100
+                interest_component = principal_outstanding * monthly_rate
+                principal_component = payment.amount - interest_component
+                
+                # Ensure principal component is not negative
+                if principal_component < 0:
+                    principal_component = 0
+                    interest_component = payment.amount
+                
+                # Update outstanding principal and totals
+                new_outstanding = max(0, principal_outstanding - principal_component)
+                
+                updates['principal_outstanding'] = new_outstanding
+                updates['total_interest_paid'] = total_interest_paid + interest_component
+                updates['total_principal_paid'] = total_principal_paid + principal_component
+                
+                # If loan is paid off, mark as completed
+                if new_outstanding <= 0:
+                    updates['status'] = 'completed'
+        
         # Create transaction for this payment
+        description = f"Payment: {payment.name}"
+        notes = f"Scheduled payment"
+        
+        # Add EMI split info to transaction description if loan
+        if interest_component > 0:
+            description = f"EMI: {payment.name}"
+            notes = f"Principal: ₹{principal_component:.0f} | Interest: ₹{interest_component:.0f}"
+        
         transaction = Transaction(
             id=None,
             user_id=user_id,
             amount=payment.amount,
-            description=f"Payment: {payment.name}",
+            description=description,
             category=payment.category,
             type='expense',
             date=datetime.utcnow().date().isoformat(),
             time=datetime.utcnow().strftime("%H:%M"),
             payment_method="Scheduled",
-            notes=f"Scheduled payment",
+            notes=notes,
             receipt_url=None,
             is_recurring=True,
             created_at=''
@@ -520,6 +580,69 @@ class DatabaseService:
             ''', (user_id, from_date, to_date))
             rows = await cursor.fetchall()
             return [ScheduledPayment(**{**dict(row), 'is_autopay': bool(row['is_autopay'])}) for row in rows]
+
+    async def get_debt_snowball_data(self, user_id: str) -> Dict[str, Any]:
+        """
+        Get debt payment data for Debt Snowball visualization.
+        Returns all loans with their payment progress and schedule.
+        """
+        async with aiosqlite.connect(PLANNING_DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute('''
+                SELECT id, name, amount, category, interest_rate, total_tenure,
+                       principal_outstanding, total_interest_paid, total_principal_paid,
+                       status, created_at
+                FROM scheduled_payments 
+                WHERE user_id = ? AND payment_type IN ('loan', 'emi')
+                ORDER BY principal_outstanding DESC
+            ''', (user_id,))
+            rows = await cursor.fetchall()
+            
+            loans = []
+            total_outstanding = 0
+            total_interest_paid = 0
+            total_principal_paid = 0
+            
+            for row in rows:
+                loan = dict(row)
+                outstanding = loan.get('principal_outstanding', 0) or 0
+                interest_paid = loan.get('total_interest_paid', 0) or 0
+                principal_paid = loan.get('total_principal_paid', 0) or 0
+                
+                # Calculate original loan amount
+                original_amount = outstanding + principal_paid
+                
+                # Calculate progress
+                progress = (principal_paid / original_amount * 100) if original_amount > 0 else 0
+                
+                loans.append({
+                    'id': loan['id'],
+                    'name': loan['name'],
+                    'emi_amount': loan['amount'],
+                    'interest_rate': loan.get('interest_rate', 0),
+                    'original_amount': original_amount,
+                    'outstanding': outstanding,
+                    'interest_paid': interest_paid,
+                    'principal_paid': principal_paid,
+                    'progress': progress,
+                    'status': loan.get('status', 'active'),
+                })
+                
+                total_outstanding += outstanding
+                total_interest_paid += interest_paid
+                total_principal_paid += principal_paid
+            
+            return {
+                'loans': loans,
+                'summary': {
+                    'total_loans': len(loans),
+                    'total_outstanding': total_outstanding,
+                    'total_interest_paid': total_interest_paid,
+                    'total_principal_paid': total_principal_paid,
+                    'overall_progress': (total_principal_paid / (total_outstanding + total_principal_paid) * 100) 
+                        if (total_outstanding + total_principal_paid) > 0 else 0
+                }
+            }
 
     async def get_cashflow_data(self, user_id: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
         """Get daily cashflow data for the specified date range"""

@@ -191,3 +191,132 @@ class DashboardSummary {
   double get netSavings => totalIncome - totalExpenses;
 }
 
+/// Merchant Rule model - for One-Click Flagging
+class MerchantRule {
+  final int? id;
+  final String keyword;
+  final String category;
+  final bool isAuto;
+
+  MerchantRule({
+    this.id,
+    required this.keyword,
+    required this.category,
+    this.isAuto = true,
+  });
+
+  factory MerchantRule.fromJson(Map<String, dynamic> json) {
+    return MerchantRule(
+      id: json['id'] as int?,
+      keyword: json['keyword'] as String,
+      category: json['category'] as String,
+      isAuto: json['is_auto'] == true || json['is_auto'] == 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'keyword': keyword,
+      'category': category,
+      'is_auto': isAuto,
+    };
+  }
+}
+
+/// NCM (National Contribution Milestone) Score - Viksit Bharat 2047
+class NCMScore {
+  final double score;
+  final String milestone;
+  final String nextMilestone;
+  final double progress;
+  final double consumptionPoints;
+  final double savingsPoints;
+  final double taxPoints;
+
+  NCMScore({
+    required this.score,
+    required this.milestone,
+    required this.nextMilestone,
+    required this.progress,
+    this.consumptionPoints = 0,
+    this.savingsPoints = 0,
+    this.taxPoints = 0,
+  });
+
+  factory NCMScore.fromJson(Map<String, dynamic> json) {
+    final breakdown = json['breakdown'] as Map<String, dynamic>? ?? {};
+    return NCMScore(
+      score: (json['score'] as num?)?.toDouble() ?? 0,
+      milestone: json['milestone'] as String? ?? 'Citizen',
+      nextMilestone: json['next_milestone'] as String? ?? 'Contributor',
+      progress: (json['progress'] as num?)?.toDouble() ?? 0,
+      consumptionPoints: (breakdown['consumption'] as num?)?.toDouble() ?? 0,
+      savingsPoints: (breakdown['savings'] as num?)?.toDouble() ?? 0,
+      taxPoints: (breakdown['tax'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+/// Insight Chip - Explainability for Investment Nudges
+class InsightChip {
+  final String type;  // surplus, yield, safety, goal, viksit
+  final String icon;  // Material icon name
+  final String label;
+  final String value;
+
+  InsightChip({
+    required this.type,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  factory InsightChip.fromJson(Map<String, dynamic> json) {
+    return InsightChip(
+      type: json['type'] as String? ?? '',
+      icon: json['icon'] as String? ?? 'info',
+      label: json['label'] as String? ?? '',
+      value: json['value'] as String? ?? '',
+    );
+  }
+}
+
+/// Investment Nudge - RBI Compliant (Information Only)
+class InvestmentNudge {
+  final String id;
+  final String title;
+  final String subtitle;
+  final double amount;
+  final String instrument; // RD, SGB, FD, liquid_fund, ppf
+  final double expectedYield;
+  final String actionText;
+  final List<InsightChip> insightChips;
+
+  InvestmentNudge({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.instrument,
+    required this.expectedYield,
+    required this.actionText,
+    required this.insightChips,
+  });
+
+  factory InvestmentNudge.fromJson(Map<String, dynamic> json) {
+    return InvestmentNudge(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      subtitle: json['subtitle'] as String? ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      instrument: json['instrument'] as String? ?? '',
+      expectedYield: (json['expected_yield'] as num?)?.toDouble() ?? 0,
+      actionText: json['action_text'] as String? ?? 'Open Bank App',
+      insightChips: (json['insight_chips'] as List<dynamic>?)
+              ?.map((c) => InsightChip.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}

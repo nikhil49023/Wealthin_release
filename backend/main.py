@@ -41,6 +41,9 @@ from services.financial_calculator import FinancialCalculator
 from services.web_search_service import web_search_service
 from services.pdf_parser_advanced import pdf_parser_service, ReceiptParser, AdvancedPDFParser
 from services.deep_research_agent import get_deep_research_agent
+from services.merchant_service import merchant_service  # NEW: Merchant Flagging
+from services.ncm_service import ncm_service  # NEW: National Contribution Milestone
+from services.investment_nudge_service import investment_nudge_service  # NEW: Investment Nudges
 
 load_dotenv()
 
@@ -58,6 +61,8 @@ async def lifespan(app: FastAPI):
     """Initialize services on startup, cleanup on shutdown."""
     logger.info("Starting WealthIn Agent Service...")
     await database_service.initialize()
+    await merchant_service.initialize()  # Merchant Flagging
+    await ncm_service.initialize()  # NCM Engine
     logger.info("Database initialized successfully")
     yield
     logger.info("Shutting down WealthIn Agent Service...")
@@ -808,6 +813,132 @@ async def categorize_batch(request: BatchCategorizeRequest) -> dict:
         "transactions": categorized,
         "count": len(categorized)
     }
+
+
+# ============== NCM (National Contribution Milestone) Endpoints ==============
+
+@app.get("/ncm/score/{user_id}")
+async def get_ncm_score(user_id: str):
+    """
+    Get user's NCM score (Consumption + Savings + Tax).
+    Gamified contribution to Viksit Bharat 2047.
+    """
+    score = await ncm_service.calculate_score(user_id)
+    return {
+        "score": score.total_score,
+        "milestone": score.milestone,
+        "next_milestone": score.next_milestone,
+        "progress": score.progress_to_next,
+        "breakdown": {
+            "consumption": score.consumption_score,
+            "savings": score.savings_score,
+            "tax": score.tax_score,
+        }
+    }
+
+
+@app.get("/ncm/insight/{user_id}")
+async def get_ncm_insight(user_id: str):
+    """Get NCM insight with contextual message."""
+    return await ncm_service.get_insight(user_id)
+
+
+class NCMContributionRequest(BaseModel):
+    consumption: float = 0
+    savings: float = 0
+    tax: float = 0
+    sovereign: float = 0
+
+
+@app.post("/ncm/record/{user_id}")
+async def record_ncm_contribution(user_id: str, request: NCMContributionRequest):
+    """Record a contribution to the user's NCM ledger."""
+    return await ncm_service.record_contribution(
+        user_id=user_id,
+        consumption=request.consumption,
+        savings=request.savings,
+        tax=request.tax,
+        sovereign=request.sovereign
+    )
+
+
+# ============== INVESTMENT NUDGES (RBI Compliant) ==============
+
+@app.get("/nudges/{user_id}")
+async def get_investment_nudges(user_id: str, limit: int = 3):
+    """
+    Get personalized investment nudges with Insight Chips.
+    
+    RBI Compliance:
+    - Informational only (no execution)
+    - User directed to bank apps
+    - Transparent risk disclosure
+    """
+    return await investment_nudge_service.get_nudge_summary(user_id)
+
+
+@app.get("/nudges/surplus/{user_id}")
+async def get_surplus_analysis(user_id: str):
+    """
+    Get user's surplus analysis for investment planning.
+    Formula: Income - Expenses - 20% buffer
+    """
+    return await investment_nudge_service.calculate_surplus(user_id)
+
+
+# ============== DEBT MANAGER Endpoints ==============
+
+@app.get("/debt/snowball/{user_id}")
+async def get_debt_snowball(user_id: str):
+    """
+    Get Debt Snowball visualization data.
+    Shows all loans with principal/interest breakdown and progress.
+    """
+    return await database_service.get_debt_snowball_data(user_id)
+
+
+# ============== MERCHANT RULES Endpoints (One-Click Flagging) ==============
+
+class AddMerchantRuleRequest(BaseModel):
+    keyword: str
+    category: str
+    is_auto: bool = True
+
+
+@app.get("/merchant-rules")
+async def get_merchant_rules():
+    """Get all merchant-category rules."""
+    rules = await merchant_service.get_all_rules()
+    return {
+        "rules": [{"id": r.id, "keyword": r.keyword, "category": r.category, "is_auto": r.is_auto} for r in rules],
+        "count": len(rules)
+    }
+
+
+@app.post("/merchant-rules")
+async def add_merchant_rule(request: AddMerchantRuleRequest):
+    """
+    Add a new merchant-category rule.
+    The keyword will be cleaned and stored in uppercase for fuzzy matching.
+    """
+    rule = await merchant_service.add_rule(request.keyword, request.category, request.is_auto)
+    if rule:
+        return {"success": True, "rule": {"id": rule.id, "keyword": rule.keyword, "category": rule.category}}
+    return {"success": False, "error": "Failed to add rule"}
+
+
+@app.delete("/merchant-rules/{rule_id}")
+async def delete_merchant_rule(rule_id: int):
+    """Delete a merchant rule by ID."""
+    success = await merchant_service.delete_rule(rule_id)
+    return {"success": success}
+
+
+@app.post("/merchant-rules/seed")
+async def seed_merchant_rules():
+    """Seed database with common Indian merchant rules for demo."""
+    await merchant_service.seed_default_rules()
+    return {"success": True, "message": "Seeded default rules"}
 
 
 # ============== BUDGET CRUD Endpoints ==============
