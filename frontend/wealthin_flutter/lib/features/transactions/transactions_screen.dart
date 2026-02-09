@@ -690,6 +690,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   void _showRecategorizeDialog(TransactionData transaction) {
     String selectedCategory = transaction.category;
     final isOther = transaction.category.toLowerCase() == 'other';
+    bool applyToAll = false; // NEW: Apply rule to all similar transactions
+    
+    // Extract merchant keyword from description for display
+    String merchantKeyword = _extractMerchantKeyword(transaction.description);
     
     showModalBottomSheet(
       context: context,
@@ -796,6 +800,56 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     }).toList(),
                   ),
                   
+                  const SizedBox(height: 16),
+                  
+                  // NEW: "Apply to all" toggle with merchant keyword display
+                  if (merchantKeyword.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: WealthInColors.primary.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: applyToAll 
+                              ? WealthInColors.primary.withOpacity(0.5) 
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            applyToAll ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                            color: applyToAll ? WealthInColors.primary : Theme.of(context).colorScheme.outline,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Apply to all "$merchantKeyword" transactions?',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Future transactions will auto-categorize',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: applyToAll,
+                            onChanged: (value) => setModalState(() => applyToAll = value),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
                   const SizedBox(height: 24),
                   
                   // Action buttons
@@ -815,15 +869,28 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                               ? () async {
                                   Navigator.pop(context);
                                   
+                                  // Update transaction category
                                   final success = await dataService.updateTransactionCategory(
                                     transaction.id!,
                                     selectedCategory,
                                   );
                                   
+                                  // NEW: Create merchant rule if "Apply to all" is enabled
+                                  if (applyToAll && merchantKeyword.isNotEmpty) {
+                                    await dataService.addMerchantRule(
+                                      keyword: merchantKeyword,
+                                      category: selectedCategory,
+                                      isAuto: true,
+                                    );
+                                  }
+                                  
                                   if (success && mounted) {
+                                    final message = applyToAll 
+                                        ? 'Changed to $selectedCategory (Rule created for "$merchantKeyword")'
+                                        : 'Changed to $selectedCategory';
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Changed to ${selectedCategory}'),
+                                        content: Text(message),
                                         backgroundColor: WealthInColors.success,
                                       ),
                                     );
@@ -838,7 +905,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                   }
                                 }
                               : null,
-                          child: const Text('Save'),
+                          child: Text(applyToAll ? 'Save & Create Rule' : 'Save'),
                         ),
                       ),
                     ],
@@ -852,6 +919,46 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       },
     );
   }
+  
+  /// Extract merchant keyword from transaction description for rule creation
+  String _extractMerchantKeyword(String description) {
+    if (description.isEmpty) return '';
+    
+    // Convert to uppercase and clean
+    String cleaned = description.toUpperCase().trim();
+    
+    // Remove common prefixes
+    final prefixes = ['UPI/', 'UPI-', 'POS ', 'NEFT/', 'IMPS/', 'ATM/'];
+    for (var prefix in prefixes) {
+      if (cleaned.startsWith(prefix)) {
+        cleaned = cleaned.substring(prefix.length);
+      }
+    }
+    
+    // Remove trailing reference numbers (e.g., *ORDER123)
+    final refPattern = RegExp(r'[\*\-/#]\s*[A-Z0-9]{5,}$');
+    cleaned = cleaned.replaceAll(refPattern, '');
+    
+    // Remove standalone numbers at end
+    cleaned = cleaned.replaceAll(RegExp(r'\s+\d+$'), '');
+    
+    // Remove common suffixes
+    cleaned = cleaned.replaceAll(RegExp(r'\s+PRIVATE\s+LIMITED.*$', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+PVT\s+LTD.*$', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+LTD.*$', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+INDIA$', caseSensitive: false), '');
+    
+    // Replace special chars with spaces
+    cleaned = cleaned.replaceAll(RegExp(r'[\-_/\*]+'), ' ');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+    
+    // Take first 2 significant words
+    final words = cleaned.split(' ').where((w) => w.length > 2).toList();
+    if (words.isEmpty) return cleaned.split(' ').first;
+    if (words.length >= 2) return '${words[0]} ${words[1]}';
+    return words.first;
+  }
+
 
   void _showAddTransactionDialog(BuildContext context) {
     final descController = TextEditingController();

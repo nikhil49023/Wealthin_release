@@ -96,17 +96,34 @@ CATEGORY_KEYWORDS = {
 
 class TransactionCategorizer:
     """
-    Categorizes transactions using rule-based matching + Zoho Catalyst LLM fallback.
+    Categorizes transactions using:
+    1. MerchantService rules (User-defined, highest priority)
+    2. Rule-based keyword matching (Fallback)
+    3. Zoho Catalyst LLM (Final fallback)
     """
     
     def __init__(self):
-        # Import zoho_vision_service for LLM access
+        # Import services
         from .zoho_vision_service import zoho_vision_service
+        from .merchant_service import merchant_service
         self.zoho_service = zoho_vision_service
+        self.merchant_service = merchant_service
     
-    def _rule_based_categorize(self, description: str) -> Optional[str]:
+    async def _merchant_rule_categorize(self, description: str) -> str | None:
         """
-        Try to categorize using keyword matching first.
+        Check user-defined merchant rules first (Highest Priority).
+        """
+        try:
+            rule = await self.merchant_service.find_matching_rule(description)
+            if rule:
+                return rule.category
+        except Exception as e:
+            print(f"Merchant rule lookup failed: {e}")
+        return None
+    
+    def _rule_based_categorize(self, description: str) -> str | None:
+        """
+        Try to categorize using keyword matching.
         """
         desc_lower = description.lower()
         
@@ -119,9 +136,17 @@ class TransactionCategorizer:
     
     async def categorize_single(self, description: str, amount: float, tx_type: str) -> str:
         """
-        Categorize a single transaction.
+        Categorize a single transaction using the priority chain:
+        1. User-defined Merchant Rules (Fastest, Highest Priority)
+        2. Keyword Matching (Fast)
+        3. AI Fallback (Slowest)
         """
-        # Try rule-based first (fast & free)
+        # 1. Check user-defined merchant rules FIRST (Fast Path)
+        category = await self._merchant_rule_categorize(description)
+        if category:
+            return category
+        
+        # 2. Try rule-based keyword matching
         category = self._rule_based_categorize(description)
         if category:
             return category

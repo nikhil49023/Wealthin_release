@@ -678,6 +678,162 @@ class DataService {
     return [];
   }
 
+  // ==================== MERCHANT RULES (One-Click Flagging) ====================
+
+  /// Get all merchant-category rules
+  Future<List<MerchantRule>> getMerchantRules() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/merchant-rules'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return (data['rules'] as List)
+            .map((r) => MerchantRule.fromJson(r))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error getting merchant rules: $e');
+    }
+    return [];
+  }
+
+  /// Add a new merchant-category rule
+  Future<MerchantRule?> addMerchantRule({
+    required String keyword,
+    required String category,
+    bool isAuto = true,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/merchant-rules'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'keyword': keyword,
+          'category': category,
+          'is_auto': isAuto,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return MerchantRule.fromJson(data['rule']);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error adding merchant rule: $e');
+    }
+    return null;
+  }
+
+  /// Delete a merchant rule
+  Future<bool> deleteMerchantRule(int ruleId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/merchant-rules/$ruleId'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      debugPrint('Error deleting merchant rule: $e');
+    }
+    return false;
+  }
+
+  /// Seed default merchant rules (for demo)
+  Future<bool> seedMerchantRules() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/merchant-rules/seed'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      debugPrint('Error seeding merchant rules: $e');
+    }
+    return false;
+  }
+
+  // ==================== NCM (National Contribution Milestone) ====================
+
+  /// Get user's NCM score (Viksit Bharat themed)
+  Future<NCMScore?> getNCMScore(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/ncm/score/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return NCMScore.fromJson(data);
+      }
+    } catch (e) {
+      debugPrint('Error getting NCM score: $e');
+    }
+    return null;
+  }
+
+  /// Get NCM insight with contextual message
+  Future<Map<String, dynamic>?> getNCMInsight(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/ncm/insight/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error getting NCM insight: $e');
+    }
+    return null;
+  }
+
+  // ==================== INVESTMENT NUDGES (RBI Compliant) ====================
+
+  /// Get personalized investment nudges with Insight Chips
+  Future<List<InvestmentNudge>> getInvestmentNudges(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/nudges/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return (data['nudges'] as List<dynamic>?)
+                ?.map((n) => InvestmentNudge.fromJson(n as Map<String, dynamic>))
+                .toList() ??
+            [];
+      }
+    } catch (e) {
+      debugPrint('Error getting investment nudges: $e');
+    }
+    return [];
+  }
+
+  /// Get surplus analysis for investment planning
+  Future<Map<String, dynamic>?> getSurplusAnalysis(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/nudges/surplus/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error getting surplus analysis: $e');
+    }
+    return null;
+  }
+
   // ==================== DASHBOARD & TRENDS ====================
 
   Future<DashboardData?> getDashboard(

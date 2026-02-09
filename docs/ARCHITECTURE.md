@@ -112,3 +112,4 @@ Automates the creation of bank-ready project reports.
 -   `backend/services/`: Core Python business logic.
 -   `backend/main.py`: API Gateway.
 -   `docs/`: Project documentation.
+
