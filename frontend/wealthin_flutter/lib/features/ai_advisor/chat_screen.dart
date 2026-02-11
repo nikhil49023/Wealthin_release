@@ -396,10 +396,11 @@ _Just type or tap a suggestion below!_""",
   }
 
   Widget _buildThinkingIndicator(bool isDark, ThemeData theme) {
+    final thinkingMargin = (MediaQuery.of(context).size.width * 0.15).clamp(40.0, 80.0);
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12, right: 60),
+        margin: EdgeInsets.only(bottom: 12, right: thinkingMargin),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isDark
@@ -498,14 +499,18 @@ _Just type or tap a suggestion below!_""",
     bool isDark,
   ) {
     final isUser = message.isUser;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bubbleMargin = (screenWidth * 0.15).clamp(40.0, 80.0);
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: screenWidth * 0.78),
+        child: Container(
         margin: EdgeInsets.only(
           bottom: 12,
-          left: isUser ? 60 : 0,
-          right: isUser ? 0 : 60,
+          left: isUser ? bubbleMargin : 0,
+          right: isUser ? 0 : bubbleMargin,
         ),
         child: Column(
           crossAxisAlignment: isUser
@@ -594,8 +599,9 @@ _Just type or tap a suggestion below!_""",
                 message.actionType != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
                       onPressed: _handleCancel,
@@ -613,7 +619,6 @@ _Just type or tap a suggestion below!_""",
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: () => _handleConfirm(
                         message.actionType,
@@ -644,6 +649,7 @@ _Just type or tap a suggestion below!_""",
             ),
           ],
         ),
+      ),
       ),
     ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.05, end: 0);
   }

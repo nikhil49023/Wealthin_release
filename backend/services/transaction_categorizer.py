@@ -210,14 +210,14 @@ Respond with ONLY the category name, nothing else."""
                 uncategorized.append((i, tx))
         
         # Second pass: AI categorization for uncategorized
-        if uncategorized and self.gemini_model:
+        if uncategorized and self.zoho_service.is_configured:
             try:
                 # Build batch prompt
                 batch_items = "\n".join([
                     f"{i+1}. {tx.get('description', 'Unknown')} - ₹{tx.get('amount', 0)}"
                     for i, (_, tx) in enumerate(uncategorized)
                 ])
-                
+
                 prompt = f"""Categorize these Indian financial transactions. For each, respond with ONLY the category name from this list:
 Food & Dining, Groceries, Transportation, Shopping, Entertainment, Utilities, Healthcare, Education, Investment, Insurance, EMI & Loans, Salary & Income, Transfer, Rent & Housing, Personal Care, Other
 
@@ -225,9 +225,13 @@ Transactions:
 {batch_items}
 
 Respond with one category per line, in the same order:"""
-                
-                response = self.gemini_model.generate_content(prompt)
-                categories = response.text.strip().split("\n")
+
+                response = await self.zoho_service.llm_chat(
+                    prompt=prompt,
+                    system_prompt="You are a transaction categorizer. Respond with only category names, one per line.",
+                    max_tokens=500
+                )
+                categories = response.strip().split("\n")
                 
                 for j, (orig_idx, tx) in enumerate(uncategorized):
                     if j < len(categories):

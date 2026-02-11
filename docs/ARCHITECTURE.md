@@ -12,20 +12,17 @@ graph TD
     
     subgraph "Frontend Layer"
         FlutterApp --> LocalDB[SQLite (Drift)]
-        FlutterApp --> StateMgmt[Provider/Riverpod]
     end
     
     subgraph "Backend Layer (Sidecar)"
-        PythonSidecar --> AI[AI Agents (Sarvam/Zoho)]
-        PythonSidecar --> OCR[OCR Engine (Zoho/PDF)]
-        PythonSidecar --> Analytics[Analytics Service]
-        PythonSidecar --> PyDB[Analysis DB (SQLite)]
-    end
-    
-    subgraph "External Services"
-        AI --> SarvamAPI[Sarvam AI (Indic)]
-        AI --> ZohoCatalyst[Zoho Catalyst (LLM)]
-        OCR --> ZohoVision[Zoho Vision API]
+        PythonSidecar --> Router[Intelligent Query Router]
+        Router --> GovAPI[Government API Service]
+        Router --> StaticKB[Static Knowledge Base (JSON)]
+        Router --> AI[AI Agents (Sarvam/Zoho/OpenAI)]
+        
+        GovAPI --> APISetu[API Setu / Income Tax / GST]
+        StaticKB --> LocalJSON[Tax Rules / Rates]
+        AI --> ExternalAI[External LLMs]
     end
 ```
 
@@ -37,28 +34,26 @@ graph TD
 - **Key Modules**:
   - `features/ai_advisor`: Chat interface for the AI financial assistant.
   - `features/dashboard`: Real-time financial overview.
-  - `features/brainstorm`: Interactive business idea generation.
-  - `core/services`: Bridges to the Python backend (`python_bridge_service.dart`).
+  - `core/services/python_bridge_service.dart`: Main bridge to the Python backend.
 
-### 2.2 Backend Bridge (Python Sidecar)
-- **Role**: Performs heavy computation, AI inference, document parsing, and advanced financial modeling.
-- **Tech Stack**: Python 3.9+, FastAPI, Pandas, ReportLab.
+### 2.2 Backend (Python Sidecar)
+- **Role**: Intelligent processing, data retrieval, and complex reasoning.
+- **Architecture**: **Government APIs First**.
 - **Key Services**:
-  - `ai_tools_service.py`: Orchestrates agentic AI behaviors.
-  - `ocr_engine.py`: Extracts data from receipts and bank statements.
-  - `dpr_generator.py`: Generates Detailed Project Reports.
-  - `socratic_engine.py`: Powers the brainstorming logic.
+  - `government_api_service.py`: Integrates with API Setu, Income Tax, and GSTN for real-time verification.
+  - `static_knowledge_service.py`: Provides instant access to tax slabs, deductions, and rules from offline JSON.
+  - `query_router.py`: Routes queries based on cost and capability (Gov API > Static KB > Local DB > OpenAI).
+  - `openai_service.py`: Handles complex reasoning tasks like DPR generation.
 
 ## 3. Key Algorithms & Services
 
-### 3.1 AI Advisor & Agentic Loop
-The AI Advisor operates on a **Sense-Plan-Act** agentic architecture.
-- **Logic**:
-  1.  **Perception**: Receives user query + financial context (trends, recent transactions).
-  2.  **Fast Path (Regex)**: Instantly detects simple intent (e.g., "Budget 50k") using regex patterns to skip LLM latency.
-  3.  **Cognition (LLM)**: Uses Sarvam AI (for Indic languages) or Zoho Catalyst (for English) to plan actions.
-  4.  **Action**: Executes tools (e.g., `calculate_sip`, `web_search`) via the `AIToolsService`.
-  5.  **Reflection**: Validates results against RBI guidelines (Debt-to-Income ratio, Savings Rate > 20%).
+### 3.1 AI Advisor & Query Routing
+The AI Advisor uses a cost-efficient, accuracy-first routing strategy:
+1.  **Gov API Check**: Detects intent for real-time verification (PAN, GST, ITR) and calls official APIs. **(Priority 1, FREE)**
+2.  **Static KB Lookup**: Checks local JSON for tax rules, rates, and formulas. **(Priority 2, FREE, Offline)**
+3.  **Local Transaction Query**: Queries the user's local SQLite database for spending analysis. **(Priority 3, Private)**
+4.  **Web Search**: Uses search tools for latest news/prices.
+5.  **LLM/RAG**: Falls back to OpenAI/Sarvam only for complex reasoning or DPR generation. **(Priority 4, Paid)**
 
 ### 3.2 Socratic Engine (Brainstorming)
 A state-machine based engine that guides entrepreneurs through business planning using the Socratic method.

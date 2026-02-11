@@ -51,6 +51,7 @@ dependencies:
   supabase_flutter: ^2.3.4
   url_launcher: ^6.3.2
   syncfusion_flutter_pdf: ^32.2.3
+  flutter_secure_storage: ^10.0.0
 
 dev_dependencies:
   flutter_lints: ">=3.0.0 <7.0.0"

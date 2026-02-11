@@ -1,14 +1,10 @@
 import 'dart:ui';
-// TODO: Firebase migration - removed wealthin_client import
-// import 'package:wealthin_client/wealthin_client.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
 import '../../core/services/data_service.dart';
-// TODO: Firebase migration - removed main.dart import (was used for Serverpod client)
-// import '../../main.dart';
 
 // Data service singleton
 final dataService = DataService();
@@ -46,24 +42,18 @@ class BusinessIdea {
   }) : title = title ?? idea;
 }
 
+/// View mode for brainstorm screen
+enum BrainstormViewMode { chat, canvas }
+
 /// Brainstorm Screen - Business idea generator and analyzer
+/// Mobile-first design with Chat/Canvas toggle
 class BrainstormScreen extends StatelessWidget {
   const BrainstormScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('Brainstorm'),
-        flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(color: Colors.transparent),
-          ),
-        ),
-      ),
-      body: const BrainstormScreenBody(),
+    return const Scaffold(
+      body: BrainstormScreenBody(),
     );
   }
 }
@@ -78,30 +68,22 @@ class BrainstormScreenBody extends StatefulWidget {
 
 class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
   final TextEditingController _ideaController = TextEditingController();
-  final TextEditingController _answerController = TextEditingController();
+  final TextEditingController _chatController = TextEditingController();
+  final ScrollController _chatScrollController = ScrollController();
+  final FocusNode _chatFocusNode = FocusNode();
+
   bool _isAnalyzing = false;
   BusinessIdea? _currentIdea;
-  final List<BusinessIdea> _savedIdeas = [];
-  
-  // Mode toggle: false = Quick Analysis, true = DPR Journey
-  bool _isDPRMode = false;
-  
-  // DPR Journey state
-  bool _isInSocraticSession = false;
-  Map<String, dynamic>? _currentQuestion;
-  List<Map<String, dynamic>> _conversationHistory = [];
-  double _dprCompleteness = 0.0;
-  int _questionsAnswered = 0;
-  
-  // DPR sections progress
-  final Map<String, bool> _sectionsCompleted = {
-    'executive_summary': false,
-    'promoter_profile': false,
-    'market_analysis': false,
-    'financial_projections': false,
-    'cost_of_project': false,
-  };
-  
+  List<Map<String, dynamic>> _savedIdeas = [];
+  bool _isLoadingSavedIdeas = false;
+
+  // View mode toggle
+  BrainstormViewMode _viewMode = BrainstormViewMode.chat;
+
+  // Chat messages for chat mode
+  final List<_ChatMessage> _chatMessages = [];
+  bool _isChatLoading = false;
+
   // Stepped loading states for async UI
   int _currentLoadingStep = 0;
   static const List<String> _loadingSteps = [
@@ -111,91 +93,75 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
     'Evaluating Financials...',
     'Finalizing Report...',
   ];
-  
+
   // Research logs for animated display
   final List<_ResearchLogEntry> _researchLogs = [];
   final ScrollController _logScrollController = ScrollController();
 
+  // Canvas items for canvas mode
+  final List<_CanvasItem> _canvasItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedIdeas();
+    _addWelcomeChatMessage();
+  }
 
   @override
   void dispose() {
     _ideaController.dispose();
-    _answerController.dispose();
+    _chatController.dispose();
+    _chatScrollController.dispose();
     _logScrollController.dispose();
+    _chatFocusNode.dispose();
     super.dispose();
   }
 
-  /// Start DPR Journey with Socratic questioning
-  Future<void> _startDPRJourney() async {
-    final idea = _ideaController.text.trim();
-    if (idea.isEmpty) return;
-
-    setState(() {
-      _isInSocraticSession = true;
-      _conversationHistory.clear();
-      _questionsAnswered = 0;
-      _dprCompleteness = 0.0;
-    });
-
-    // Call backend to start session
-    final result = await dataService.startSocraticSession(businessIdea: idea);
-    
-    if (result != null && result['initial_question'] != null) {
-      setState(() {
-        _currentQuestion = result['initial_question'] as Map<String, dynamic>;
-        _conversationHistory.add({
-          'type': 'question',
-          'content': _currentQuestion!['question'],
-          'question_type': _currentQuestion!['question_type'],
-        });
-      });
-    }
+  void _addWelcomeChatMessage() {
+    _chatMessages.add(_ChatMessage(
+      text: "Hey! I'm your brainstorming buddy.\n\n"
+          "Tell me your business idea and I'll help you:\n"
+          "- Analyze market potential\n"
+          "- Find competitors\n"
+          "- Discover government schemes\n"
+          "- Evaluate financial viability\n\n"
+          "What idea would you like to explore?",
+      isUser: false,
+      timestamp: DateTime.now(),
+    ));
   }
 
-  /// Process user answer and get next Socratic question
-  Future<void> _submitAnswer() async {
-    final answer = _answerController.text.trim();
-    if (answer.isEmpty || _currentQuestion == null) return;
-
-    setState(() {
-      _conversationHistory.add({
-        'type': 'answer',
-        'content': answer,
-      });
-      _questionsAnswered++;
-      _dprCompleteness = (_questionsAnswered / 10.0 * 100).clamp(0, 100);
-    });
-
-    _answerController.clear();
-
-    // Call backend to process response
-    final result = await dataService.processSocraticResponse(
-      response: answer,
-      questionContext: _currentQuestion!,
-    );
-
-    if (result != null && result['next_question'] != null) {
-      setState(() {
-        _currentQuestion = result['next_question'] as Map<String, dynamic>;
-        _conversationHistory.add({
-          'type': 'question',
-          'content': _currentQuestion!['question'],
-          'question_type': _currentQuestion!['question_type'] ?? 'follow_up',
+  /// Load saved ideas from database
+  Future<void> _loadSavedIdeas() async {
+    setState(() => _isLoadingSavedIdeas = true);
+    try {
+      final ideas = await dataService.getSavedIdeas('user_1', limit: 20);
+      if (mounted) {
+        setState(() {
+          _savedIdeas = ideas;
+          _isLoadingSavedIdeas = false;
         });
-      });
+      }
+    } catch (e) {
+      debugPrint('[Brainstorm] Error loading saved ideas: $e');
+      if (mounted) {
+        setState(() => _isLoadingSavedIdeas = false);
+      }
     }
   }
 
   void _addResearchLog(String message, {bool isHighlight = false}) {
     if (mounted) {
       setState(() {
-        _researchLogs.add(_ResearchLogEntry(
-          message: message,
-          timestamp: DateTime.now(),
-          isHighlight: isHighlight,
-        ));
+        _researchLogs.add(
+          _ResearchLogEntry(
+            message: message,
+            timestamp: DateTime.now(),
+            isHighlight: isHighlight,
+          ),
+        );
       });
-      // Auto-scroll to bottom
       Future.delayed(const Duration(milliseconds: 100), () {
         if (_logScrollController.hasClients) {
           _logScrollController.animateTo(
@@ -208,6 +174,112 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
     }
   }
 
+  Future<void> _sendChatMessage() async {
+    final text = _chatController.text.trim();
+    if (text.isEmpty || _isChatLoading) return;
+
+    setState(() {
+      _chatMessages.add(_ChatMessage(
+        text: text,
+        isUser: true,
+        timestamp: DateTime.now(),
+      ));
+      _isChatLoading = true;
+    });
+    _chatController.clear();
+    _scrollChatToBottom();
+
+    try {
+      // Use the idea evaluation endpoint for brainstorming
+      final evaluation = await dataService.evaluateIdea(
+        userId: 'user_1',
+        idea: text,
+        location: 'India',
+        budgetRange: '5-10 Lakhs',
+      );
+
+      if (mounted && evaluation != null) {
+        final score = (evaluation['score'] as num?)?.toInt() ?? 70;
+        final summary = evaluation['summary']?.toString() ?? 'Analysis complete.';
+        final swot = evaluation['swot'] as Map<String, dynamic>?;
+        final recommendations = List<String>.from(evaluation['recommendations'] ?? []);
+
+        // Build response message
+        String responseText = "**Viability Score: $score/100**\n\n";
+        responseText += "$summary\n\n";
+
+        if (swot != null) {
+          final strengths = List<String>.from(swot['strengths'] ?? []);
+          final weaknesses = List<String>.from(swot['weaknesses'] ?? []);
+          if (strengths.isNotEmpty) {
+            responseText += "**Strengths:**\n${strengths.map((s) => '- $s').join('\n')}\n\n";
+          }
+          if (weaknesses.isNotEmpty) {
+            responseText += "**Challenges:**\n${weaknesses.map((w) => '- $w').join('\n')}\n\n";
+          }
+        }
+
+        if (recommendations.isNotEmpty) {
+          responseText += "**Recommendations:**\n${recommendations.take(3).map((r) => '- $r').join('\n')}";
+        }
+
+        setState(() {
+          _chatMessages.add(_ChatMessage(
+            text: responseText,
+            isUser: false,
+            timestamp: DateTime.now(),
+            score: score,
+          ));
+          _isChatLoading = false;
+
+          // Add to canvas if score is good
+          if (score >= 60) {
+            _canvasItems.add(_CanvasItem(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              title: text.length > 50 ? '${text.substring(0, 47)}...' : text,
+              score: score,
+              summary: summary,
+            ));
+          }
+        });
+        _loadSavedIdeas(); // Refresh saved ideas
+      } else {
+        // Fallback response
+        setState(() {
+          _chatMessages.add(_ChatMessage(
+            text: "I've noted your idea! Let me analyze it further. Try asking about specific aspects like market size, competition, or funding options.",
+            isUser: false,
+            timestamp: DateTime.now(),
+          ));
+          _isChatLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Brainstorm] Chat error: $e');
+      setState(() {
+        _chatMessages.add(_ChatMessage(
+          text: "I had trouble analyzing that. Could you try rephrasing your idea?",
+          isUser: false,
+          timestamp: DateTime.now(),
+        ));
+        _isChatLoading = false;
+      });
+    }
+    _scrollChatToBottom();
+  }
+
+  void _scrollChatToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_chatScrollController.hasClients) {
+        _chatScrollController.animateTo(
+          _chatScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   Future<void> _analyzeIdea() async {
     final idea = _ideaController.text.trim();
     if (idea.isEmpty) return;
@@ -217,93 +289,83 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
       _currentLoadingStep = 0;
       _researchLogs.clear();
     });
-    
-    _addResearchLog('🚀 Starting Deep Research Analysis...', isHighlight: true);
-    _addResearchLog('📋 Query: "$idea"');
-    
-    // Simulate stepped loading for better UX
+
+    _addResearchLog('Starting Deep Research Analysis...', isHighlight: true);
+    _addResearchLog('Query: "$idea"');
+
     _runLoadingSteps();
 
-        try {
-      // Call the AI agent service with brainstorm_business_idea tool
-      final response = await dataService.brainstormBusinessIdea(
-        idea: idea,
+    try {
+      final evaluation = await dataService.evaluateIdea(
         userId: 'user_1',
+        idea: idea,
+        location: 'India',
+        budgetRange: '5-10 Lakhs',
       );
-      
-      if (mounted && response != null) {
+
+      if (mounted && evaluation != null) {
+        final marketAnalysis = evaluation['market_analysis'] as Map<String, dynamic>?;
+        final financialProjection = evaluation['financial_projection'] as Map<String, dynamic>?;
+        final swot = evaluation['swot'] as Map<String, dynamic>?;
+        final recommendations = List<String>.from(evaluation['recommendations'] ?? []);
+        final score = (evaluation['score'] as num?)?.toInt() ?? 70;
+
         setState(() {
           _currentIdea = BusinessIdea(
             idea: idea,
-            score: response['score'] ?? 70,
-            estimatedInvestment: response['budget_range'] ?? "₹5-10 Lakhs",
-            timeToBreakeven: "12-18 months",
-            marketAnalysis: _extractResearchSummary(response['research'], 'market_data'),
-            targetAudience: 'Urban professionals aged 25-45, tech-savvy individuals.',
-            revenueModel: 'Subscription-based model with tiered pricing.',
-            strengths: _extractTitles(response['research'], 'market_data'),
-            weaknesses: _extractTitles(response['research'], 'competition'),
-            suggestions: _extractTitles(response['research'], 'govt_schemes'),
+            title: idea.length > 60 ? '${idea.substring(0, 57)}...' : idea,
+            score: score,
+            estimatedInvestment: financialProjection?['initial_investment']?.toString() ?? '₹5-10 Lakhs',
+            timeToBreakeven: financialProjection?['break_even_timeline']?.toString() ?? '12-18 months',
+            marketAnalysis: marketAnalysis?['market_size']?.toString() ?? 'Growing market in India',
+            targetAudience: marketAnalysis?['target_audience']?.toString() ?? 'Indian entrepreneurs and SMBs',
+            revenueModel: (List<String>.from(evaluation['revenue_models'] ?? [])).join(', '),
+            strengths: List<String>.from(swot?['strengths'] ?? []),
+            weaknesses: List<String>.from(swot?['weaknesses'] ?? []),
+            suggestions: recommendations.take(5).toList(),
             nextSteps: [
+              if (recommendations.length > 5) ...recommendations.skip(5).take(4),
               'Conduct detailed market research',
               'Create a minimum viable product (MVP)',
               'Identify potential early adopters',
               'Develop a go-to-market strategy',
-            ],
-            summary: response['message'] ?? 'A promising idea with solid fundamentals.',
+            ].take(4).toList(),
+            summary: evaluation['summary']?.toString() ?? 'Analysis complete. Score: $score/100.',
           );
           _isAnalyzing = false;
         });
-      } else {
-        // Fallback to mock if backend fails
-        await _mockAnalysis(idea);
+        _addResearchLog('OpenAI analysis complete! Score: $score/100', isHighlight: true);
+        _loadSavedIdeas();
+        return;
       }
+
+      await _mockAnalysis(idea);
     } catch (e) {
       debugPrint('Brainstorm analysis error: $e');
-      // Fallback to mock analysis
       await _mockAnalysis(idea);
     }
   }
-  
-  String _extractResearchSummary(Map<String, dynamic>? research, String key) {
-    if (research == null || research[key] == null) {
-      return 'Market research data is being gathered.';
-    }
-    final items = research[key] as List?;
-    if (items == null || items.isEmpty) return 'Data pending.';
-    return items.map((i) => i['snippet'] ?? '').take(2).join(' ');
-  }
-  
-  List<String> _extractTitles(Map<String, dynamic>? research, String key) {
-    if (research == null || research[key] == null) return [];
-    final items = research[key] as List?;
-    if (items == null) return [];
-    return items.map<String>((i) => (i['title'] ?? '') as String).take(4).toList();
-  }
-  
-  /// Runs stepped loading animation while analysis happens
+
   void _runLoadingSteps() async {
     final logMessages = [
-      '🔍 Searching market data sources...',
-      '📊 Found 12 relevant market reports',
-      '🏢 Analyzing 8 competitor profiles...',
-      '⚖️ Checking RBI compliance requirements...',
-      '💰 Evaluating financial projections...',
-      '📈 Processing growth metrics...',
-      '✅ Compiling final analysis...',
+      'Searching market data sources...',
+      'Found 12 relevant market reports',
+      'Analyzing 8 competitor profiles...',
+      'Checking RBI compliance requirements...',
+      'Evaluating financial projections...',
+      'Processing growth metrics...',
+      'Compiling final analysis...',
     ];
-    
+
     int logIndex = 0;
     for (int i = 0; i < _loadingSteps.length && _isAnalyzing; i++) {
       await Future.delayed(const Duration(milliseconds: 800));
       if (mounted && _isAnalyzing) {
         setState(() => _currentLoadingStep = i);
-        // Add corresponding log message
         if (logIndex < logMessages.length) {
           _addResearchLog(logMessages[logIndex]);
           logIndex++;
         }
-        // Add extra log for some steps
         if (i == 1 && logIndex < logMessages.length) {
           await Future.delayed(const Duration(milliseconds: 400));
           _addResearchLog(logMessages[logIndex]);
@@ -311,13 +373,11 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
         }
       }
     }
-    // Final success log
     if (mounted && _isAnalyzing) {
-      _addResearchLog('🎉 Analysis complete!', isHighlight: true);
+      _addResearchLog('Analysis complete!', isHighlight: true);
     }
   }
 
-  
   Future<void> _mockAnalysis(String idea) async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
@@ -327,41 +387,14 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
           score: 75,
           estimatedInvestment: "₹5-10 Lakhs",
           timeToBreakeven: "12-18 months",
-          marketAnalysis:
-              'This idea shows good market potential in the current economic climate. '
-              'The target demographic is growing and there\'s room for differentiation.',
-          targetAudience:
-              'Urban professionals aged 25-45, middle to upper-middle class, '
-              'tech-savvy individuals who value convenience.',
-          revenueModel:
-              'Subscription-based model with tiered pricing. '
-              'Additional revenue through premium features and partnerships.',
-          strengths: [
-            'Growing market demand',
-            'Low initial capital requirement',
-            'Scalable business model',
-            'Clear value proposition',
-          ],
-          weaknesses: [
-            'Competitive market landscape',
-            'Customer acquisition costs',
-            'Building trust with new users',
-            'Operational complexity at scale',
-          ],
-          suggestions: [
-            "Add premium features",
-            "Consider B2B model",
-            "Build community around product",
-          ],
-          nextSteps: [
-            'Conduct detailed market research',
-            'Create a minimum viable product (MVP)',
-            'Identify potential early adopters',
-            'Develop a go-to-market strategy',
-          ],
-          summary:
-              'A promising idea with solid fundamentals. Focus on differentiation '
-              'and building a strong initial user base.',
+          marketAnalysis: 'This idea shows good market potential in the current economic climate.',
+          targetAudience: 'Urban professionals aged 25-45, tech-savvy individuals.',
+          revenueModel: 'Subscription-based model with tiered pricing.',
+          strengths: ['Growing market demand', 'Low initial capital', 'Scalable model', 'Clear value proposition'],
+          weaknesses: ['Competitive landscape', 'Customer acquisition costs', 'Building trust', 'Operational complexity'],
+          suggestions: ["Add premium features", "Consider B2B model", "Build community"],
+          nextSteps: ['Conduct market research', 'Create MVP', 'Identify early adopters', 'Go-to-market strategy'],
+          summary: 'A promising idea with solid fundamentals.',
         );
         _isAnalyzing = false;
       });
@@ -369,274 +402,651 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
   }
 
   void _saveIdea() {
-    if (_currentIdea != null) {
-      setState(() {
-        _savedIdeas.insert(0, _currentIdea!);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Idea saved!')),
-        );
-      });
+    if (_currentIdea != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Idea saved automatically!'),
+            ],
+          ),
+          backgroundColor: Color(0xFF4CAF50),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
 
-    return Column(
-      children: [
-        if (_savedIdeas.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Badge(
-                label: Text('${_savedIdeas.length}'),
-                child: IconButton(
-                  icon: const Icon(Icons.bookmark),
-                  onPressed: () => _showSavedIdeas(context),
-                  tooltip: 'Saved ideas',
-                ),
-              ),
-            ),
-          ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack),
-        Expanded(
-          child: _buildContent(theme),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContent(ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
-    
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? WealthInColors.deepObsidian : WealthInColors.ivoryMist,
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      color: isDark ? WealthInColors.deepObsidian : WealthInColors.ivoryMist,
+      child: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Header with Mode Toggle
-            if (_currentIdea == null && !_isInSocraticSession) ...[
-              const SizedBox(height: 40),
-              Icon(
-                _isDPRMode ? Icons.description : Icons.auto_awesome,
-                size: 48,
-                color: WealthInColors.primary,
-              ).animate()
-                .fadeIn(duration: 500.ms)
-                .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1)),
-              const SizedBox(height: 24),
-              Text(
-                _isDPRMode ? 'DPR Journey' : 'Brainstorm',
-                style: theme.textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
-                ),
-              ).animate().fadeIn(delay: 100.ms),
-              const SizedBox(height: 8),
-              Text(
-                _isDPRMode 
-                    ? 'Guided DPR creation with AI questioning'
-                    : 'AI-powered business idea analysis',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
-                ),
-              ).animate().fadeIn(delay: 200.ms),
-              const SizedBox(height: 24),
-              
-              // Mode Toggle - NEW VISIBLE FEATURE
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: isDark ? WealthInColors.blackCard : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ModeToggleButton(
-                      label: 'Quick Analysis',
-                      icon: Icons.bolt,
-                      isSelected: !_isDPRMode,
-                      onTap: () => setState(() => _isDPRMode = false),
-                    ),
-                    const SizedBox(width: 4),
-                    _ModeToggleButton(
-                      label: 'DPR Journey',
-                      icon: Icons.route,
-                      isSelected: _isDPRMode,
-                      onTap: () => setState(() => _isDPRMode = true),
-                      isNew: true, // Shows "NEW" badge
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn(delay: 300.ms).scale(begin: const Offset(0.95, 0.95)),
-              const SizedBox(height: 32),
-            ],
-            
-            // DPR Progress Indicator (when in DPR mode)
-            if (_isDPRMode && !_isInSocraticSession) ...[
-              _DPRProgressCard(
-                completeness: _dprCompleteness,
-                sectionsCompleted: _sectionsCompleted,
-              ).animate().fadeIn(delay: 350.ms),
-              const SizedBox(height: 24),
-            ],
-            
-            // Socratic Conversation UI
-            if (_isInSocraticSession) ...[
-              _SocraticConversationCard(
-                conversationHistory: _conversationHistory,
-                currentQuestion: _currentQuestion,
-                answerController: _answerController,
-                onSubmit: _submitAnswer,
-                completeness: _dprCompleteness,
-                questionsAnswered: _questionsAnswered,
-                onExit: () => setState(() {
-                  _isInSocraticSession = false;
-                  _conversationHistory.clear();
-                }),
-              ).animate().fadeIn(duration: 400.ms),
-            ] else ...[
-            
-            // Input Card - Clean & Elegant
-            Container(
-              constraints: const BoxConstraints(maxWidth: 600),
-              decoration: BoxDecoration(
-                color: isDark ? WealthInColors.blackCard : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark 
-                      ? WealthInColors.primary.withValues(alpha: 0.2) 
-                      : Colors.grey.shade200,
-                ),
-                boxShadow: [
-                  if (!isDark)
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                ],
-              ),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Describe your idea',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _ideaController,
-                    maxLines: 4,
-                    style: TextStyle(
-                      color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'e.g., A subscription service for homemade healthy tiffins...',
-                      hintStyle: TextStyle(
-                        color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
-                      ),
-                      filled: true,
-                      fillColor: isDark 
-                          ? WealthInColors.deepObsidian 
-                          : Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _isAnalyzing 
-                          ? null 
-                          : (_isDPRMode ? _startDPRJourney : _analyzeIdea),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isDPRMode 
-                            ? const Color(0xFF6366F1) // Indigo for DPR
-                            : WealthInColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: _isAnalyzing
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white.withOpacity(0.9),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(_loadingSteps[_currentLoadingStep]),
-                              ],
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_isDPRMode ? Icons.route : Icons.auto_awesome, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isDPRMode ? 'Start DPR Journey' : 'Analyze Idea',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(duration: 400.ms).moveY(begin: 20, end: 0),
+            // Header with toggle
+            _buildHeader(isDark, isSmallScreen),
 
-            const SizedBox(height: 24),
+            // Saved ideas badge
+            if (_savedIdeas.isNotEmpty)
+              _buildSavedIdeasBadge(),
 
-            // Research Log Panel - shown during analysis
-            if (_isAnalyzing && _researchLogs.isNotEmpty)
-              _ResearchLogPanel(
-                logs: _researchLogs,
-                scrollController: _logScrollController,
-              ).animate().fadeIn(duration: 300.ms).scale(begin: const Offset(0.95, 0.95)),
-
-            const SizedBox(height: 24),
-
-            // Analysis Results
-            if (_currentIdea != null)
-
-              Container(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: _IdeaAnalysisCard(
-                  idea: _currentIdea!,
-                  onSave: _saveIdea,
-                ).animate().fadeIn(duration: 600.ms).moveY(begin: 30, end: 0),
-              ),
-            ], // Close the else block
+            // Main content based on view mode
+            Expanded(
+              child: _viewMode == BrainstormViewMode.chat
+                  ? _buildChatView(isDark)
+                  : _buildCanvasView(isDark),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildHeader(bool isDark, bool isSmallScreen) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 16 : 24,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? WealthInColors.blackCard : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Title
+          Expanded(
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  color: WealthInColors.primary,
+                  size: isSmallScreen ? 24 : 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Brainstorm',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 20 : 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // View mode toggle
+          Container(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? WealthInColors.deepObsidian
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildToggleButton(
+                  icon: Icons.chat_bubble_outline,
+                  label: isSmallScreen ? null : 'Chat',
+                  isSelected: _viewMode == BrainstormViewMode.chat,
+                  onTap: () => setState(() => _viewMode = BrainstormViewMode.chat),
+                  isDark: isDark,
+                ),
+                const SizedBox(width: 4),
+                _buildToggleButton(
+                  icon: Icons.dashboard_outlined,
+                  label: isSmallScreen ? null : 'Canvas',
+                  isSelected: _viewMode == BrainstormViewMode.canvas,
+                  onTap: () => setState(() => _viewMode = BrainstormViewMode.canvas),
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleButton({
+    required IconData icon,
+    String? label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: label != null ? 16 : 12,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? WealthInColors.primary
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? Colors.white60 : Colors.black54),
+            ),
+            if (label != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? Colors.white60 : Colors.black54),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSavedIdeasBadge() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Badge(
+          label: Text('${_savedIdeas.length}'),
+          child: IconButton(
+            icon: const Icon(Icons.bookmark),
+            onPressed: () => _showSavedIdeas(context),
+            tooltip: 'Saved ideas',
+          ),
+        ),
+      ),
+    ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack);
+  }
+
+  // ==================== CHAT VIEW ====================
+
+  Widget _buildChatView(bool isDark) {
+    return Column(
+      children: [
+        // Chat messages
+        Expanded(
+          child: ListView.builder(
+            controller: _chatScrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: _chatMessages.length + (_isChatLoading ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (_isChatLoading && index == _chatMessages.length) {
+                return _buildTypingIndicator(isDark);
+              }
+              return _buildChatBubble(_chatMessages[index], isDark);
+            },
+          ),
+        ),
+
+        // Input area
+        _buildChatInput(isDark),
+      ],
+    );
+  }
+
+  Widget _buildChatBubble(_ChatMessage message, bool isDark) {
+    final isUser = message.isUser;
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.only(
+          bottom: 12,
+          left: isUser ? 50 : 0,
+          right: isUser ? 0 : 50,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isUser
+              ? WealthInColors.primary
+              : (isDark ? WealthInColors.blackCard : Colors.white),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            if (!isDark)
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (message.score != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getScoreColor(message.score!).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Score: ${message.score}/100',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _getScoreColor(message.score!),
+                  ),
+                ),
+              ),
+            Text(
+              message.text,
+              style: TextStyle(
+                fontSize: 15,
+                color: isUser
+                    ? Colors.white
+                    : (isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary),
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 200.ms).slideX(
+      begin: isUser ? 0.1 : -0.1,
+      end: 0,
+      curve: Curves.easeOut,
+    );
+  }
+
+  Widget _buildTypingIndicator(bool isDark) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12, right: 80),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? WealthInColors.blackCard : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDot(0),
+            const SizedBox(width: 4),
+            _buildDot(1),
+            const SizedBox(width: 4),
+            _buildDot(2),
+            const SizedBox(width: 10),
+            Text(
+              'Analyzing...',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).animate(onPlay: (c) => c.repeat()).shimmer(
+      duration: 1200.ms,
+      color: WealthInColors.primary.withOpacity(0.3),
+    );
+  }
+
+  Widget _buildDot(int index) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: WealthInColors.primary,
+        shape: BoxShape.circle,
+      ),
+    ).animate(onPlay: (c) => c.repeat())
+      .scale(
+        delay: Duration(milliseconds: index * 150),
+        duration: 400.ms,
+        begin: const Offset(0.6, 0.6),
+        end: const Offset(1.0, 1.0),
+      )
+      .then()
+      .scale(
+        duration: 400.ms,
+        begin: const Offset(1.0, 1.0),
+        end: const Offset(0.6, 0.6),
+      );
+  }
+
+  Widget _buildChatInput(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? WealthInColors.blackCard : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? WealthInColors.deepObsidian : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextField(
+                controller: _chatController,
+                focusNode: _chatFocusNode,
+                maxLines: null,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: 'Describe your business idea...',
+                  hintStyle: TextStyle(
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
+                ),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                ),
+                onSubmitted: (_) => _sendChatMessage(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _isChatLoading ? null : _sendChatMessage,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _chatController.text.trim().isNotEmpty && !_isChatLoading
+                    ? WealthInColors.primary
+                    : (isDark ? Colors.white12 : Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: _isChatLoading
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: isDark ? Colors.white : WealthInColors.primary,
+                      ),
+                    )
+                  : Icon(
+                      Icons.send_rounded,
+                      color: _chatController.text.trim().isNotEmpty
+                          ? Colors.white
+                          : (isDark ? Colors.white38 : Colors.black38),
+                      size: 22,
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== CANVAS VIEW ====================
+
+  Widget _buildCanvasView(bool isDark) {
+    return Column(
+      children: [
+        // Quick input for canvas
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: _buildQuickAnalyzeInput(isDark),
+        ),
+
+        // Research log panel during analysis
+        if (_isAnalyzing && _researchLogs.isNotEmpty)
+          _ResearchLogPanel(
+            logs: _researchLogs,
+            scrollController: _logScrollController,
+          ).animate().fadeIn(duration: 300.ms),
+
+        // Analysis results
+        if (_currentIdea != null)
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _IdeaAnalysisCard(
+                idea: _currentIdea!,
+                onSave: _saveIdea,
+              ).animate().fadeIn(duration: 600.ms).moveY(begin: 30, end: 0),
+            ),
+          ),
+
+        // Canvas items grid
+        if (_currentIdea == null && !_isAnalyzing)
+          Expanded(
+            child: _canvasItems.isEmpty
+                ? _buildEmptyCanvas(isDark)
+                : _buildCanvasGrid(isDark),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildQuickAnalyzeInput(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? WealthInColors.blackCard : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? WealthInColors.primary.withOpacity(0.2)
+              : Colors.grey.shade200,
+        ),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick Analysis',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _ideaController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'e.g., A subscription service for homemade healthy tiffins...',
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
+              filled: true,
+              fillColor: isDark ? WealthInColors.deepObsidian : Colors.grey.shade50,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.all(16),
+            ),
+            style: TextStyle(
+              color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _isAnalyzing ? null : _analyzeIdea,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: WealthInColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: _isAnalyzing
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(_loadingSteps[_currentLoadingStep]),
+                      ],
+                    )
+                  : const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome, size: 20),
+                        SizedBox(width: 8),
+                        Text('Analyze', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyCanvas(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.lightbulb_outline,
+            size: 64,
+            color: isDark ? Colors.white24 : Colors.grey.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Your ideas will appear here',
+            style: TextStyle(
+              fontSize: 16,
+              color: isDark ? Colors.white54 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Use Chat or Quick Analysis to brainstorm',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.white38 : Colors.black38,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCanvasGrid(bool isDark) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.2,
+      ),
+      itemCount: _canvasItems.length,
+      itemBuilder: (context, index) {
+        final item = _canvasItems[index];
+        return _buildCanvasCard(item, isDark, index);
+      },
+    );
+  }
+
+  Widget _buildCanvasCard(_CanvasItem item, bool isDark, int index) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? WealthInColors.blackCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _getScoreColor(item.score).withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _ScoreCircle(score: item.score, size: 36),
+              IconButton(
+                icon: Icon(Icons.close, size: 18, color: Colors.grey),
+                onPressed: () => setState(() => _canvasItems.removeAt(index)),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Text(
+              item.title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    ).animate(delay: (index * 100).ms).fadeIn().scale(begin: const Offset(0.9, 0.9));
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return AppTheme.success;
+    if (score >= 60) return const Color(0xFF7CB342);
+    if (score >= 40) return WealthInTheme.warning;
+    return AppTheme.error;
   }
 
   void _showSavedIdeas(BuildContext context) {
@@ -653,9 +1063,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
             return Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -673,41 +1081,53 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Text(
-                      'Saved Ideas (${_savedIdeas.length})',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Saved Ideas (${_savedIdeas.length})', style: Theme.of(context).textTheme.headlineSmall),
+                        if (_isLoadingSavedIdeas)
+                          const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Expanded(
-                      child: ListView.builder(
-                        controller: scrollController,
-                        itemCount: _savedIdeas.length,
-                        itemBuilder: (context, index) {
-                          final idea = _savedIdeas[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              leading: _ScoreCircle(score: idea.score),
-                              title: Text(
-                                idea.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                      child: _savedIdeas.isEmpty && !_isLoadingSavedIdeas
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.lightbulb_outline, size: 64, color: Colors.grey.shade400),
+                                  const SizedBox(height: 16),
+                                  Text('No saved ideas yet', style: Theme.of(context).textTheme.titleMedium),
+                                  const SizedBox(height: 8),
+                                  Text('Evaluate an idea to get started!', style: Theme.of(context).textTheme.bodyMedium),
+                                ],
                               ),
-                              subtitle: Text(idea.estimatedInvestment),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () {
-                                  setState(() => _savedIdeas.removeAt(index));
-                                  Navigator.pop(context);
-                                  if (_savedIdeas.isNotEmpty) {
-                                    _showSavedIdeas(context);
-                                  }
-                                },
-                              ),
+                            )
+                          : ListView.builder(
+                              controller: scrollController,
+                              itemCount: _savedIdeas.length,
+                              itemBuilder: (context, index) {
+                                final ideaData = _savedIdeas[index];
+                                final score = (ideaData['score'] as num?)?.toInt() ?? 0;
+                                final ideaText = ideaData['idea_text'] as String? ?? 'Idea';
+                                final viability = ideaData['viability'] as String? ?? 'Unknown';
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  child: ListTile(
+                                    leading: _ScoreCircle(score: score),
+                                    title: Text(
+                                      ideaText.length > 60 ? '${ideaText.substring(0, 57)}...' : ideaText,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text('Viability: $viability'),
+                                    trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                                  ),
+                                ).animate().fadeIn(delay: (index * 100).ms).moveX();
+                              },
                             ),
-                          ).animate().fadeIn(delay: (index * 100).ms).moveX();
-                        },
-                      ),
                     ),
                   ],
                 ),
@@ -720,14 +1140,53 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
   }
 }
 
+// ==================== HELPER CLASSES ====================
+
+class _ChatMessage {
+  final String text;
+  final bool isUser;
+  final DateTime timestamp;
+  final int? score;
+
+  _ChatMessage({
+    required this.text,
+    required this.isUser,
+    required this.timestamp,
+    this.score,
+  });
+}
+
+class _CanvasItem {
+  final String id;
+  final String title;
+  final int score;
+  final String summary;
+
+  _CanvasItem({
+    required this.id,
+    required this.title,
+    required this.score,
+    required this.summary,
+  });
+}
+
+class _ResearchLogEntry {
+  final String message;
+  final DateTime timestamp;
+  final bool isHighlight;
+
+  _ResearchLogEntry({
+    required this.message,
+    required this.timestamp,
+    this.isHighlight = false,
+  });
+}
+
 class _GlassContainer extends StatelessWidget {
   final Widget child;
   final double opacity;
 
-  const _GlassContainer({
-    required this.child,
-    this.opacity = 0.7,
-  });
+  const _GlassContainer({required this.child, this.opacity = 0.7});
 
   @override
   Widget build(BuildContext context) {
@@ -768,21 +1227,8 @@ class _IdeaAnalysisCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Viability Score',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _getScoreLabel(idea.score),
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          color: _getScoreColor(idea.score),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text('Viability Score', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                      Text(_getScoreLabel(idea.score), style: theme.textTheme.headlineMedium?.copyWith(color: _getScoreColor(idea.score), fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -790,61 +1236,23 @@ class _IdeaAnalysisCard extends StatelessWidget {
                   onPressed: onSave,
                   icon: const Icon(Icons.bookmark_add),
                   tooltip: 'Save idea',
-                  style: IconButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: Colors.white,
-                  ),
+                  style: IconButton.styleFrom(backgroundColor: theme.colorScheme.primary, foregroundColor: Colors.white),
                 ),
               ],
             ),
             const Divider(height: 40),
-
-            // Investment & Timeline
             Row(
               children: [
-                Expanded(
-                  child: _InfoTile(
-                    icon: Icons.currency_rupee,
-                    label: 'Investment',
-                    value: idea.estimatedInvestment,
-                  ),
-                ),
-                Expanded(
-                  child: _InfoTile(
-                    icon: Icons.timer,
-                    label: 'Breakeven',
-                    value: idea.timeToBreakeven,
-                  ),
-                ),
+                Expanded(child: _InfoTile(icon: Icons.currency_rupee, label: 'Investment', value: idea.estimatedInvestment)),
+                Expanded(child: _InfoTile(icon: Icons.timer, label: 'Breakeven', value: idea.timeToBreakeven)),
               ],
             ),
             const SizedBox(height: 30),
-
-            // Strengths
-            _AnalysisSection(
-              title: 'Strengths',
-              icon: Icons.check_circle,
-              color: AppTheme.success,
-              items: idea.strengths,
-            ),
+            _AnalysisSection(title: 'Strengths', icon: Icons.check_circle, color: AppTheme.success, items: idea.strengths),
             const SizedBox(height: 20),
-
-            // Weaknesses
-            _AnalysisSection(
-              title: 'Challenges',
-              icon: Icons.warning,
-              color: WealthInTheme.warning,
-              items: idea.weaknesses,
-            ),
+            _AnalysisSection(title: 'Challenges', icon: Icons.warning, color: WealthInTheme.warning, items: idea.weaknesses),
             const SizedBox(height: 20),
-
-            // Suggestions
-            _AnalysisSection(
-              title: 'Recommendations',
-              icon: Icons.lightbulb,
-              color: WealthInTheme.purple,
-              items: idea.suggestions,
-            ),
+            _AnalysisSection(title: 'Recommendations', icon: Icons.lightbulb, color: WealthInTheme.purple, items: idea.suggestions),
           ],
         ),
       ),
@@ -890,44 +1298,14 @@ class _ScoreCircle extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.4),
-            blurRadius: 12,
-            spreadRadius: 2,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 12, spreadRadius: 2)],
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          SizedBox(
-            width: size,
-            height: size,
-            child: CircularProgressIndicator(
-              value: 1.0,
-              strokeWidth: 6,
-              color: color.withValues(alpha: 0.15),
-            ),
-          ),
-          SizedBox(
-            width: size,
-            height: size,
-            child: CircularProgressIndicator(
-              value: score / 100,
-              strokeWidth: 6,
-              strokeCap: StrokeCap.round,
-              valueColor: AlwaysStoppedAnimation(color),
-            ),
-          ),
-          Text(
-            '$score',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontSize: size * 0.35,
-            ),
-          ),
+          SizedBox(width: size, height: size, child: CircularProgressIndicator(value: 1.0, strokeWidth: 6, color: color.withOpacity(0.15))),
+          SizedBox(width: size, height: size, child: CircularProgressIndicator(value: score / 100, strokeWidth: 6, strokeCap: StrokeCap.round, valueColor: AlwaysStoppedAnimation(color))),
+          Text('$score', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: color, fontSize: size * 0.35)),
         ],
       ),
     );
@@ -939,56 +1317,32 @@ class _InfoTile extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _InfoTile({required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
+        color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.1)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              size: 24,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
+                Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
                 const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.5,
-                  ),
-                ),
+                Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, letterSpacing: -0.5)),
               ],
             ),
           ),
@@ -1004,12 +1358,7 @@ class _AnalysisSection extends StatelessWidget {
   final Color color;
   final List<String> items;
 
-  const _AnalysisSection({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.items,
-  });
+  const _AnalysisSection({required this.title, required this.icon, required this.color, required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -1018,183 +1367,65 @@ class _AnalysisSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 18, color: color),
-            ),
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 18, color: color)),
             const SizedBox(width: 12),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           runSpacing: 10,
-          children: items.map(
-            (item) => Container(
+          children: items.map((item) => ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: color.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Text(
-                item,
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark 
-                      ? Colors.white.withOpacity(0.9) 
-                      : Colors.black87,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ).animate().scale(duration: 200.ms, curve: Curves.easeOutBack),
-          ).toList(),
+              decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.2))),
+              child: Text(item, style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.9) : Colors.black87, fontSize: 13, fontWeight: FontWeight.w500)),
+            ),
+          ).animate().scale(duration: 200.ms, curve: Curves.easeOutBack)).toList(),
         ),
       ],
     );
   }
 }
 
-class _SampleIdeaTile extends StatelessWidget {
-  final String title;
-  final String description;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _SampleIdeaTile({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassContainer(
-      opacity: 0.5,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.primary.withValues(alpha: 0.1),
-          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(description),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-/// Research log entry data class
-class _ResearchLogEntry {
-  final String message;
-  final DateTime timestamp;
-  final bool isHighlight;
-  
-  _ResearchLogEntry({
-    required this.message,
-    required this.timestamp,
-    this.isHighlight = false,
-  });
-}
-
-/// Animated Research Log Panel Widget
 class _ResearchLogPanel extends StatelessWidget {
   final List<_ResearchLogEntry> logs;
   final ScrollController scrollController;
-  
-  const _ResearchLogPanel({
-    required this.logs,
-    required this.scrollController,
-  });
+
+  const _ResearchLogPanel({required this.logs, required this.scrollController});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
-      constraints: const BoxConstraints(maxWidth: 600, maxHeight: 200),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      constraints: const BoxConstraints(maxHeight: 180),
       decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.black.withValues(alpha: 0.6) 
-            : Colors.grey.shade900.withValues(alpha: 0.9),
+        color: isDark ? Colors.black.withOpacity(0.6) : Colors.grey.shade900.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: WealthInColors.primary.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: WealthInColors.primary.withOpacity(0.3)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Terminal header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
-                border: Border(
-                  bottom: BorderSide(
-                    color: WealthInColors.primary.withValues(alpha: 0.2),
-                  ),
-                ),
-              ),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), border: Border(bottom: BorderSide(color: WealthInColors.primary.withOpacity(0.2)))),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.terminal,
-                    size: 14,
-                    color: WealthInColors.primary.withValues(alpha: 0.8),
-                  ),
+                  Icon(Icons.terminal, size: 14, color: WealthInColors.primary.withOpacity(0.8)),
                   const SizedBox(width: 8),
-                  Text(
-                    'Deep Research Agent',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontFamily: 'monospace',
-                    ),
-                  ),
+                  Text('Deep Research Agent', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.9), fontFamily: 'monospace')),
                   const Spacer(),
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: WealthInColors.success,
-                      boxShadow: [
-                        BoxShadow(
-                          color: WealthInColors.success.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                  ),
+                  Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: WealthInColors.success, boxShadow: [BoxShadow(color: WealthInColors.success.withOpacity(0.5), blurRadius: 4)])),
                 ],
               ),
             ),
-            // Log entries
             Expanded(
               child: ListView.builder(
                 controller: scrollController,
@@ -1202,36 +1433,14 @@ class _ResearchLogPanel extends StatelessWidget {
                 itemCount: logs.length,
                 itemBuilder: (context, index) {
                   final log = logs[index];
-                  final timeStr = '${log.timestamp.hour.toString().padLeft(2, '0')}:'
-                      '${log.timestamp.minute.toString().padLeft(2, '0')}:'
-                      '${log.timestamp.second.toString().padLeft(2, '0')}';
-                  
+                  final timeStr = '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}:${log.timestamp.second.toString().padLeft(2, '0')}';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '[$timeStr] ',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            log.message,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                              fontWeight: log.isHighlight ? FontWeight.bold : FontWeight.normal,
-                              color: log.isHighlight 
-                                  ? WealthInColors.primary 
-                                  : Colors.white.withValues(alpha: 0.85),
-                            ),
-                          ),
-                        ),
+                        Text('[$timeStr] ', style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.grey.shade500)),
+                        Expanded(child: Text(log.message, style: TextStyle(fontSize: 12, fontFamily: 'monospace', fontWeight: log.isHighlight ? FontWeight.bold : FontWeight.normal, color: log.isHighlight ? WealthInColors.primary : Colors.white.withOpacity(0.85)))),
                       ],
                     ),
                   ).animate().fadeIn(duration: 300.ms).moveX(begin: -10, end: 0);
@@ -1244,452 +1453,3 @@ class _ResearchLogPanel extends StatelessWidget {
     );
   }
 }
-
-/// Mode Toggle Button for switching between Quick Analysis and DPR Journey
-class _ModeToggleButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool isNew;
-
-  const _ModeToggleButton({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    this.isNew = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? (isDark ? WealthInColors.primary : WealthInColors.primary)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isSelected ? Colors.white : (isDark ? Colors.grey : Colors.grey.shade600),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? Colors.white : (isDark ? Colors.grey : Colors.grey.shade600),
-              ),
-            ),
-            if (isNew) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.amber,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'NEW',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// DPR Progress Card showing completeness and section status
-class _DPRProgressCard extends StatelessWidget {
-  final double completeness;
-  final Map<String, bool> sectionsCompleted;
-
-  const _DPRProgressCard({
-    required this.completeness,
-    required this.sectionsCompleted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
-    final sectionLabels = {
-      'executive_summary': 'Executive Summary',
-      'promoter_profile': 'Promoter Profile',
-      'market_analysis': 'Market Analysis',
-      'financial_projections': 'Financial Projections',
-      'cost_of_project': 'Cost of Project',
-    };
-
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 600),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6366F1).withOpacity(isDark ? 0.2 : 0.1),
-            const Color(0xFF8B5CF6).withOpacity(isDark ? 0.15 : 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF6366F1).withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.description,
-                  color: Color(0xFF6366F1),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'DPR Completeness',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      '${completeness.toInt()}% Complete',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              CircularProgressIndicator(
-                value: completeness / 100,
-                strokeWidth: 6,
-                backgroundColor: Colors.grey.withOpacity(0.2),
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 12),
-          Text(
-            'Sections',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: sectionLabels.entries.map((entry) {
-              final isComplete = sectionsCompleted[entry.key] ?? false;
-              return Chip(
-                avatar: Icon(
-                  isComplete ? Icons.check_circle : Icons.radio_button_unchecked,
-                  size: 16,
-                  color: isComplete ? Colors.green : Colors.grey,
-                ),
-                label: Text(
-                  entry.value,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.white70 : Colors.black87,
-                  ),
-                ),
-                backgroundColor: isDark ? WealthInColors.blackCard : Colors.grey.shade100,
-                side: BorderSide.none,
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Socratic Conversation Card for DPR questioning
-class _SocraticConversationCard extends StatelessWidget {
-  final List<Map<String, dynamic>> conversationHistory;
-  final Map<String, dynamic>? currentQuestion;
-  final TextEditingController answerController;
-  final VoidCallback onSubmit;
-  final double completeness;
-  final int questionsAnswered;
-  final VoidCallback onExit;
-
-  const _SocraticConversationCard({
-    required this.conversationHistory,
-    required this.currentQuestion,
-    required this.answerController,
-    required this.onSubmit,
-    required this.completeness,
-    required this.questionsAnswered,
-    required this.onExit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 600),
-      decoration: BoxDecoration(
-        color: isDark ? WealthInColors.blackCard : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-              ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.psychology, color: Colors.white, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'DPR Journey',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        'Question $questionsAnswered of 10',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Progress
-                SizedBox(
-                  width: 50,
-                  height: 50,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: completeness / 100,
-                        strokeWidth: 4,
-                        backgroundColor: Colors.white.withOpacity(0.3),
-                        valueColor: const AlwaysStoppedAnimation(Colors.white),
-                      ),
-                      Text(
-                        '${completeness.toInt()}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
-                  onPressed: onExit,
-                ),
-              ],
-            ),
-          ),
-          // Conversation
-          Container(
-            height: 300,
-            padding: const EdgeInsets.all(16),
-            child: ListView.builder(
-              itemCount: conversationHistory.length,
-              itemBuilder: (context, index) {
-                final item = conversationHistory[index];
-                final isQuestion = item['type'] == 'question';
-                
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: isQuestion 
-                        ? MainAxisAlignment.start 
-                        : MainAxisAlignment.end,
-                    children: [
-                      if (isQuestion) ...[
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.psychology,
-                            size: 16,
-                            color: Color(0xFF6366F1),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isQuestion
-                                ? (isDark ? Colors.grey.shade800 : Colors.grey.shade100)
-                                : const Color(0xFF6366F1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (isQuestion && item['question_type'] != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Text(
-                                    item['question_type'].toString().toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF6366F1).withOpacity(0.8),
-                                    ),
-                                  ),
-                                ),
-                              Text(
-                                item['content'] ?? '',
-                                style: TextStyle(
-                                  color: isQuestion
-                                      ? (isDark ? Colors.white : Colors.black87)
-                                      : Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (!isQuestion) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 16,
-                            color: Colors.green,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ).animate().fadeIn(delay: (index * 50).ms);
-              },
-            ),
-          ),
-          // Input
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E2C) : Colors.white,
-              border: Border(
-                top: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200),
-              ),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: answerController,
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                    decoration: InputDecoration(
-                      hintText: 'Type your answer...',
-                      hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400),
-                      filled: true,
-                      fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onSubmitted: (_) => onSubmit(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF6366F1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: onSubmit,
-                    icon: const Icon(Icons.send_rounded, size: 20),
-                    color: Colors.white,
-                    tooltip: 'Send Answer',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-

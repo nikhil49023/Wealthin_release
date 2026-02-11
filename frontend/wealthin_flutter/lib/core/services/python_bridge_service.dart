@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:wealthin_flutter/core/services/backend_config.dart';
 
 /// System Health Status for Python Engine
 enum SystemHealthStatus {
@@ -24,722 +25,674 @@ class SystemHealth {
 }
 
 /// Python Bridge Service
-/// Provides access to embedded Python backend via Chaquopy platform channels
-/// This is the ONLY backend for the app - no external HTTP server needed
+/// Acts as the bridge between Flutter frontend and Python backend sidecar.
+/// Handles API calls for RAG, Financial Calculations, and AI interactions.
 class PythonBridgeService {
   PythonBridgeService._internal();
   static final PythonBridgeService _instance = PythonBridgeService._internal();
   factory PythonBridgeService() => _instance;
 
-  static const MethodChannel _channel = MethodChannel('wealthin/python');
-
+  // Use BackendConfig to get the dynamic base URL
+  String get _baseUrl => backendConfig.baseUrl;
+  
   bool _isInitialized = false;
-  bool _isPythonAvailable = false;
-  List<Map<String, dynamic>> _availableTools = [];
-
-  /// Check if Python is available (Android only with Chaquopy)
-  bool get isPythonAvailable => _isPythonAvailable;
-
-  /// Check if initialized
   bool get isInitialized => _isInitialized;
 
-  /// Get available tools for the LLM
-  List<Map<String, dynamic>> get availableTools => _availableTools;
+  /// Initialize and check backend health
+  Future<bool> initialize() async {
+    try {
+      final url = Uri.parse('$_baseUrl/health');
+      final response = await http.get(url).timeout(const Duration(seconds: 3));
+      
+      _isInitialized = response.statusCode == 200;
+      if (_isInitialized) {
+        debugPrint('[PythonBridge] Backend connected at $_baseUrl');
+      }
+      return _isInitialized;
+    } catch (e) {
+      debugPrint('[PythonBridge] Health check failed: $e');
+      _isInitialized = false;
+      return false;
+    }
+  }
 
   /// Check system health - useful for Settings screen
   Future<SystemHealth> checkSystemHealth() async {
-    if (!_isInitialized) {
-      return SystemHealth(
-        status: SystemHealthStatus.initializing,
-        message: 'AI Engine is initializing...',
-        components: {'python': false, 'tools': false},
-      );
-    }
-
-    if (!_isPythonAvailable) {
-      // On non-Android, this is expected
-      if (defaultTargetPlatform != TargetPlatform.android) {
-        return SystemHealth(
-          status: SystemHealthStatus.unavailable,
-          message: 'Python engine not available on this platform. Using HTTP fallback.',
-          components: {'python': false, 'tools': false},
-        );
-      }
-      return SystemHealth(
-        status: SystemHealthStatus.error,
-        message: 'Python engine failed to initialize.',
-        components: {'python': false, 'tools': false},
-      );
-    }
-
-    // Perform a quick health check
     try {
-      final result = await _callPython('health_check', {});
-      if (result['success'] == true) {
+      final url = Uri.parse('$_baseUrl/health');
+      final response = await http.get(url).timeout(const Duration(seconds: 3));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         return SystemHealth(
           status: SystemHealthStatus.ready,
-          message: 'AI Engine is ready',
+          message: 'AI Engine Ready',
           components: {
-            'python': true,
-            'tools': _availableTools.isNotEmpty,
-            'sarvam': result['sarvam_configured'] == true,
-            'pdf_parser': result['pdf_parser_available'] == true,
+            'rag': data['rag_status'] == 'active',
+            'rag_docs': (data['rag_documents'] ?? 0) > 0,
           },
         );
       }
     } catch (e) {
       debugPrint('[PythonBridge] Health check error: $e');
     }
-
+    
     return SystemHealth(
-      status: SystemHealthStatus.ready,
-      message: 'AI Engine ready (${_availableTools.length} tools)',
-      components: {'python': true, 'tools': _availableTools.isNotEmpty},
+      status: SystemHealthStatus.unavailable,
+      message: 'Backend not reachable',
+      components: {'rag': false},
     );
   }
 
-
-  /// Set Configuration (API Keys, etc) in Python backend
-  Future<bool> setConfig(Map<String, dynamic> config) async {
-    if (!_isPythonAvailable) return false;
-    final result = await _callPython('set_config', {'config_json': jsonEncode(config)});
-    return result['success'] == true;
-  }
-
-  /// Set Gemini API Key in Python backend (Legacy wrapper)
-  Future<bool> setApiKey(String apiKey) async {
-    return setConfig({'sarvam_api_key': apiKey});
-  }
-
-  /// Chat with LLM using embedded Python
-  Future<Map<String, dynamic>> chatWithLLM({
-    required String query,
-    List<Map<String, String>>? conversationHistory,
+  /// Send message to AI agent via the agentic-chat endpoint.
+  /// This supports RAG, Tools, and Context.
+  Future<Map<String, dynamic>> sendChatMessage({
+    required String message,
+    List<Map<String, dynamic>>? conversationHistory,
     Map<String, dynamic>? userContext,
-    String? apiKey,
+    String? userId,
   }) async {
-    if (!_isPythonAvailable) {
-      return {
-        'success': false,
-        'error': 'Python backend not available',
-        'response': 'I apologize, but my intelligence engine is currently unavailable on this platform.'
-      };
-    }
-
-    final args = <String, dynamic>{
-      'query': query,
-      if (conversationHistory != null) 'conversation_history': conversationHistory,
-      if (userContext != null) 'user_context': userContext,
-      if (apiKey != null) 'api_key': apiKey,
-    };
-
-    return await _callPython('chat_with_llm', args);
-  }
-
-  /// Initialize the Python backend
-  Future<bool> initialize() async {
-    if (_isInitialized) return _isPythonAvailable;
-
+    final url = Uri.parse('$_baseUrl/agent/agentic-chat');
+    
     try {
-      // On non-Android platforms, Python won't be available
-      if (defaultTargetPlatform != TargetPlatform.android) {
-        debugPrint('[PythonBridge] Not on Android, Python unavailable');
-        _isPythonAvailable = false;
-        _isInitialized = true;
-        return false;
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'query': message, 
+          'conversation_history': conversationHistory ?? [],
+          'user_context': userContext ?? {},
+          'user_id': userId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint('[PythonBridge] Chat Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to get response: ${response.statusCode}');
       }
-
-      final result = await _callPython('init_python_backend', {});
-      _isPythonAvailable = result['success'] == true;
-      _isInitialized = true;
-
-      if (_isPythonAvailable) {
-        // Load available tools
-        final toolsResult = await _callPython('get_available_tools', {});
-        if (toolsResult['success'] == true) {
-          _availableTools =
-              List<Map<String, dynamic>>.from(toolsResult['tools'] ?? []);
-        }
-      }
-
-      debugPrint('[PythonBridge] Initialized: $_isPythonAvailable');
-      debugPrint('[PythonBridge] Available tools: ${_availableTools.length}');
-      return _isPythonAvailable;
     } catch (e) {
-      debugPrint('[PythonBridge] Init error: $e');
-      _isPythonAvailable = false;
-      _isInitialized = true;
-      return false;
+      debugPrint('[PythonBridge] Exception: $e');
+      rethrow;
     }
   }
-
-  /// Call a Python function and parse the JSON result
-  Future<Map<String, dynamic>> _callPython(
-    String functionName,
-    Map<String, dynamic> args,
-  ) async {
+  
+  /// Generate Detailed Project Report (DPR)
+  Future<String> generateDPR({
+    required String businessIdea,
+    required Map<String, dynamic> userData,
+    required String userId,
+    bool includeMarketResearch = false,
+  }) async {
+    final url = Uri.parse('$_baseUrl/brainstorm/generate-dpr');
+    
     try {
-      final String resultJson = await _channel.invokeMethod('callPython', {
-        'function': functionName,
-        'args': args,
-      });
-
-      return json.decode(resultJson) as Map<String, dynamic>;
-    } on PlatformException catch (e) {
-      debugPrint('[PythonBridge] Platform error: ${e.message}');
-      return {'success': false, 'error': e.message};
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'business_idea': businessIdea,
+          'user_data': userData,
+          'user_id': userId,
+          'include_market_research': includeMarketResearch,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['dpr'] ?? "No DPR generated.";
+      } else {
+        debugPrint('[PythonBridge] DPR Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to generate DPR');
+      }
     } catch (e) {
-      debugPrint('[PythonBridge] Error calling $functionName: $e');
-      return {'success': false, 'error': e.toString()};
+      debugPrint('[PythonBridge] Exception: $e');
+      rethrow;
     }
   }
 
-  // ==================== TOOL EXECUTION ====================
+  /// Categorize a single transaction
+  Future<Map<String, dynamic>> categorizeTransaction(String description, double amount) async {
+    final url = Uri.parse('$_baseUrl/categorize');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'description': description,
+          'amount': amount,
+        }),
+      );
 
-  /// Execute any tool by name (for LLM tool calls)
-  Future<Map<String, dynamic>> executeTool(
-    String toolName,
-    Map<String, dynamic> args,
-  ) async {
-    if (!_isPythonAvailable) {
-      // Use Dart fallbacks
-      return _executeDartFallback(toolName, args);
-    }
-
-    final result = await _callPython('execute_tool', {
-      'tool_name': toolName,
-      'tool_args': args,
-    });
-
-    if (result['success'] != true) {
-      // Try Dart fallback
-      return _executeDartFallback(toolName, args);
-    }
-
-    return result;
-  }
-
-  /// Dart fallback for tools when Python is unavailable
-  Map<String, dynamic> _executeDartFallback(
-    String toolName,
-    Map<String, dynamic> args,
-  ) {
-    switch (toolName) {
-      case 'calculate_sip':
-        return _calculateSIPFallback(
-          args['monthly_investment'] as double? ?? 0,
-          args['annual_rate'] as double? ?? 0,
-          args['years'] as int? ?? 0,
-        );
-      case 'calculate_emi':
-        return _calculateEMIFallback(
-          args['principal'] as double? ?? 0,
-          args['annual_rate'] as double? ?? 0,
-          args['tenure_months'] as int? ?? 0,
-        );
-      case 'calculate_savings_rate':
-        return _calculateSavingsRateFallback(
-          args['income'] as double? ?? 0,
-          args['expenses'] as double? ?? 0,
-        );
-      case 'categorize_transaction':
-        return _categorizeTransactionFallback(
-          args['description'] as String? ?? '',
-        );
-      default:
-        return {'success': false, 'error': 'Tool not available in fallback mode'};
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        // Fallback
+        return {'category': 'Uncategorized', 'confidence': 0.0};
+      }
+    } catch (e) {
+      return {'category': 'Uncategorized', 'confidence': 0.0};
     }
   }
 
-  // ==================== FINANCIAL CALCULATORS ====================
+  /// Categorize multiple transactions
+  Future<List<Map<String, dynamic>>> categorizeBatch(List<Map<String, dynamic>> transactions) async {
+    final url = Uri.parse('$_baseUrl/categorize/batch');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'transactions': transactions,
+        }),
+      );
 
-  /// Calculate SIP maturity
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['transactions']);
+      } else {
+        return transactions; // Return original if fail
+      }
+    } catch (e) {
+      return transactions;
+    }
+  }
+
+  /// Calculate SIP returns
   Future<Map<String, dynamic>> calculateSIP({
     required double monthlyInvestment,
-    required double annualRate,
-    required int years,
+    required double expectedRate,
+    required int durationMonths,
   }) async {
-    if (!_isPythonAvailable) {
-      return _calculateSIPFallback(monthlyInvestment, annualRate, years);
-    }
+    final url = Uri.parse('$_baseUrl/calculator/sip');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'monthly_investment': monthlyInvestment,
+        'expected_rate': expectedRate,
+        'duration_months': durationMonths,
+      }),
+    );
 
-    return await _callPython('calculate_sip', {
-      'monthly_investment': monthlyInvestment,
-      'annual_rate': annualRate,
-      'years': years,
-    });
-  }
-
-  Map<String, dynamic> _calculateSIPFallback(
-    double monthlyInvestment,
-    double annualRate,
-    int years,
-  ) {
-    final monthlyRate = annualRate / 100 / 12;
-    final months = years * 12;
-
-    double maturityValue;
-    if (monthlyRate == 0) {
-      maturityValue = monthlyInvestment * months;
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
     } else {
-      maturityValue = monthlyInvestment *
-          (((1 + monthlyRate).pow(months) - 1) / monthlyRate) *
-          (1 + monthlyRate);
+      throw Exception('Failed to calculate SIP');
     }
-
-    final totalInvestment = monthlyInvestment * months;
-    final returns = maturityValue - totalInvestment;
-
-    return {
-      'success': true,
-      'maturity_value': maturityValue.roundToDouble(),
-      'total_investment': totalInvestment,
-      'total_returns': returns.roundToDouble(),
-      'monthly_investment': monthlyInvestment,
-      'annual_rate': annualRate,
-      'years': years,
-    };
   }
 
-  /// Calculate EMI
+    /// Calculate EMI
   Future<Map<String, dynamic>> calculateEMI({
     required double principal,
     required double annualRate,
     required int tenureMonths,
   }) async {
-    if (!_isPythonAvailable) {
-      return _calculateEMIFallback(principal, annualRate, tenureMonths);
-    }
+    final url = Uri.parse('$_baseUrl/calculator/emi');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'principal': principal,
+        'rate': annualRate,
+        'tenure_months': tenureMonths,
+      }),
+    );
 
-    return await _callPython('calculate_emi', {
-      'principal': principal,
-      'annual_rate': annualRate,
-      'tenure_months': tenureMonths,
-    });
-  }
-
-  Map<String, dynamic> _calculateEMIFallback(
-    double principal,
-    double annualRate,
-    int tenureMonths,
-  ) {
-    final monthlyRate = annualRate / 100 / 12;
-
-    double emi;
-    if (monthlyRate == 0) {
-      emi = principal / tenureMonths;
+     if (response.statusCode == 200) {
+      return jsonDecode(response.body);
     } else {
-      emi = principal *
-          monthlyRate *
-          (1 + monthlyRate).pow(tenureMonths) /
-          ((1 + monthlyRate).pow(tenureMonths) - 1);
+      throw Exception('Failed to calculate EMI');
     }
-
-    final totalPayment = emi * tenureMonths;
-    final totalInterest = totalPayment - principal;
-
-    return {
-      'success': true,
-      'emi': emi.roundToDouble(),
-      'total_payment': totalPayment.roundToDouble(),
-      'total_interest': totalInterest.roundToDouble(),
-      'principal': principal,
-      'annual_rate': annualRate,
-      'tenure_months': tenureMonths,
-    };
   }
 
-  /// Calculate compound interest
-  Future<Map<String, dynamic>> calculateCompoundInterest({
+  /// Calculate Compound Interest
+   Future<Map<String, dynamic>> calculateCompoundInterest({
     required double principal,
     required double annualRate,
-    required double years,
-    int compoundsPerYear = 12,
+    required int years,
   }) async {
-    if (!_isPythonAvailable) {
-      final rate = annualRate / 100;
-      final futureValue =
-          principal * (1 + rate / compoundsPerYear).pow(compoundsPerYear * years);
-      return {
-        'success': true,
-        'future_value': futureValue.roundToDouble(),
+      // NOTE: The backend endpoint is /calculator/lumpsum or similar, 
+      // but for 'compound interest' specifically we might use that logic.
+      // Let's use lumpsum endpoint which is essentially compound interest
+      final url = Uri.parse('$_baseUrl/calculator/lumpsum');
+       final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'principal': principal,
-        'total_interest': (futureValue - principal).roundToDouble(),
-      };
-    }
+        'rate': annualRate,
+        'duration_years': years,
+      }),
+    );
 
-    return await _callPython('calculate_compound_interest', {
-      'principal': principal,
-      'annual_rate': annualRate,
-      'years': years,
-      'compounds_per_year': compoundsPerYear,
-    });
+     if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to calculate Compound Interest');
+    }
   }
 
-  /// Calculate FIRE number
-  Future<Map<String, dynamic>> calculateFIRENumber({
-    required double annualExpenses,
-    double withdrawalRate = 4.0,
+   /// Calculate Savings Rate
+   Future<Map<String, dynamic>> calculateSavingsRate({
+    required double income,
+    required double expenses,
   }) async {
-    if (!_isPythonAvailable) {
-      final fireNumber = (annualExpenses / withdrawalRate) * 100;
-      return {
-        'success': true,
-        'fire_number': fireNumber.roundToDouble(),
-        'annual_expenses': annualExpenses,
-        'withdrawal_rate': withdrawalRate,
-      };
-    }
+      final url = Uri.parse('$_baseUrl/calculator/savings-rate');
+       final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'income': income,
+        'expenses': expenses,
+      }),
+    );
 
-    return await _callPython('calculate_fire_number', {
-      'annual_expenses': annualExpenses,
-      'withdrawal_rate': withdrawalRate,
-    });
+     if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+       // Fallback logic
+       final rate = income > 0 ? ((income - expenses) / income) * 100 : 0.0;
+       return {'savings_rate_percentage': rate};
+    }
   }
 
-  /// Calculate emergency fund status
-  Future<Map<String, dynamic>> calculateEmergencyFund({
+    /// Calculate Emergency Fund
+   Future<Map<String, dynamic>> calculateEmergencyFund({
     required double monthlyExpenses,
     required double currentSavings,
     int targetMonths = 6,
   }) async {
-    if (!_isPythonAvailable) {
-      final monthsCovered =
-          monthlyExpenses > 0 ? currentSavings / monthlyExpenses : 0.0;
-      final gap = (monthlyExpenses * targetMonths) - currentSavings;
-      return {
-        'success': true,
-        'months_covered': monthsCovered,
+      final url = Uri.parse('$_baseUrl/calculator/emergency-fund');
+       final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'monthly_expenses': monthlyExpenses,
+        'current_savings': currentSavings,
         'target_months': targetMonths,
-        'gap': gap > 0 ? gap : 0,
-        'is_adequate': monthsCovered >= targetMonths,
-      };
-    }
+      }),
+    );
 
-    return await _callPython('calculate_emergency_fund', {
-      'monthly_expenses': monthlyExpenses,
-      'current_savings': currentSavings,
-      'target_months': targetMonths,
-    });
+     if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to calculate Emergency Fund');
+    }
   }
 
-  /// Calculate savings rate
-  Future<Map<String, dynamic>> calculateSavingsRate({
-    required double income,
-    required double expenses,
+  /// Set config/secrets on the backend (e.g. API keys for Android sidecar)
+  Future<void> setConfig(Map<String, String> config) async {
+    // Config is managed via environment variables on the backend.
+    // This is a no-op on HTTP-based bridge; secrets are already loaded via .env.
+    debugPrint('[PythonBridge] setConfig called (no-op for HTTP bridge)');
+  }
+
+  /// Chat with LLM via the agentic-chat endpoint
+  Future<Map<String, dynamic>> chatWithLLM({
+    required String query,
+    List<Map<String, String>>? conversationHistory,
+    Map<String, dynamic>? userContext,
+    String? userId,
   }) async {
-    if (!_isPythonAvailable) {
-      return _calculateSavingsRateFallback(income, expenses);
+    final url = Uri.parse('$_baseUrl/agent/agentic-chat');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'query': query,
+          'conversation_history': conversationHistory ?? [],
+          'user_context': userContext ?? {},
+          'user_id': userId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint('[PythonBridge] chatWithLLM Error: ${response.statusCode}');
+        return {'success': false, 'response': 'Backend error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      debugPrint('[PythonBridge] chatWithLLM Exception: $e');
+      return {'success': false, 'response': 'Connection error: $e'};
     }
-
-    return await _callPython('calculate_savings_rate', {
-      'income': income,
-      'expenses': expenses,
-    });
   }
 
-  Map<String, dynamic> _calculateSavingsRateFallback(
-    double income,
-    double expenses,
-  ) {
-    final rate = income > 0 ? ((income - expenses) / income) * 100 : 0.0;
-    return {
-      'success': true,
-      'savings_rate': rate,
-      'monthly_savings': income - expenses,
-      'income': income,
-      'expenses': expenses,
-    };
-  }
+  /// Analyze spending patterns via the backend
+  Future<Map<String, dynamic>> analyzeSpending(List<Map<String, dynamic>> transactions) async {
+    final url = Uri.parse('$_baseUrl/analyze/spending');
 
-  // ==================== TRANSACTION CATEGORIZATION ====================
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'transactions': transactions}),
+      );
 
-  /// Categorize a single transaction
-  Future<Map<String, dynamic>> categorizeTransaction({
-    required String description,
-    double amount = 0,
-  }) async {
-    if (!_isPythonAvailable) {
-      return _categorizeTransactionFallback(description);
+      if (response.statusCode == 200) {
+        return {'success': true, 'analysis': jsonDecode(response.body)};
+      } else {
+        return {'success': false, 'error': 'Backend error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      debugPrint('[PythonBridge] analyzeSpending Exception: $e');
+      return {'success': false, 'error': e.toString()};
     }
-
-    return await _callPython('categorize_transaction', {
-      'description': description,
-      'amount': amount,
-    });
   }
 
-  Map<String, dynamic> _categorizeTransactionFallback(String description) {
-    final descLower = description.toLowerCase();
-    String category = 'Other';
+  /// Execute a named tool on the backend.
+  /// Routes to the appropriate backend endpoint based on tool name.
+  Future<Map<String, dynamic>> executeTool(
+    String toolName,
+    Map<String, dynamic> params,
+  ) async {
+    try {
+      switch (toolName) {
+        case 'parse_bank_statement':
+          return await _executeDocumentScan(params);
+        case 'extract_receipt':
+          return await _executeReceiptScan(params);
+        case 'start_brainstorming':
+        case 'process_brainstorm_response':
+          return await _executeBrainstorm(toolName, params);
+        case 'generate_dpr':
+          return await _executeGenerateDPR(params);
+        case 'get_dpr_template':
+          return {'success': true, 'template': {}};
+        case 'run_scenario_comparison':
+          return await _executeViaChat('Run scenario comparison', params);
+        default:
+          return await _executeViaChat(toolName, params);
+      }
+    } catch (e) {
+      debugPrint('[PythonBridge] executeTool($toolName) Exception: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
 
-    final categoryKeywords = {
-      'Food & Dining': ['food', 'restaurant', 'swiggy', 'zomato', 'cafe'],
-      'Groceries': ['grocery', 'supermarket', 'dmart', 'bigbasket'],
-      'Transport': ['uber', 'ola', 'petrol', 'fuel', 'taxi', 'metro'],
-      'Shopping': ['amazon', 'flipkart', 'myntra', 'shop'],
-      'Utilities': ['electricity', 'water', 'internet', 'phone', 'bill'],
-      'Entertainment': ['netflix', 'spotify', 'movie', 'game'],
-      'Healthcare': ['hospital', 'doctor', 'pharmacy', 'medical'],
-      'Income': ['salary', 'income', 'payment received'],
-    };
+  Future<Map<String, dynamic>> _executeDocumentScan(Map<String, dynamic> params) async {
+    final filePath = params['file_path'] as String?;
+    if (filePath == null) return {'success': false, 'error': 'No file path'};
 
-    for (final entry in categoryKeywords.entries) {
-      if (entry.value.any((keyword) => descLower.contains(keyword))) {
-        category = entry.key;
-        break;
+    final url = Uri.parse('$_baseUrl/agent/scan-document');
+    final request = http.MultipartRequest('POST', url);
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return {'success': true, 'transactions': data['transactions'] ?? []};
+    }
+    return {'success': false, 'error': 'Scan failed: ${response.statusCode}'};
+  }
+
+  Future<Map<String, dynamic>> _executeReceiptScan(Map<String, dynamic> params) async {
+    final filePath = params['file_path'] as String?;
+    if (filePath == null) return {'success': false, 'error': 'No file path'};
+
+    final url = Uri.parse('$_baseUrl/agent/scan-receipt');
+    final request = http.MultipartRequest('POST', url);
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        return {
+          'success': true,
+          'transaction': data['suggested_transaction'] ?? data['data'],
+        };
       }
     }
-
-    return {'success': true, 'category': category, 'confidence': 0.8};
+    return {'success': false, 'error': 'Receipt scan failed'};
   }
 
-  /// Categorize multiple transactions
-  Future<Map<String, dynamic>> categorizeTransactionsBatch(
-    List<Map<String, dynamic>> transactions,
-  ) async {
-    if (!_isPythonAvailable) {
-      final results = transactions.map((tx) {
-        final result =
-            _categorizeTransactionFallback(tx['description'] as String? ?? '');
-        return {...tx, 'category': result['category']};
-      }).toList();
-      return {'success': true, 'transactions': results};
+  Future<Map<String, dynamic>> _executeBrainstorm(String action, Map<String, dynamic> params) async {
+    final url = Uri.parse('$_baseUrl/brainstorm/chat');
+    final message = action == 'start_brainstorming'
+        ? 'Start brainstorming for: ${params['business_idea']}'
+        : params['response'] ?? '';
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': 'default',
+        'message': message,
+        'conversation_history': [],
+        'enable_web_search': true,
+        'search_category': 'general',
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return {'success': data['success'] ?? false, 'response': data['content'] ?? ''};
     }
-
-    return await _callPython('categorize_transactions_batch', {
-      'transactions_json': json.encode(transactions),
-    });
+    return {'success': false, 'error': 'Brainstorm failed'};
   }
 
-  /// Parse bank statement from base64 image (Zoho Vision OCR)
-  Future<Map<String, dynamic>> parseBankStatement(String imageBase64) async {
-    if (!_isPythonAvailable) {
-      return {'success': false, 'error': 'Python backend not available'};
+  Future<Map<String, dynamic>> _executeGenerateDPR(Map<String, dynamic> params) async {
+    final projectData = params['project_data'] as Map<String, dynamic>? ?? {};
+    final url = Uri.parse('$_baseUrl/brainstorm/generate-dpr');
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': 'default',
+        'business_idea': projectData['business_idea'] ?? '',
+        'user_data': projectData,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return {'success': true, 'dpr': data['dpr'] ?? ''};
     }
-
-    return await _callPython('parse_bank_statement', {
-      'image_b64': imageBase64,
-    });
+    return {'success': false, 'error': 'DPR generation failed'};
   }
 
-  /// Parse bank statement from OCR text (Python text parser)
-  /// This is better for multi-page PDFs where text from all pages is concatenated
-  Future<Map<String, dynamic>> parseBankStatementFromText(String ocrText) async {
-    if (!_isPythonAvailable) {
-      return {'success': false, 'error': 'Python backend not available'};
-    }
-
-    return await _callPython('parse_bank_statement_text', {
-      'text': ocrText,
-    });
+  Future<Map<String, dynamic>> _executeViaChat(String toolHint, Map<String, dynamic> params) async {
+    final result = await chatWithLLM(
+      query: '$toolHint: ${jsonEncode(params)}',
+    );
+    return {'success': true, ...result};
   }
 
-  /// Extract receipt data from path (Zoho Vision)
+  /// Extract receipt data from an image file path
   Future<Map<String, dynamic>> extractReceiptFromPath(String filePath) async {
-    if (!_isPythonAvailable) {
-      return {'success': false, 'error': 'Python backend not available'};
-    }
+    final url = Uri.parse('$_baseUrl/agent/scan-receipt');
 
-    return await _callPython('extract_receipt_from_path', {
-      'file_path': filePath,
-    });
-  }
+    try {
+      final request = http.MultipartRequest('POST', url);
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
 
-  // ==================== ANALYTICS ====================
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
-  /// Analyze spending trends
-  Future<Map<String, dynamic>> analyzeSpending(
-    List<Map<String, dynamic>> transactions,
-  ) async {
-    if (!_isPythonAvailable) {
-      // Basic fallback analysis
-      double totalIncome = 0;
-      double totalExpenses = 0;
-      final categories = <String, double>{};
-
-      for (final tx in transactions) {
-        final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
-        if (amount > 0) {
-          totalIncome += amount;
-        } else {
-          totalExpenses += amount.abs();
-          final cat = tx['category'] as String? ?? 'Other';
-          categories[cat] = (categories[cat] ?? 0) + amount.abs();
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final suggested = data['suggested_transaction'] as Map<String, dynamic>? ?? {};
+          return {
+            'success': true,
+            'merchant_name': suggested['description'] ?? data['data']?['merchant_name'] ?? 'Unknown',
+            'total_amount': suggested['amount'] ?? data['data']?['total_amount'] ?? 0,
+            'date': suggested['date'] ?? data['data']?['date'],
+            'category': data['data']?['category'] ?? 'Other',
+          };
         }
       }
-
-      return {
-        'success': true,
-        'analysis': {
-          'total_income': totalIncome,
-          'total_expenses': totalExpenses,
-          'net_savings': totalIncome - totalExpenses,
-          'savings_rate':
-              totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0,
-          'category_breakdown': categories,
-        },
-      };
+      return {'success': false, 'error': 'Receipt extraction failed'};
+    } catch (e) {
+      debugPrint('[PythonBridge] extractReceiptFromPath Exception: $e');
+      return {'success': false, 'error': e.toString()};
     }
-
-    return await _callPython('analyze_spending', {
-      'transactions': json.encode(transactions),
-    });
   }
 
-  /// Detect recurring subscriptions from transactions
-  /// Returns list of detected subscriptions with frequency, amounts, and projections
-  Future<Map<String, dynamic>> detectSubscriptions(
-    List<Map<String, dynamic>> transactions,
-  ) async {
-    if (!_isPythonAvailable) {
-      return {
-        'success': false,
-        'error': 'Subscription detection requires Python backend'
-      };
-    }
+  /// Detect recurring subscriptions from transaction history
+  Future<Map<String, dynamic>> detectSubscriptions(List<Map<String, dynamic>> transactions) async {
+    // Use the agentic chat to analyze subscriptions, or the analyze/spending endpoint
+    try {
+      final url = Uri.parse('$_baseUrl/analyze/spending');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'transactions': transactions}),
+      );
 
-    return await _callPython('execute_tool', {
-      'tool_name': 'detect_subscriptions',
-      'args_json': json.encode({'transactions': transactions}),
-    });
-  }
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Extract subscription-like recurring items from analysis
+        final subscriptions = <Map<String, dynamic>>[];
+        final recurringHabits = <Map<String, dynamic>>[];
+        double totalMonthlyCost = 0;
 
-  // ==================== FINANCIAL ADVICE ====================
+        // Look for recurring patterns in the spending analysis
+        if (data is Map<String, dynamic>) {
+          final categories = data['category_breakdown'] as Map<String, dynamic>? ?? {};
+          for (final entry in categories.entries) {
+            final amount = (entry.value as num?)?.toDouble() ?? 0;
+            if (amount > 0) {
+              totalMonthlyCost += amount;
+            }
+          }
+        }
 
-  /// Get personalized financial advice
-  Future<Map<String, dynamic>> getFinancialAdvice({
-    required double income,
-    required double expenses,
-    required double savings,
-    double debt = 0,
-    List<String>? goals,
-  }) async {
-    if (!_isPythonAvailable) {
-      final savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
-      final emergencyMonths = expenses > 0 ? savings / expenses : 0;
-
-      return {
-        'success': true,
-        'financial_health': {
-          'savings_rate': savingsRate,
-          'emergency_months': emergencyMonths,
-        },
-        'advice': [
-          {
-            'area': 'Savings',
-            'status': savingsRate >= 20 ? 'Good' : 'Needs Improvement',
-            'message': savingsRate >= 20
-                ? 'Great savings rate!'
-                : 'Try to save at least 20% of your income.',
-          },
-        ],
-      };
-    }
-
-    return await _callPython('get_financial_advice', {
-      'income': income,
-      'expenses': expenses,
-      'savings': savings,
-      'debt': debt,
-      'goals': goals ?? [],
-    });
-  }
-
-  // ==================== DEBT & NET WORTH ====================
-
-  /// Calculate debt payoff strategy
-  Future<Map<String, dynamic>> calculateDebtPayoff(
-    List<Map<String, dynamic>> debts, {
-    double extraPayment = 0,
-  }) async {
-    if (!_isPythonAvailable) {
-      return {'success': false, 'error': 'Debt payoff calculation requires Python'};
-    }
-
-    return await _callPython('calculate_debt_payoff', {
-      'debts': json.encode(debts),
-      'extra_payment': extraPayment,
-    });
-  }
-
-  /// Project future net worth
-  Future<Map<String, dynamic>> projectNetWorth({
-    required double currentNetWorth,
-    required double monthlySavings,
-    double investmentReturn = 8.0,
-    int years = 10,
-  }) async {
-    if (!_isPythonAvailable) {
-      // Simple projection
-      final annualSavings = monthlySavings * 12;
-      var netWorth = currentNetWorth;
-      final projections = <Map<String, dynamic>>[];
-
-      for (var y = 1; y <= years; y++) {
-        netWorth = netWorth * (1 + investmentReturn / 100) + annualSavings;
-        projections.add({'year': y, 'net_worth': netWorth.roundToDouble()});
+        return {
+          'success': true,
+          'subscriptions': subscriptions,
+          'recurring_habits': recurringHabits,
+          'total_monthly_cost': totalMonthlyCost,
+          'annual_projection': totalMonthlyCost * 12,
+        };
       }
-
-      return {
-        'success': true,
-        'current_net_worth': currentNetWorth,
-        'projected_net_worth': netWorth.roundToDouble(),
-        'projections': projections,
-      };
+      return {'success': false, 'error': 'Analysis failed'};
+    } catch (e) {
+      debugPrint('[PythonBridge] detectSubscriptions Exception: $e');
+      return {'success': false, 'error': e.toString()};
     }
+  }
+  // ==================== MUDRA DPR ====================
 
-    return await _callPython('project_net_worth', {
-      'current_net_worth': currentNetWorth,
-      'monthly_savings': monthlySavings,
-      'investment_return': investmentReturn,
-      'years': years,
-    });
+  /// Calculate full Mudra DPR from user inputs
+  Future<Map<String, dynamic>> calculateMudraDPR(
+      Map<String, dynamic> inputs) async {
+    final url = Uri.parse('$_baseUrl/mudra-dpr/calculate');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(inputs),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'error': 'Calculate failed: ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('[PythonBridge] calculateMudraDPR Exception: $e');
+      return {'success': false, 'error': e.toString()};
+    }
   }
 
-  // ==================== TAX CALCULATIONS ====================
+  /// Run what-if simulation with overrides
+  Future<Map<String, dynamic>> whatIfSimulate(
+      Map<String, dynamic> inputs, Map<String, dynamic> overrides) async {
+    final url = Uri.parse('$_baseUrl/mudra-dpr/whatif');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'inputs': inputs, 'overrides': overrides}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'error': 'What-if failed: ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('[PythonBridge] whatIfSimulate Exception: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
 
-  /// Calculate tax savings (Indian tax law)
-  Future<Map<String, dynamic>> calculateTaxSavings({
-    required double income,
-    double investments80c = 0,
-    double healthInsurance80d = 0,
-    double homeLoanInterest = 0,
+  /// Get cluster suggestions by state
+  Future<List<Map<String, dynamic>>> getClusterSuggestions({
+    required String city,
+    required String state,
+    String businessType = '',
   }) async {
-    if (!_isPythonAvailable) {
-      return {'success': false, 'error': 'Tax calculation requires Python'};
+    final url = Uri.parse('$_baseUrl/mudra-dpr/clusters');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'city': city,
+          'state': state,
+          'business_type': businessType,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['clusters'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[PythonBridge] getClusterSuggestions Exception: $e');
+      return [];
     }
-
-    return await _callPython('calculate_tax_savings', {
-      'income': income,
-      'investments_80c': investments80c,
-      'health_insurance_80d': healthInsurance80d,
-      'home_loan_interest': homeLoanInterest,
-    });
   }
 
-  // ==================== HEALTH CHECK ====================
-
-  /// Check Python backend health
-  Future<Map<String, dynamic>> healthCheck() async {
-    if (!_isPythonAvailable) {
-      return {
-        'success': true,
-        'status': 'dart_fallback',
-        'message': 'Using Dart fallback implementations',
-      };
+  /// Save Mudra DPR to backend
+  Future<String?> saveMudraDPR({
+    required String userId,
+    required Map<String, dynamic> dprData,
+  }) async {
+    final url = Uri.parse('$_baseUrl/mudra-dpr/save');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId, ...dprData}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['id'] as String?;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[PythonBridge] saveMudraDPR Exception: $e');
+      return null;
     }
+  }
 
-    return await _callPython('health_check', {});
+  /// Get saved Mudra DPRs for user
+  Future<List<Map<String, dynamic>>> getMudraDPRs(String userId) async {
+    final url = Uri.parse('$_baseUrl/mudra-dpr/$userId');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['dprs'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[PythonBridge] getMudraDPRs Exception: $e');
+      return [];
+    }
   }
 }
 
-/// Extension for pow on double
-extension DoublePow on double {
-  double pow(num exponent) => exponent is int
-      ? List.filled(exponent, this).fold(1.0, (a, b) => a * b)
-      : throw UnsupportedError('Only integer exponents supported');
-}
-
-/// Global Python bridge instance
+/// Global instance
 final pythonBridge = PythonBridgeService();

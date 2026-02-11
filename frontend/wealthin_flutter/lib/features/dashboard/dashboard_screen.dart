@@ -9,6 +9,7 @@ import '../../main.dart' show authService;
 // TODO: Firebase migration - removed main.dart import (was used for Serverpod client)
 // import '../../main.dart';
 import '../../core/services/data_service.dart';
+import '../../core/utils/responsive_utils.dart';
 import '../../widgets/daily_streak_card.dart';
 import 'widgets/metric_card.dart';
 import 'widgets/finbite_card.dart';
@@ -85,10 +86,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDailyInsight({bool forceRefresh = false}) async {
-    // Check cache first (24h validity)
+    // Check cache first (6h validity for news)
     if (!forceRefresh && _cachedInsight != null && _cacheTime != null) {
       final cacheAge = DateTime.now().difference(_cacheTime!);
-      if (cacheAge.inHours < 24) {
+      if (cacheAge.inHours < 6) {
         if (mounted) {
           setState(() {
             _dailyInsight = _cachedInsight;
@@ -102,11 +103,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoadingInsight = true);
 
     try {
+      // Try Sarvam-powered Fin-Bites (financial news) first
+      final finBite = await dataService.getFinBites();
+      
+      if (finBite != null) {
+        _cachedInsight = finBite;
+        _cacheTime = DateTime.now();
+        
+        if (mounted) {
+          setState(() {
+            _dailyInsight = finBite;
+            _isLoadingInsight = false;
+          });
+        }
+        return;
+      }
+      
+      // Fallback to personalized insight
       final userId = authService.currentUserId;
       final insight = await dataService.getDailyInsight(userId);
 
       if (insight != null) {
-        // Update cache
         _cachedInsight = insight;
         _cacheTime = DateTime.now();
 
@@ -554,37 +571,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final crossAxisCount = ResponsiveUtils.getGridColumns(
+      context,
+      mobile: 1,
+      tablet: 2,
+      desktop: 3,
+    );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth > 900;
-        final isTablet =
-            constraints.maxWidth > 600 && constraints.maxWidth <= 900;
-        final crossAxisCount = isDesktop ? 3 : (isTablet ? 2 : 1);
-
-        return Scaffold(
-          body: SafeArea(
-            child: RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: isDesktop || isTablet
-                  ? _buildDesktopGrid(theme, crossAxisCount)
-                  : _buildMobileLayout(theme),
-            ),
-          ),
-        );
-      },
+    return Scaffold(
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadDashboardData,
+          child: ResponsiveUtils.isDesktop(context) || ResponsiveUtils.isTablet(context)
+              ? _buildDesktopGrid(theme, crossAxisCount)
+              : _buildMobileLayout(theme),
+        ),
+      ),
     );
   }
 
   Widget _buildMobileLayout(ThemeData theme) {
     final userName = authService.currentUser?.email?.split('@').first ?? 'User';
-    final capitalizedName = userName.isNotEmpty 
-        ? userName[0].toUpperCase() + userName.substring(1) 
+    final capitalizedName = userName.isNotEmpty
+        ? userName[0].toUpperCase() + userName.substring(1)
         : 'User';
-    
+    final padding = ResponsiveUtils.getResponsivePadding(context);
+
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -593,72 +608,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Wealthin logo/branding
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF1E3A5F), Color(0xFF0D1B2A)],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFD4AF37).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF1E3A5F), Color(0xFF0D1B2A)],
                         ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'assets/wealthin_logo.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Center(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFFD4AF37), Color(0xFFF5E6A3)],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'W',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFD4AF37).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.asset(
+                          'assets/wealthin_logo.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFD4AF37), Color(0xFFF5E6A3)],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'W',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: [
-                        theme.brightness == Brightness.dark
-                            ? const Color(0xFFD4AF37)
-                            : const Color(0xFF1E3A5F),
-                        theme.brightness == Brightness.dark
-                            ? const Color(0xFFF5E6A3)
-                            : const Color(0xFF4B7BEC),
-                      ],
-                    ).createShader(bounds),
-                    child: Text(
-                      'WealthIn',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: ShaderMask(
+                        shaderCallback: (bounds) => LinearGradient(
+                          colors: [
+                            theme.brightness == Brightness.dark
+                                ? const Color(0xFFD4AF37)
+                                : const Color(0xFF1E3A5F),
+                            theme.brightness == Brightness.dark
+                                ? const Color(0xFFF5E6A3)
+                                : const Color(0xFF4B7BEC),
+                          ],
+                        ).createShader(bounds),
+                        child: Text(
+                          'WealthIn',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: -0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               // Circular profile icon
               GestureDetector(

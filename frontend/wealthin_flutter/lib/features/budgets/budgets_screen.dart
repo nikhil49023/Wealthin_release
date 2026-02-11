@@ -5,7 +5,9 @@ import '../../core/theme/app_theme.dart';
 import '../../core/services/data_service.dart';
 import '../../core/services/database_helper.dart';
 import '../../core/services/transaction_categorizer.dart';
+import '../../core/constants/categories.dart';
 import '../../core/theme/wealthin_theme.dart';
+import '../../core/utils/responsive_utils.dart';
 
 /// Budget Management Screen - Track spending limits by category
 class BudgetsScreen extends StatelessWidget {
@@ -78,6 +80,8 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
     final theme = Theme.of(context);
     final remaining = _totalBudget - _totalSpent;
     final progress = _totalBudget > 0 ? (_totalSpent / _totalBudget) : 0.0;
+    final padding = ResponsiveUtils.getResponsivePadding(context);
+    final maxWidth = ResponsiveUtils.getMaxCardWidth(context);
 
     return Scaffold(
       body: _isLoading
@@ -86,42 +90,46 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
               onRefresh: _loadBudgets,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(padding),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
+                    constraints: BoxConstraints(maxWidth: maxWidth),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Overall Budget Summary Card
-                        _OverallBudgetCard(
-                          totalBudget: _totalBudget,
-                          totalSpent: _totalSpent,
-                          remaining: remaining,
-                          progress: progress,
-                        ).animate().fadeIn().slideY(begin: -0.1),
-                        const SizedBox(height: 24),
+                        // Overall Budget Summary Card - only show when budgets exist
+                        if (_budgets.isNotEmpty) ...[
+                          _OverallBudgetCard(
+                            totalBudget: _totalBudget,
+                            totalSpent: _totalSpent,
+                            remaining: remaining,
+                            progress: progress,
+                          ).animate().fadeIn().slideY(begin: -0.1),
+                          const SizedBox(height: 24),
+                        ],
 
-                        // Section Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Category Budgets',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
+                        // Section Header - only show when budgets exist
+                        if (_budgets.isNotEmpty) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Category Budgets',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () => _showAddBudgetDialog(context),
-                              icon: const Icon(Icons.add, size: 20),
-                              label: const Text('Add'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
+                              TextButton.icon(
+                                onPressed: () => _showAddBudgetDialog(context),
+                                icon: const Icon(Icons.add, size: 20),
+                                label: const Text('Add'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                        ],
 
-                        // Budget Cards
+                        // Budget Cards or Empty State
                         if (_budgets.isEmpty)
                           _EmptyBudgetsPlaceholder(
                             onAdd: () => _showAddBudgetDialog(context),
@@ -133,6 +141,10 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                               child:
                                   _BudgetCard(
                                         budget: entry.value,
+                                        onTap: () => _showCategoryTransactions(
+                                          context,
+                                          entry.value,
+                                        ),
                                         onEdit: () => _showEditBudgetDialog(
                                           context,
                                           entry.value,
@@ -163,7 +175,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
     final amountController = TextEditingController();
     String? selectedCategory;
     // Default to first category if available
-    final categories = TransactionCategorizer.categories;
+    final categories = Categories.budgetable;
     if (categories.isNotEmpty) selectedCategory = categories.first;
     
     // Attempt to match icon, fallback to restaurant
@@ -452,8 +464,8 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
       ),
     );
 
-    if (confirmed == true && budget.id != null) {
-      final deleted = await dataService.deleteBudget(_userId, budget.id!);
+    if (confirmed == true) {
+      final deleted = await dataService.deleteBudget(_userId, budget.category);
       if (deleted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -463,6 +475,243 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
         );
       }
       _loadBudgets();
+    }
+  }
+
+  /// Show transactions for a specific budget category
+  void _showCategoryTransactions(BuildContext context, BudgetData budget) async {
+    // Fetch transactions for this category
+    final transactions = await DatabaseHelper().getTransactionsByCategory(
+      budget.category,
+      limit: 50,
+    );
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        final progress = budget.amount > 0 ? (budget.spent / budget.amount) : 0.0;
+        final isOverBudget = budget.spent > budget.amount;
+        
+        Color progressColor;
+        if (progress < 0.5) {
+          progressColor = AppTheme.incomeGreen;
+        } else if (progress < 0.8) {
+          progressColor = AppTheme.warning;
+        } else {
+          progressColor = AppTheme.expenseRed;
+        }
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header with budget info
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: progressColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              TransactionCategorizer.getIcon(budget.category),
+                              color: progressColor,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  budget.name,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '₹${_formatAmount(budget.spent)} of ₹${_formatAmount(budget.amount)}',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isOverBudget 
+                                  ? AppTheme.expenseRed.withValues(alpha: 0.1)
+                                  : AppTheme.incomeGreen.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${(progress * 100).toInt()}%',
+                              style: TextStyle(
+                                color: isOverBudget ? AppTheme.expenseRed : AppTheme.incomeGreen,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: progress.clamp(0.0, 1.0),
+                          minHeight: 8,
+                          backgroundColor: WealthInTheme.gray200,
+                          valueColor: AlwaysStoppedAnimation(progressColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: Colors.grey[200]),
+                // Transactions header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Transactions (${transactions.length})',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'This Month',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Transactions list
+                Expanded(
+                  child: transactions.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.receipt_long_outlined,
+                                size: 48,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No transactions this month',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: transactions.length,
+                          separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey[100]),
+                          itemBuilder: (context, index) {
+                            final tx = transactions[index];
+                            final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
+                            final description = tx['description'] as String? ?? 'Unknown';
+                            final date = tx['date'] as String? ?? '';
+                            final type = (tx['type'] as String? ?? '').toLowerCase();
+                            final isExpense = type == 'expense' || type == 'debit';
+                            
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                              leading: CircleAvatar(
+                                backgroundColor: isExpense 
+                                    ? AppTheme.expenseRed.withValues(alpha: 0.1)
+                                    : AppTheme.incomeGreen.withValues(alpha: 0.1),
+                                child: Icon(
+                                  isExpense ? Icons.arrow_upward : Icons.arrow_downward,
+                                  color: isExpense ? AppTheme.expenseRed : AppTheme.incomeGreen,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                description,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                _formatTransactionDate(date),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                ),
+                              ),
+                              trailing: Text(
+                                '${isExpense ? "-" : "+"}₹${_formatAmount(amount)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: isExpense ? AppTheme.expenseRed : AppTheme.incomeGreen,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatTransactionDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      if (date.year == now.year && date.month == now.month && date.day == now.day) {
+        return 'Today';
+      } else if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
+        return 'Yesterday';
+      }
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
+    } catch (e) {
+      return dateStr;
     }
   }
 }
@@ -614,11 +863,13 @@ class _OverallBudgetCard extends StatelessWidget {
 /// Individual budget card
 class _BudgetCard extends StatelessWidget {
   final BudgetData budget;
+  final VoidCallback? onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _BudgetCard({
     required this.budget,
+    this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -642,10 +893,13 @@ class _BudgetCard extends StatelessWidget {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
             Row(
               children: [
                 Container(
@@ -666,6 +920,8 @@ class _BudgetCard extends StatelessWidget {
                     children: [
                       Text(
                         budget.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -750,9 +1006,137 @@ class _BudgetCard extends StatelessWidget {
                 valueColor: AlwaysStoppedAnimation(progressColor),
               ),
             ),
+            const SizedBox(height: 12),
+            _TransactionPreview(
+              category: budget.category,
+              onViewAll: onTap ?? () {},
+            ),
           ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Transaction preview widget for budget cards
+class _TransactionPreview extends StatefulWidget {
+  final String category;
+  final VoidCallback onViewAll;
+
+  const _TransactionPreview({
+    required this.category,
+    required this.onViewAll,
+  });
+
+  @override
+  State<_TransactionPreview> createState() => _TransactionPreviewState();
+}
+
+class _TransactionPreviewState extends State<_TransactionPreview> {
+  List<Map<String, dynamic>> _transactions = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    try {
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final transactions = await DatabaseHelper().getTransactionsByCategory(
+        widget.category,
+        limit: 3,
+        startDate: startOfMonth.toIso8601String().split('T')[0],
+      );
+
+      if (mounted) {
+        setState(() {
+          _transactions = transactions;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading transactions: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_transactions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: Text(
+          'No transactions this month',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ..._transactions.map((tx) => Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  tx['description'] ?? 'Transaction',
+                  style: theme.textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '₹${(tx['amount'] as num).abs().toStringAsFixed(0)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppTheme.expenseRed,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        )),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: widget.onViewAll,
+          child: Text(
+            'View All Transactions →',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
