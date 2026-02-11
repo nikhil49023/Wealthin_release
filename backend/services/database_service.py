@@ -199,6 +199,15 @@ class DatabaseService:
             await db.execute('CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets(user_id)')
             await db.execute('CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id)')
             await db.execute('CREATE INDEX IF NOT EXISTS idx_payments_user ON scheduled_payments(user_id)')
+            
+            # Cache for Financial Health Analysis (24h expiration)
+            await db.execute('''
+                CREATE TABLE IF NOT EXISTS financial_health_cache (
+                    user_id TEXT PRIMARY KEY,
+                    score_data TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+            ''')
             await db.commit()
             print(f"✅ Planning DB initialized at {PLANNING_DB_PATH}")
             

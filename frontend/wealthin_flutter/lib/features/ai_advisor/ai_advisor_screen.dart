@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/ai_agent_service.dart';
 import '../../core/services/python_bridge_service.dart';
+import '../../core/utils/responsive_utils.dart';
 import '../../main.dart' show authService;
 import '../../core/services/data_service.dart';
 
@@ -46,6 +47,7 @@ class _ChatMessage {
   final String? actionType;
   final Map<String, dynamic>? actionData;
   final List<Map<String, dynamic>>? products;
+  final List<Map<String, dynamic>>? sources;  // Web search sources with URLs
 
   _ChatMessage({
     required this.text,
@@ -56,6 +58,7 @@ class _ChatMessage {
     this.actionType,
     this.actionData,
     this.products,
+    this.sources,
   });
 }
 
@@ -211,49 +214,47 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
       ]);
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Determine search type
-      String toolName = 'web_search';
-      String searchQuery = query;
-      
-      if (lowerText.contains('amazon')) {
-        toolName = 'search_amazon';
-        _updateActivity(AIActivityState.searching, 'Searching Amazon India...', steps: [
-          '🔍 Analyzing your request...',
-          '🛒 Connecting to Amazon India...',
-        ]);
-      } else if (lowerText.contains('flipkart')) {
-        toolName = 'search_flipkart';
-        _updateActivity(AIActivityState.searching, 'Searching Flipkart...', steps: [
-          '🔍 Analyzing your request...',
-          '🛍️ Connecting to Flipkart...',
-        ]);
-      } else if (lowerText.contains('shop') || lowerText.contains('buy') || lowerText.contains('price')) {
-        toolName = 'search_shopping';
-        _updateActivity(AIActivityState.searching, 'Searching products...', steps: [
-          '🔍 Analyzing your request...',
-          '🛒 Searching multiple platforms...',
-        ]);
-      }
+      _updateActivity(AIActivityState.searching, 'Searching with DuckDuckGo...', steps: [
+        '🔍 Analyzing your request...',
+        '🌐 Connecting to DuckDuckGo...',
+      ]);
 
       await Future.delayed(const Duration(milliseconds: 500));
       _updateActivity(AIActivityState.searching, 'Fetching results...', steps: [
-        ..._searchSteps,
-        '📦 Loading product data...',
+        '🔍 Analyzing your request...',
+        '🌐 Connecting to DuckDuckGo...',
+        '📊 Processing search results...',
       ]);
 
-      // Execute search tool
-      final result = await pythonBridge.executeTool(toolName, {'query': searchQuery});
+      // Call agentic chat which will route to web search
+      final context = await _buildUserContext();
+      final response = await aiAgentService.chat(
+        query,
+        userId: authService.currentUserId,
+        userContext: context
+      );
 
       await Future.delayed(const Duration(milliseconds: 300));
       _updateActivity(AIActivityState.responding, 'Preparing results...', steps: [
-        ..._searchSteps,
-        '📦 Loading product data...',
+        '🔍 Analyzing your request...',
+        '🌐 Connecting to DuckDuckGo...',
+        '📊 Processing search results...',
         '✨ Formatting results...',
       ]);
 
-      if (result['success'] == true && result['data'] != null) {
-        final products = List<Map<String, dynamic>>.from(result['data']);
-        
+      // Extract sources if available
+      List<Map<String, dynamic>>? sources;
+      if (response.sources != null && response.sources!.isNotEmpty) {
+        if (response.sources!.first is Map) {
+          sources = List<Map<String, dynamic>>.from(response.sources!);
+        }
+      }
+
+      // Check if response contains product-like data
+      if (sources != null && sources.any((s) => s['price'] != null)) {
+        // Display as products
+        final products = sources;
+
         if (products.isNotEmpty) {
           setState(() {
             _messages.add(_ChatMessage(
@@ -271,7 +272,8 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
           _addAIMessage("🔍 I searched but couldn't find specific products. Try being more specific about what you're looking for!");
         }
       } else {
-        _addAIMessage("I couldn't complete the search right now. Please try again later! 😅");
+        // Display as general search results with sources
+        _addAIMessage(response.response, sources: sources);
       }
     } catch (e) {
       _addAIMessage("Oops! Something went wrong with the search. Let me try that differently. 🔄");
@@ -379,17 +381,21 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
 
   Future<void> _handlePaymentRequest(String text) async {
     _updateActivity(AIActivityState.executing, 'Setting up your payment reminder...');
-    
+
     try {
       final paymentData = _extractPaymentFromText(text);
 
       if (paymentData != null && paymentData['amount'] != null) {
+        // Calculate due date using the helper function
+        final dueDate = _calculateDueDate(paymentData);
+
         final result = await pythonBridge.executeTool('create_scheduled_payment', {
           'name': paymentData['name'] ?? 'Payment',
           'amount': (paymentData['amount'] as num).toDouble(),
           'category': paymentData['category'] ?? 'Bills',
-          'due_date': paymentData['due_date'] ?? DateTime.now().add(const Duration(days: 1)).toIso8601String().substring(0, 10),
+          'due_date': dueDate,
           'frequency': paymentData['frequency'] ?? 'monthly',
+          'is_autopay': false,
         });
 
         // pythonBridge.executeTool returns Map<String, dynamic> directly
@@ -428,59 +434,172 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
     final amount = double.tryParse(amountMatch.group(1)!.replaceAll(',', ''));
     if (amount == null) return null;
 
-    // Extract name - common payment names
+    // Extract name - expanded payment names
     String name = 'Payment';
-    final paymentNames = ['netflix', 'amazon', 'spotify', 'rent', 'electricity', 'water', 'gas', 'internet', 'phone', 'insurance', 'emi', 'loan'];
-    for (final paymentName in paymentNames) {
-      if (text.toLowerCase().contains(paymentName)) {
-        name = paymentName[0].toUpperCase() + paymentName.substring(1);
-        break;
+    final paymentNames = [
+      'netflix', 'amazon', 'spotify', 'hotstar', 'disney', 'youtube', 'prime',
+      'swiggy one', 'swiggy', 'zomato pro', 'zomato', 'gym', 'membership',
+      'rent', 'electricity', 'water', 'gas', 'internet', 'phone', 'mobile',
+      'insurance', 'emi', 'loan', 'credit card', 'broadband'
+    ];
+
+    // Try "for <name>" pattern first
+    final forMatch = RegExp(r'(?:for|to)\s+([a-zA-Z\s]+?)(?:\s+(?:monthly|weekly|yearly|quarterly|every|on|\d|$))', caseSensitive: false).firstMatch(text);
+    if (forMatch != null) {
+      final extractedName = forMatch.group(1)?.trim();
+      if (extractedName != null && extractedName.isNotEmpty) {
+        name = extractedName.split(' ').map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ');
+      }
+    } else {
+      // Fall back to keyword matching
+      for (final paymentName in paymentNames) {
+        if (text.toLowerCase().contains(paymentName)) {
+          name = paymentName.split(' ').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+          break;
+        }
       }
     }
 
-    // Extract frequency
+    // Extract frequency with aliases
     String frequency = 'monthly';
-    if (text.toLowerCase().contains('week')) frequency = 'weekly';
-    if (text.toLowerCase().contains('year')) frequency = 'yearly';
-    if (text.toLowerCase().contains('quarter')) frequency = 'quarterly';
+    final lowerText = text.toLowerCase();
+    if (lowerText.contains('week') || lowerText.contains('biweek') || lowerText.contains('fortnightly')) {
+      frequency = lowerText.contains('biweek') || lowerText.contains('fortnightly') ? 'biweekly' : 'weekly';
+    } else if (lowerText.contains('year') || lowerText.contains('annual')) {
+      frequency = 'yearly';
+    } else if (lowerText.contains('quarter')) {
+      frequency = 'quarterly';
+    }
 
-    // Extract category based on name
+    // Extract due date or day
+    String? dueDate;
+    int? dueDay;
+
+    // Pattern: "on 5th", "15th of month", etc.
+    final dayMatch = RegExp(r'(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?(?:\s+(?:of|every))?', caseSensitive: false).firstMatch(text);
+    if (dayMatch != null) {
+      dueDay = int.tryParse(dayMatch.group(1)!);
+    }
+
+    // Pattern: dd/mm/yyyy or dd-mm-yyyy
+    final dateMatch = RegExp(r'(\d{1,2})[/-](\d{1,2})[/-](\d{4})').firstMatch(text);
+    if (dateMatch != null) {
+      final day = dateMatch.group(1)!.padLeft(2, '0');
+      final month = dateMatch.group(2)!.padLeft(2, '0');
+      final year = dateMatch.group(3);
+      dueDate = '$year-$month-$day';
+    }
+
+    // Extract category based on name - improved mapping
     String category = 'Bills';
-    if (['netflix', 'amazon', 'spotify'].contains(name.toLowerCase())) category = 'Entertainment';
-    if (['rent'].contains(name.toLowerCase())) category = 'Housing';
-    if (['electricity', 'water', 'gas', 'internet', 'phone'].contains(name.toLowerCase())) category = 'Utilities';
-    if (['insurance'].contains(name.toLowerCase())) category = 'Insurance';
-    if (['emi', 'loan'].contains(name.toLowerCase())) category = 'Debt';
+    final nameLower = name.toLowerCase();
+    if (nameLower.contains('netflix') || nameLower.contains('spotify') || nameLower.contains('hotstar') ||
+        nameLower.contains('disney') || nameLower.contains('youtube') || nameLower.contains('prime') ||
+        nameLower.contains('amazon') || nameLower.contains('swiggy') || nameLower.contains('zomato')) {
+      category = 'Subscriptions';
+    } else if (nameLower.contains('rent')) {
+      category = 'Rent';
+    } else if (nameLower.contains('electricity') || nameLower.contains('water') || nameLower.contains('gas') ||
+               nameLower.contains('internet') || nameLower.contains('phone') || nameLower.contains('mobile') ||
+               nameLower.contains('broadband')) {
+      category = 'Utilities';
+    } else if (nameLower.contains('insurance')) {
+      category = 'Insurance';
+    } else if (nameLower.contains('emi') || nameLower.contains('loan') || nameLower.contains('credit card')) {
+      category = 'Loan';
+    } else if (nameLower.contains('gym') || nameLower.contains('membership')) {
+      category = 'Health & Fitness';
+    }
 
-    return {
+    final result = {
       'name': name,
       'amount': amount,
       'category': category,
       'frequency': frequency,
     };
+
+    if (dueDate != null) {
+      result['due_date'] = dueDate;
+    } else if (dueDay != null) {
+      result['due_day'] = dueDay;
+    }
+
+    return result;
+  }
+
+  String _calculateDueDate(Map<String, dynamic> paymentData) {
+    // If due_date already provided, use it
+    if (paymentData.containsKey('due_date')) {
+      return paymentData['due_date'] as String;
+    }
+
+    final now = DateTime.now();
+
+    // If due_day provided, calculate next occurrence
+    if (paymentData.containsKey('due_day')) {
+      final dueDay = paymentData['due_day'] as int;
+
+      // Validate day is in valid range
+      if (dueDay < 1 || dueDay > 31) {
+        // Invalid day, default to 7 days from now
+        return now.add(const Duration(days: 7)).toIso8601String().split('T')[0];
+      }
+
+      // Calculate next occurrence of this day
+      DateTime dueDate;
+      if (now.day < dueDay) {
+        // This month, if the day hasn't passed yet
+        dueDate = DateTime(now.year, now.month, dueDay);
+      } else {
+        // Next month, if the day has passed
+        final nextMonth = now.month == 12 ? 1 : now.month + 1;
+        final nextYear = now.month == 12 ? now.year + 1 : now.year;
+        dueDate = DateTime(nextYear, nextMonth, dueDay);
+      }
+
+      return dueDate.toIso8601String().split('T')[0];
+    }
+
+    // Default: 7 days from now
+    return now.add(const Duration(days: 7)).toIso8601String().split('T')[0];
   }
 
   Future<void> _handleGeneralChat(String text) async {
     _updateActivity(AIActivityState.thinking, 'Thinking...');
-    
+
     try {
       final context = await _buildUserContext();
       _updateActivity(AIActivityState.responding, 'Preparing response...');
-      
-      final response = await aiAgentService.chat(text, userId: authService.currentUserId, userContext: context);
-      _addAIMessage(response.response);
+
+      final response = await aiAgentService.chat(
+        text,
+        userId: authService.currentUserId,
+        userContext: context
+      );
+
+      // Extract sources if available
+      List<Map<String, dynamic>>? sources;
+      if (response.sources != null && response.sources!.isNotEmpty) {
+        // Check if sources contain URLs (from web search)
+        if (response.sources!.first is Map) {
+          sources = List<Map<String, dynamic>>.from(response.sources!);
+        }
+      }
+
+      _addAIMessage(response.response, sources: sources);
     } catch (e) {
       _addAIMessage("I'm having a bit of trouble right now. Could you try asking that differently? 🤔");
     }
   }
 
-  void _addAIMessage(String text) {
+  void _addAIMessage(String text, {List<Map<String, dynamic>>? sources}) {
     setState(() {
       _messages.add(_ChatMessage(
         text: text,
         isUser: false,
         timestamp: DateTime.now(),
         messageType: MessageType.text,
+        sources: sources,
       ));
       _isLoading = false;
       _currentActivity = AIActivityState.idle;
@@ -996,36 +1115,42 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
   Widget _buildUserBubble(_ChatMessage msg, bool isDark) {
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8, left: 50),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.sereneTeal, AppTheme.sereneTealLight],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.sereneTeal.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8, left: 50),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppTheme.sereneTeal, AppTheme.sereneTealLight],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
-              ),
-              child: Text(
-                msg.text,
-                style: GoogleFonts.dmSans(
-                  fontSize: 15,
-                  color: Colors.white,
-                  height: 1.4,
-                  fontWeight: FontWeight.w500,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.sereneTeal.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  msg.text,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 15,
+                    color: Colors.white,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  softWrap: true,
                 ),
               ),
             ),
@@ -1100,64 +1225,209 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
   Widget _buildAIBubble(_ChatMessage msg, bool isDark) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8, right: 40),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark 
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.white.withValues(alpha: 0.9),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.85,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 8, right: 40),
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark
-                      ? AppTheme.sereneTeal.withValues(alpha: 0.2)
-                      : AppTheme.sageGreen.withValues(alpha: 0.3),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isDark ? Colors.black : AppTheme.slate500).withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark
+                            ? AppTheme.sereneTeal.withValues(alpha: 0.2)
+                            : AppTheme.sageGreen.withValues(alpha: 0.3),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isDark ? Colors.black : AppTheme.slate500).withValues(alpha: 0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      msg.text.replaceAll('**', '').replaceAll('*', ''),
+                      style: GoogleFonts.dmSans(
+                        fontSize: 15,
+                        color: isDark ? const Color(0xFFE8EEF4) : AppTheme.slate900,
+                        height: 1.5,
+                      ),
+                      softWrap: true,
+                    ),
                   ),
-                ],
-              ),
-              child: Text(
-                msg.text.replaceAll('**', '').replaceAll('*', ''),
-                style: GoogleFonts.dmSans(
-                  fontSize: 15,
-                  color: isDark ? const Color(0xFFE8EEF4) : AppTheme.slate900,
-                  height: 1.5,
                 ),
               ),
             ),
-          ),
+            // Sources section with clickable URLs
+            if (msg.sources != null && msg.sources!.isNotEmpty)
+              _buildSourcesSection(msg.sources!, isDark),
+          ],
         ),
       ),
     ).animate().fadeIn(duration: 250.ms).slideX(begin: -0.1, end: 0, curve: Curves.easeOut);
   }
 
+  /// Build clickable sources section for web search results
+  Widget _buildSourcesSection(List<Map<String, dynamic>> sources, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 12, right: 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              '🔗 Sources',
+              style: GoogleFonts.dmSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ),
+          ...sources.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final source = entry.value;
+            final title = source['title'] ?? 'Source ${idx + 1}';
+            final url = source['url'] ?? '';
+            final snippet = source['snippet'] ?? '';
+            final sourceLabel = source['source'] ?? 'Web';
+            final price = source['price'];
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: url.isNotEmpty ? () => _launchUrl(url) : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.sereneTeal.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                sourceLabel,
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.sereneTeal,
+                                ),
+                              ),
+                            ),
+                            if (price != null) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                price,
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF4CAF50),
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            Icon(
+                              Icons.open_in_new,
+                              size: 14,
+                              color: isDark ? Colors.white54 : Colors.black45,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          title,
+                          style: GoogleFonts.dmSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (snippet.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            snippet,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 11,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ).animate(delay: (idx * 100).ms).fadeIn().slideX(begin: -0.05);
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSuccessBubble(_ChatMessage msg, bool isDark) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6, right: 40),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.sageGreen.withValues(alpha: isDark ? 0.2 : 0.1),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.sageGreen.withValues(alpha: 0.3)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.85,
         ),
-        child: Text(
-          msg.text.replaceAll('**', '').replaceAll('*', ''),
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: isDark ? AppTheme.sageLight : AppTheme.sereneTealDark,
-            height: 1.5,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 6, right: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.sageGreen.withValues(alpha: isDark ? 0.2 : 0.1),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppTheme.sageGreen.withValues(alpha: 0.3)),
+          ),
+          child: Text(
+            msg.text.replaceAll('**', '').replaceAll('*', ''),
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: isDark ? AppTheme.sageLight : AppTheme.sereneTealDark,
+              height: 1.5,
+            ),
+            softWrap: true,
           ),
         ),
       ),
@@ -1167,26 +1437,31 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
   Widget _buildConfirmationCard(_ChatMessage msg, bool isDark) {
     final bgColor = isDark ? AppTheme.oceanMid : AppTheme.white;
     final textColor = isDark ? const Color(0xFFE0E7ED) : AppTheme.slate900;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6, right: 20),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.sereneTeal.withValues(alpha: 0.3)),
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.9,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            msg.text.replaceAll('**', '').replaceAll('*', ''),
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: textColor,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6, right: 20),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.sereneTeal.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              msg.text.replaceAll('**', '').replaceAll('*', ''),
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: textColor,
+              ),
+              softWrap: true,
             ),
-          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1218,6 +1493,7 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
             ],
           ),
         ],
+        ),
       ),
     ).animate().fadeIn().slideY(begin: 0.05, end: 0);
   }

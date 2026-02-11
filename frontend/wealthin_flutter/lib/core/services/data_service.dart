@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform, ValueNotifier;
+import 'package:flutter/foundation.dart'
+    show debugPrint, defaultTargetPlatform, TargetPlatform, ValueNotifier;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +28,7 @@ class DataService {
 
   // Use BackendConfig for dynamic port management (desktop only)
   String get _baseUrl => backendConfig.baseUrl;
-  
+
   // Platform detection - skip HTTP on Android
   bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
 
@@ -49,10 +50,10 @@ class DataService {
   /// Deduct credits and return success
   Future<bool> deductCredits(int amount) async {
     if (userCredits.value < amount) return false;
-    
+
     final prefs = await SharedPreferences.getInstance();
     int newBalance = userCredits.value - amount;
-    
+
     await prefs.setInt('user_credits', newBalance);
     userCredits.value = newBalance;
     return true;
@@ -103,9 +104,9 @@ class DataService {
         'spent_amount': 0.0,
         'period': period,
       };
-      
+
       await databaseHelper.createBudget(row);
-      
+
       // Return a budget object constructed from input
       return BudgetData(
         id: 0, // No ID for category-based PK
@@ -135,12 +136,15 @@ class DataService {
   // TODO: Update Budget logic requires more complex DB logic/sync if needed
   // For now skipping full update implementation as it relies on category PK
 
-  /// Delete a budget
-  Future<bool> deleteBudget(String userId, int budgetId) async {
-    // Requires category string, but signature has int ID. 
-    // This signature mismatch suggests we need to fetch or adjust calling code.
-    // For now returning false to indicate not implemented/safe.
-    return false; 
+  /// Delete a budget by category
+  Future<bool> deleteBudget(String userId, String category) async {
+    try {
+      final count = await databaseHelper.deleteBudget(category);
+      return count > 0;
+    } catch (e) {
+      debugPrint('Error deleting budget: $e');
+      return false;
+    }
   }
 
   /// Update a budget
@@ -158,12 +162,15 @@ class DataService {
         if (spentAmount != null) 'spent_amount': spentAmount,
         if (period != null) 'period': period,
       };
-      
+
       await databaseHelper.updateBudget(row);
-      
+
       // Fetch and return updated budget
       final budgets = await databaseHelper.getBudgets();
-      final updatedBudget = budgets.firstWhere((b) => b['category'] == category, orElse: () => {});
+      final updatedBudget = budgets.firstWhere(
+        (b) => b['category'] == category,
+        orElse: () => {},
+      );
       if (updatedBudget.isNotEmpty) {
         return BudgetData.fromJson(updatedBudget);
       }
@@ -192,9 +199,9 @@ class DataService {
         'deadline': deadline,
         // 'color_hex': ...
       };
-      
+
       final id = await databaseHelper.createGoal(row);
-      
+
       return GoalData(
         id: id,
         name: name,
@@ -238,12 +245,15 @@ class DataService {
         if (currentAmount != null) 'saved_amount': currentAmount,
         if (deadline != null) 'deadline': deadline,
       };
-      
+
       await databaseHelper.updateGoal(row);
-      
+
       // Fetch and return updated goal
       final goals = await databaseHelper.getGoals();
-      final updatedGoal = goals.firstWhere((g) => g['id'] == goalId, orElse: () => {});
+      final updatedGoal = goals.firstWhere(
+        (g) => g['id'] == goalId,
+        orElse: () => {},
+      );
       if (updatedGoal.isNotEmpty) {
         return GoalData.fromJson(updatedGoal);
       }
@@ -262,23 +272,30 @@ class DataService {
     try {
       // Get current goal
       final goals = await databaseHelper.getGoals();
-      final currentGoal = goals.firstWhere((g) => g['id'] == goalId, orElse: () => {});
-      
+      final currentGoal = goals.firstWhere(
+        (g) => g['id'] == goalId,
+        orElse: () => {},
+      );
+
       if (currentGoal.isEmpty) return null;
-      
-      final currentAmount = (currentGoal['saved_amount'] as num?)?.toDouble() ?? 0.0;
+
+      final currentAmount =
+          (currentGoal['saved_amount'] as num?)?.toDouble() ?? 0.0;
       final newAmount = currentAmount + amount;
-      
+
       final row = {
         'id': goalId,
         'saved_amount': newAmount,
       };
-      
+
       await databaseHelper.updateGoal(row);
-      
+
       // Fetch and return updated goal
       final updatedGoals = await databaseHelper.getGoals();
-      final updatedGoal = updatedGoals.firstWhere((g) => g['id'] == goalId, orElse: () => {});
+      final updatedGoal = updatedGoals.firstWhere(
+        (g) => g['id'] == goalId,
+        orElse: () => {},
+      );
       if (updatedGoal.isNotEmpty) {
         return GoalData.fromJson(updatedGoal);
       }
@@ -331,7 +348,8 @@ class DataService {
         id: id,
         amount: amount,
         description: description,
-        date: DateTime.tryParse(row['date']?.toString() ?? '') ?? DateTime.now(),
+        date:
+            DateTime.tryParse(row['date']?.toString() ?? '') ?? DateTime.now(),
         type: type,
         category: category,
         paymentMethod: paymentMethod,
@@ -353,7 +371,10 @@ class DataService {
     String? endDate,
   }) async {
     try {
-      final rows = await databaseHelper.getTransactions(limit: limit, offset: offset);
+      final rows = await databaseHelper.getTransactions(
+        limit: limit,
+        offset: offset,
+      );
       return rows.map((row) => TransactionData.fromJson(row)).toList();
     } catch (e) {
       debugPrint('Error getting transactions: $e');
@@ -371,17 +392,22 @@ class DataService {
     }
     return false;
   }
-  
+
   /// Update transaction category (for manual recategorization)
-  Future<bool> updateTransactionCategory(int transactionId, String newCategory) async {
+  Future<bool> updateTransactionCategory(
+    int transactionId,
+    String newCategory,
+  ) async {
     try {
-      return await databaseHelper.updateTransactionCategory(transactionId, newCategory);
+      return await databaseHelper.updateTransactionCategory(
+        transactionId,
+        newCategory,
+      );
     } catch (e) {
       debugPrint('Error updating transaction category: $e');
       return false;
     }
   }
-
 
   /// Get spending summary
   Future<SpendingSummary?> getSpendingSummary(
@@ -432,7 +458,7 @@ class DataService {
         'notes': notes,
         'is_active': 1,
       };
-      
+
       final id = await databaseHelper.createScheduledPayment(row);
       if (id > 0) {
         return ScheduledPaymentData(
@@ -489,7 +515,7 @@ class DataService {
       // TODO: Filter by status if needed (e.g. check is_active)
       return rows.map((row) => ScheduledPaymentData.fromJson(row)).toList();
     }
-    
+
     try {
       var url = '$_baseUrl/scheduled-payments/$userId';
       if (status != null) url += '?status=$status';
@@ -508,7 +534,6 @@ class DataService {
     return [];
   }
 
-
   /// Update a scheduled payment
   Future<ScheduledPaymentData?> updateScheduledPayment({
     required String userId,
@@ -523,25 +548,28 @@ class DataService {
     String? notes,
   }) async {
     if (_isAndroid) {
-       final updates = <String, dynamic>{'id': paymentId};
-       if (name != null) updates['name'] = name;
-       if (amount != null) updates['amount'] = amount;
-       if (category != null) updates['category'] = category;
-       if (frequency != null) updates['frequency'] = frequency;
-       if (isAutopay != null) updates['is_autopay'] = isAutopay ? 1 : 0;
-       if (reminderDays != null) updates['reminder_days'] = reminderDays;
-       if (status != null) updates['is_active'] = status == 'active' ? 1 : 0;
-       if (notes != null) updates['notes'] = notes;
-       
-       await databaseHelper.updateScheduledPayment(updates);
-       
-       // Fetch and return the updated payment to ensure UI refreshes
-       final payments = await databaseHelper.getScheduledPayments();
-       final payment = payments.firstWhere((p) => p['id'] == paymentId, orElse: () => {});
-       if (payment.isNotEmpty) {
-         return ScheduledPaymentData.fromJson(payment);
-       }
-       return null;
+      final updates = <String, dynamic>{'id': paymentId};
+      if (name != null) updates['name'] = name;
+      if (amount != null) updates['amount'] = amount;
+      if (category != null) updates['category'] = category;
+      if (frequency != null) updates['frequency'] = frequency;
+      if (isAutopay != null) updates['is_autopay'] = isAutopay ? 1 : 0;
+      if (reminderDays != null) updates['reminder_days'] = reminderDays;
+      if (status != null) updates['is_active'] = status == 'active' ? 1 : 0;
+      if (notes != null) updates['notes'] = notes;
+
+      await databaseHelper.updateScheduledPayment(updates);
+
+      // Fetch and return the updated payment to ensure UI refreshes
+      final payments = await databaseHelper.getScheduledPayments();
+      final payment = payments.firstWhere(
+        (p) => p['id'] == paymentId,
+        orElse: () => {},
+      );
+      if (payment.isNotEmpty) {
+        return ScheduledPaymentData.fromJson(payment);
+      }
+      return null;
     }
 
     try {
@@ -580,14 +608,18 @@ class DataService {
       // Simplified local implementation: Advance due date by 1 month
       // TODO: Implement proper frequency handling and transaction creation
       final payments = await databaseHelper.getScheduledPayments();
-      final paymentMap = payments.firstWhere((p) => p['id'] == paymentId, orElse: () => {});
-      
+      final paymentMap = payments.firstWhere(
+        (p) => p['id'] == paymentId,
+        orElse: () => {},
+      );
+
       if (paymentMap.isNotEmpty) {
         final currentDue = DateTime.parse(paymentMap['due_date']);
         // Calculate next due date based on frequency
         DateTime nextDue;
-        final frequency = (paymentMap['frequency'] as String? ?? 'monthly').toLowerCase();
-        
+        final frequency = (paymentMap['frequency'] as String? ?? 'monthly')
+            .toLowerCase();
+
         switch (frequency) {
           case 'weekly':
             nextDue = currentDue.add(const Duration(days: 7));
@@ -596,24 +628,36 @@ class DataService {
             nextDue = currentDue.add(const Duration(days: 14));
             break;
           case 'quarterly':
-            nextDue = DateTime(currentDue.year, currentDue.month + 3, currentDue.day);
+            nextDue = DateTime(
+              currentDue.year,
+              currentDue.month + 3,
+              currentDue.day,
+            );
             break;
           case 'yearly':
-            nextDue = DateTime(currentDue.year + 1, currentDue.month, currentDue.day);
+            nextDue = DateTime(
+              currentDue.year + 1,
+              currentDue.month,
+              currentDue.day,
+            );
             break;
           case 'monthly':
           default:
-            nextDue = DateTime(currentDue.year, currentDue.month + 1, currentDue.day);
+            nextDue = DateTime(
+              currentDue.year,
+              currentDue.month + 1,
+              currentDue.day,
+            );
             break;
         }
 
         final nextDueStr = DateFormat('yyyy-MM-dd').format(nextDue);
-        
+
         await databaseHelper.updateScheduledPayment({
           'id': paymentId,
           'due_date': nextDueStr,
         });
-        
+
         // Return updated map as object
         final updatedMap = Map<String, dynamic>.from(paymentMap);
         updatedMap['due_date'] = nextDueStr;
@@ -808,7 +852,9 @@ class DataService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return (data['nudges'] as List<dynamic>?)
-                ?.map((n) => InvestmentNudge.fromJson(n as Map<String, dynamic>))
+                ?.map(
+                  (n) => InvestmentNudge.fromJson(n as Map<String, dynamic>),
+                )
                 .toList() ??
             [];
       }
@@ -834,6 +880,25 @@ class DataService {
     return null;
   }
 
+  // ==================== FINANCIAL HEALTH (4-Pillar Score) ====================
+
+  /// Get comprehensive financial health score (0-100) with detailed breakdown
+  Future<HealthScore?> getHealthScore(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analytics/health-score/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return HealthScore.fromJson(data);
+      }
+    } catch (e) {
+      debugPrint('Error getting health score: $e');
+    }
+    return null;
+  }
+
   // ==================== DASHBOARD & TRENDS ====================
 
   Future<DashboardData?> getDashboard(
@@ -842,37 +907,52 @@ class DataService {
     DateTime? endDate,
   }) async {
     try {
-      final sDate = startDate != null ? DateFormat('yyyy-MM-dd').format(startDate) : null;
-      final eDate = endDate != null ? DateFormat('yyyy-MM-dd').format(endDate) : null;
-      
+      final sDate = startDate != null
+          ? DateFormat('yyyy-MM-dd').format(startDate)
+          : null;
+      final eDate = endDate != null
+          ? DateFormat('yyyy-MM-dd').format(endDate)
+          : null;
+
       // 1. Transaction Summary
-      final summary = await databaseHelper.getTransactionSummary(startDate: sDate, endDate: eDate);
+      final summary = await databaseHelper.getTransactionSummary(
+        startDate: sDate,
+        endDate: eDate,
+      );
       // Fallback manual calc if summary is null or we need filtering (DatabaseHelper summary doesn't support filter yet)
       // Since we want accuracy, let's allow filtering or accept total lifetime stats for dashboard if dates null
-      
+
       double income = (summary?['total_income'] as num?)?.toDouble() ?? 0.0;
       double expenses = (summary?['total_expenses'] as num?)?.toDouble() ?? 0.0;
 
       // 2. Category Breakdown
-      final breakdown = await databaseHelper.getCategoryBreakdown(startDate: sDate, endDate: eDate);
-      
+      final breakdown = await databaseHelper.getCategoryBreakdown(
+        startDate: sDate,
+        endDate: eDate,
+      );
+
       // 3. Recent Transactions
       final recentRows = await databaseHelper.getTransactions(limit: 5);
-      final recent = recentRows.map((r) => TransactionModel.fromJson(r)).toList();
-      
+      final recent = recentRows
+          .map((r) => TransactionModel.fromJson(r))
+          .toList();
+
       // 4. Cashflow
-      final cashflowRows = await databaseHelper.getDailyCashflow(startDate: sDate, endDate: eDate);
+      final cashflowRows = await databaseHelper.getDailyCashflow(
+        startDate: sDate,
+        endDate: eDate,
+      );
       // Process cashflow rows into CashflowPoint
       Map<String, double> incomeMap = {};
       Map<String, double> expenseMap = {};
       Set<String> dates = {};
-      
+
       for (var row in cashflowRows) {
         String date = row['date']?.toString() ?? '';
         final lowerType = row['type']?.toString().toLowerCase() ?? 'expense';
         double amt = (row['total'] as num?)?.toDouble() ?? 0.0;
         if (date.isEmpty) continue;
-        
+
         dates.add(date);
         bool isInc = ['income', 'credit', 'deposit'].contains(lowerType);
         if (isInc) {
@@ -881,28 +961,31 @@ class DataService {
           expenseMap[date] = (expenseMap[date] ?? 0) + amt;
         }
       }
-      
+
       List<String> sortedDates = dates.toList()..sort();
       List<CashflowPoint> cashflow = [];
       double runningBal = 0; // Or fetch initial balance
-      
+
       for (var d in sortedDates) {
         double inc = incomeMap[d] ?? 0;
         double exp = expenseMap[d] ?? 0;
         runningBal += (inc - exp);
-        cashflow.add(CashflowPoint(
-          date: d,
-          income: inc,
-          expense: exp,
-          balance: runningBal,
-        ));
+        cashflow.add(
+          CashflowPoint(
+            date: d,
+            income: inc,
+            expense: exp,
+            balance: runningBal,
+          ),
+        );
       }
 
       // Top Expense
       String? topCat;
       double? topAmt;
       if (breakdown.isNotEmpty) {
-        var sorted = breakdown.entries.toList()..sort((a,b) => b.value.compareTo(a.value));
+        var sorted = breakdown.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
         topCat = sorted.first.key;
         topAmt = sorted.first.value;
       }
@@ -918,7 +1001,6 @@ class DataService {
         cashflowData: cashflow,
         recentTransactions: recent,
       );
-
     } catch (e) {
       debugPrint('Error getting dashboard: $e');
     }
@@ -939,18 +1021,23 @@ class DataService {
       } else if (period == 'yearly') {
         startDate = DateFormat('yyyy-01-01').format(now);
       }
-      
+
       // Reuse aggregations
-      final breakdown = await databaseHelper.getCategoryBreakdown(startDate: startDate);
-      
+      final breakdown = await databaseHelper.getCategoryBreakdown(
+        startDate: startDate,
+      );
+
       // Calc totals from transactions in range
-      final transactions = await databaseHelper.getTransactions(limit: 10000, startDate: startDate);
+      final transactions = await databaseHelper.getTransactions(
+        limit: 10000,
+        startDate: startDate,
+      );
       double income = 0;
       double expense = 0;
       double minExp = double.maxFinite;
       double maxExp = 0;
       Set<String> activeDays = {};
-      
+
       for (var t in transactions) {
         // t is Map
         double amt = (t['amount'] as num?)?.toDouble() ?? 0.0;
@@ -970,12 +1057,13 @@ class DataService {
       if (minExp == double.maxFinite) minExp = 0;
 
       double avgDaily = activeDays.isNotEmpty ? expense / activeDays.length : 0;
-      
-       // Top Expense
+
+      // Top Expense
       String? topCat;
       double? topAmt;
       if (breakdown.isNotEmpty) {
-        var sorted = breakdown.entries.toList()..sort((a,b) => b.value.compareTo(a.value));
+        var sorted = breakdown.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
         topCat = sorted.first.key;
         topAmt = sorted.first.value;
       }
@@ -1012,7 +1100,7 @@ class DataService {
     if (_isAndroid) {
       return await _generateLocalInsight(userId);
     }
-    
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/insights/daily/$userId'),
@@ -1025,64 +1113,73 @@ class DataService {
     } catch (e) {
       debugPrint('Error getting daily insight: $e');
     }
-    
+
     // Fallback to local generation
     return await _generateLocalInsight(userId);
   }
-  
+
   /// Generate insight from local data using Python bridge
   Future<DailyInsight?> _generateLocalInsight(String userId) async {
     try {
       // Get transactions from local DB
       final transactions = await databaseHelper.getTransactions(limit: 100);
-      
+
       if (transactions.isEmpty) {
         return DailyInsight(
           headline: 'Welcome to WealthIn!',
-          insightText: 'Start tracking your expenses to get personalized insights.',
+          insightText:
+              'Start tracking your expenses to get personalized insights.',
           recommendation: 'Add your first transaction to get started.',
           trendIndicator: 'stable',
         );
       }
-      
+
       // Use Python bridge for analysis
-      final txList = transactions.map((t) => {
-        'description': t['description'] ?? '',
-        'amount': t['amount'] ?? 0,
-        'category': t['category'] ?? 'Other',
-        'date': t['date'] ?? '',
-        'type': t['type'] ?? 'expense',
-      }).toList();
-      
+      final txList = transactions
+          .map(
+            (t) => {
+              'description': t['description'] ?? '',
+              'amount': t['amount'] ?? 0,
+              'category': t['category'] ?? 'Other',
+              'date': t['date'] ?? '',
+              'type': t['type'] ?? 'expense',
+            },
+          )
+          .toList();
+
       final analysis = await pythonBridge.analyzeSpending(txList);
-      
+
       if (analysis['success'] == true) {
         final analyticsData = analysis['analysis'] as Map<String, dynamic>?;
         final savingsRate = analyticsData?['savings_rate'] as num? ?? 0;
-        final topCategory = analyticsData?['top_category'] as Map<String, dynamic>?;
-        
+        final topCategory =
+            analyticsData?['top_category'] as Map<String, dynamic>?;
+
         if (savingsRate >= 20) {
           return DailyInsight(
             headline: 'Great Savings! 🌟',
-            insightText: 'You\'re saving ${savingsRate.toStringAsFixed(1)}% of your income. Keep it up!',
+            insightText:
+                'You\'re saving ${savingsRate.toStringAsFixed(1)}% of your income. Keep it up!',
             recommendation: 'Consider investing your surplus in mutual funds.',
             trendIndicator: 'up',
           );
         } else if (topCategory != null) {
           return DailyInsight(
             headline: 'Top Spending 💡',
-            insightText: '${topCategory['category']} is your highest expense at ${topCategory['percentage']?.toStringAsFixed(1)}%.',
+            insightText:
+                '${topCategory['category']} is your highest expense at ${topCategory['percentage']?.toStringAsFixed(1)}%.',
             recommendation: 'Review this category for potential savings.',
             trendIndicator: 'stable',
             categoryHighlight: topCategory['category'] as String?,
           );
         }
       }
-      
+
       return DailyInsight(
         headline: 'Track Your Progress 📊',
         insightText: 'Keep adding transactions to get better insights.',
-        recommendation: 'Regular tracking helps you understand spending patterns.',
+        recommendation:
+            'Regular tracking helps you understand spending patterns.',
         trendIndicator: 'stable',
       );
     } catch (e) {
@@ -1090,7 +1187,6 @@ class DataService {
       return null;
     }
   }
-
 
   /// Get comprehensive AI context with user's complete financial picture
   /// This enables AI to provide personalized advice (EMI vs cash, budgeting tips, etc.)
@@ -1102,43 +1198,51 @@ class DataService {
         final startOfMonth = DateTime(now.year, now.month, 1);
         final startOfLastMonth = DateTime(now.year, now.month - 1, 1);
         final threeMonthsAgo = DateTime(now.year, now.month - 3, 1);
-        
+
         // === CURRENT MONTH DATA ===
         final incomeExpense = await databaseHelper.getTransactionSummary(
-          startDate: startOfMonth.toIso8601String()
+          startDate: startOfMonth.toIso8601String(),
         );
         final breakdown = await databaseHelper.getCategoryBreakdown(
-          startDate: startOfMonth.toIso8601String()
+          startDate: startOfMonth.toIso8601String(),
         );
-        
-        double currentIncome = (incomeExpense?['total_income'] as num?)?.toDouble() ?? 0;
-        double currentExpense = (incomeExpense?['total_expenses'] as num?)?.toDouble() ?? 0;
+
+        double currentIncome =
+            (incomeExpense?['total_income'] as num?)?.toDouble() ?? 0;
+        double currentExpense =
+            (incomeExpense?['total_expenses'] as num?)?.toDouble() ?? 0;
         double currentSavings = currentIncome - currentExpense;
-        double savingsRate = currentIncome > 0 ? (currentSavings / currentIncome * 100) : 0;
-        
+        double savingsRate = currentIncome > 0
+            ? (currentSavings / currentIncome * 100)
+            : 0;
+
         // === LAST 3 MONTHS AVERAGE ===
         final threeMonthData = await databaseHelper.getTransactionSummary(
-          startDate: threeMonthsAgo.toIso8601String()
+          startDate: threeMonthsAgo.toIso8601String(),
         );
-        double avgMonthlyIncome = ((threeMonthData?['total_income'] as num?)?.toDouble() ?? 0) / 3;
-        double avgMonthlyExpense = ((threeMonthData?['total_expenses'] as num?)?.toDouble() ?? 0) / 3;
+        double avgMonthlyIncome =
+            ((threeMonthData?['total_income'] as num?)?.toDouble() ?? 0) / 3;
+        double avgMonthlyExpense =
+            ((threeMonthData?['total_expenses'] as num?)?.toDouble() ?? 0) / 3;
         double avgMonthlySavings = avgMonthlyIncome - avgMonthlyExpense;
-        
+
         // === BUDGETS ===
         final budgets = await databaseHelper.getBudgets();
         String budgetInfo = '';
         double totalBudgeted = 0;
         if (budgets.isNotEmpty) {
           for (var b in budgets.take(5)) {
-            String name = b['name']?.toString() ?? b['category']?.toString() ?? 'Unknown';
+            String name =
+                b['name']?.toString() ?? b['category']?.toString() ?? 'Unknown';
             double amount = (b['amount'] as num?)?.toDouble() ?? 0;
             double spent = (b['spent'] as num?)?.toDouble() ?? 0;
             totalBudgeted += amount;
             double pct = amount > 0 ? (spent / amount * 100) : 0;
-            budgetInfo += '  - $name: ₹${spent.toStringAsFixed(0)} / ₹${amount.toStringAsFixed(0)} (${pct.toStringAsFixed(0)}% used)\n';
+            budgetInfo +=
+                '  - $name: ₹${spent.toStringAsFixed(0)} / ₹${amount.toStringAsFixed(0)} (${pct.toStringAsFixed(0)}% used)\n';
           }
         }
-        
+
         // === SAVINGS GOALS ===
         final goals = await databaseHelper.getGoals();
         String goalInfo = '';
@@ -1152,45 +1256,55 @@ class DataService {
             totalGoalTarget += target;
             totalGoalSaved += saved;
             double progress = target > 0 ? (saved / target * 100) : 0;
-            goalInfo += '  - $name: ₹${saved.toStringAsFixed(0)} / ₹${target.toStringAsFixed(0)} (${progress.toStringAsFixed(0)}%)\n';
+            goalInfo +=
+                '  - $name: ₹${saved.toStringAsFixed(0)} / ₹${target.toStringAsFixed(0)} (${progress.toStringAsFixed(0)}%)\n';
           }
         }
 
-        
         // === TOP SPENDING CATEGORIES ===
-        var sortedCats = breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-        String topCats = sortedCats.take(5).map((e) => "  - ${e.key}: ₹${e.value.toStringAsFixed(0)}").join('\n');
-        
+        var sortedCats = breakdown.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        String topCats = sortedCats
+            .take(5)
+            .map((e) => "  - ${e.key}: ₹${e.value.toStringAsFixed(0)}")
+            .join('\n');
+
         // === FINANCIAL HEALTH INDICATORS ===
         String financialHealth = 'Needs Attention';
-        String emiRecommendation = 'Consider EMI for expensive purchases to preserve cash flow';
-        
+        String emiRecommendation =
+            'Consider EMI for expensive purchases to preserve cash flow';
+
         if (savingsRate >= 30) {
           financialHealth = 'Excellent';
-          emiRecommendation = 'You can afford full cash purchase for most items';
+          emiRecommendation =
+              'You can afford full cash purchase for most items';
         } else if (savingsRate >= 20) {
           financialHealth = 'Good';
-          emiRecommendation = 'Full cash for items under ₹20,000; EMI for larger purchases';
+          emiRecommendation =
+              'Full cash for items under ₹20,000; EMI for larger purchases';
         } else if (savingsRate >= 10) {
           financialHealth = 'Moderate';
           emiRecommendation = 'EMI recommended for purchases over ₹10,000';
         } else if (savingsRate >= 0) {
           financialHealth = 'Tight Budget';
-          emiRecommendation = 'EMI strongly recommended; avoid large purchases if possible';
+          emiRecommendation =
+              'EMI strongly recommended; avoid large purchases if possible';
         } else {
           financialHealth = 'Deficit (Spending > Income)';
           emiRecommendation = 'Avoid new purchases until budget is balanced';
         }
-        
+
         // Calculate disposable income (after essential expenses)
-        double essentialExpenses = (breakdown['Utilities'] ?? 0) + 
-                                   (breakdown['Bills'] ?? 0) + 
-                                   (breakdown['Food & Dining'] ?? 0) +
-                                   (breakdown['Transportation'] ?? 0);
+        double essentialExpenses =
+            (breakdown['Utilities'] ?? 0) +
+            (breakdown['Bills'] ?? 0) +
+            (breakdown['Food & Dining'] ?? 0) +
+            (breakdown['Transportation'] ?? 0);
         double disposableIncome = currentIncome - essentialExpenses;
-        
+
         // === BUILD COMPREHENSIVE CONTEXT ===
-        final context = '''
+        final context =
+            '''
 === USER FINANCIAL PROFILE ===
 
 **Monthly Summary (Current Month):**
@@ -1218,14 +1332,14 @@ $emiRecommendation
 
 === END PROFILE ===
 ''';
-        
+
         return context;
       } catch (e) {
         debugPrint('Error building AI context: $e');
         return 'Unable to load financial data. Provide general advice.';
       }
     }
-    
+
     // Fallback for non-Android (HTTP call to backend)
     try {
       final response = await http.get(
@@ -1242,7 +1356,6 @@ $emiRecommendation
     return '';
   }
 
-
   /// Import transactions from PDF
   Future<ImportResult?> importFromPdf(String userId, String filePath) async {
     if (_isAndroid) {
@@ -1252,32 +1365,36 @@ $emiRecommendation
           'parse_bank_statement',
           {'file_path': filePath},
         );
-        
+
         if (result['success'] == true && result['transactions'] != null) {
           final txs = result['transactions'] as List;
           int imported = 0;
           List<TransactionModel> models = [];
-          
+
           for (var t in txs) {
             String type = (t['type']?.toString().toLowerCase() ?? 'debit');
             // Normalize type
-            if (type.contains('credit') || type.contains('cr')) type = 'income';
-            else type = 'expense';
+            if (type.contains('credit') || type.contains('cr'))
+              type = 'income';
+            else
+              type = 'expense';
 
             final row = {
               'amount': (t['amount'] as num?)?.toDouble() ?? 0.0,
               'description': t['description']?.toString() ?? 'Imported PDF',
               'category': t['category']?.toString() ?? 'Other',
-              'date': t['date']?.toString() ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
+              'date':
+                  t['date']?.toString() ??
+                  DateFormat('yyyy-MM-dd').format(DateTime.now()),
               'type': type,
             };
             final model = TransactionModel.fromJson(row);
             models.add(model);
-            
+
             final id = await databaseHelper.insertTransaction(row);
             if (id > 0) imported++;
           }
-          
+
           return ImportResult(
             success: true,
             transactions: models,
@@ -1286,10 +1403,20 @@ $emiRecommendation
             message: 'Imported $imported transactions from PDF',
           );
         }
-        return ImportResult(success: false, transactions: [], importedCount: 0, message: result['error']?.toString() ?? 'Unknown error');
+        return ImportResult(
+          success: false,
+          transactions: [],
+          importedCount: 0,
+          message: result['error']?.toString() ?? 'Unknown error',
+        );
       } catch (e) {
         debugPrint('Error importing PDF (Native): $e');
-        return ImportResult(success: false, transactions: [], importedCount: 0, message: e.toString());
+        return ImportResult(
+          success: false,
+          transactions: [],
+          importedCount: 0,
+          message: e.toString(),
+        );
       }
     }
 
@@ -1329,7 +1456,7 @@ $emiRecommendation
           };
           await databaseHelper.insertTransaction(row);
           final model = TransactionModel.fromJson(row);
-          
+
           return ImportResult(
             success: true,
             transactions: [model],
@@ -1337,10 +1464,20 @@ $emiRecommendation
             message: 'Imported receipt successfully',
           );
         }
-        return ImportResult(success: false, transactions: [], importedCount: 0, message: result['error'] ?? 'Unknown error');
+        return ImportResult(
+          success: false,
+          transactions: [],
+          importedCount: 0,
+          message: result['error'] ?? 'Unknown error',
+        );
       } catch (e) {
         debugPrint('Error importing Image (Android): $e');
-        return ImportResult(success: false, transactions: [], importedCount: 0, message: e.toString());
+        return ImportResult(
+          success: false,
+          transactions: [],
+          importedCount: 0,
+          message: e.toString(),
+        );
       }
     }
 
@@ -1372,7 +1509,7 @@ $emiRecommendation
     if (_isAndroid) {
       return true;
     }
-    
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/analytics/refresh/$userId'),
@@ -1390,20 +1527,24 @@ $emiRecommendation
     if (_isAndroid) {
       try {
         final transactions = await databaseHelper.getTransactions(limit: 200);
-        
+
         if (transactions.isEmpty) {
           return {'months': [], 'trends': []};
         }
-        
-        final txList = transactions.map((t) => {
-          'description': t['description'] ?? '',
-          'amount': t['amount'] ?? 0,
-          'category': t['category'] ?? 'Other',
-          'date': t['date'] ?? '',
-        }).toList();
-        
+
+        final txList = transactions
+            .map(
+              (t) => {
+                'description': t['description'] ?? '',
+                'amount': t['amount'] ?? 0,
+                'category': t['category'] ?? 'Other',
+                'date': t['date'] ?? '',
+              },
+            )
+            .toList();
+
         final analysis = await pythonBridge.analyzeSpending(txList);
-        
+
         if (analysis['success'] == true) {
           return analysis['analysis'] as Map<String, dynamic>? ?? {};
         }
@@ -1412,7 +1553,7 @@ $emiRecommendation
       }
       return {};
     }
-    
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/analytics/monthly/$userId'),
@@ -1425,7 +1566,6 @@ $emiRecommendation
     }
     return {};
   }
-
 
   /// Calculate Savings Rate
   Future<double> calculateSavingsRate(double income, double expenses) async {
@@ -1449,8 +1589,13 @@ $emiRecommendation
 
   /// Calculate Per Capita Income
   Future<double> calculatePerCapitaIncome(
-      double totalIncome, int familySize) async {
-    return FinancialCalculator.calculatePerCapitaIncome(totalIncome, familySize);
+    double totalIncome,
+    int familySize,
+  ) async {
+    return FinancialCalculator.calculatePerCapitaIncome(
+      totalIncome,
+      familySize,
+    );
   }
 
   /// Calculate Emergency Fund Status
@@ -1483,7 +1628,8 @@ $emiRecommendation
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'user_id': userId,
-            'query': 'Analyze this business idea and provide comprehensive market research: $idea',
+            'query':
+                'Analyze this business idea and provide comprehensive market research: $idea',
             'context': {
               'location': location ?? 'India',
               'budget_range': budgetRange ?? '5-10 Lakhs',
@@ -1491,7 +1637,7 @@ $emiRecommendation
             },
           }),
         );
-        
+
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           // Extract from action_data if available
@@ -1508,27 +1654,99 @@ $emiRecommendation
         debugPrint('Brainstorm HTTP failed: $e');
       }
     }
-    
+
     // Fallback to Python bridge (Android)
     if (_isAndroid) {
       try {
         final result = await pythonBridge.chatWithLLM(
           query: 'Analyze this business idea: $idea',
         );
-        
+
         if (result['success'] == true) {
           final data = result['action_data'] as Map<String, dynamic>?;
-          return data ?? {
-            'score': 70,
-            'message': result['response'] ?? 'Analysis complete.',
-            'research': {},
-          };
+          return data ??
+              {
+                'score': 70,
+                'message': result['response'] ?? 'Analysis complete.',
+                'research': {},
+              };
         }
       } catch (e) {
         debugPrint('Brainstorm Python bridge failed: $e');
       }
     }
-    
+
+    return null;
+  }
+
+  /// OpenAI-powered brainstorming with web search augmentation
+  /// Returns response with clickable markdown links
+  Future<Map<String, dynamic>?> openAIBrainstorm({
+    required String message,
+    required String userId,
+    List<Map<String, dynamic>> conversationHistory = const [],
+    bool enableWebSearch = true,
+    String searchCategory = 'general',
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/brainstorm/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'message': message,
+          'conversation_history': conversationHistory,
+          'enable_web_search': enableWebSearch,
+          'search_category': searchCategory,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('OpenAI Brainstorm failed: $e');
+    }
+    return null;
+  }
+
+  /// Check if OpenAI brainstorming is available
+  Future<bool> isBrainstormAvailable() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/brainstorm/status'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['available'] == true;
+      }
+    } catch (e) {
+      debugPrint('Brainstorm status check failed: $e');
+    }
+    return false;
+  }
+
+  /// Get AI-generated financial news summary (Fin-Bite) from Sarvam
+  Future<DailyInsight?> getFinBites({
+    String query = 'Indian financial market news today',
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/fin-bites?query=${Uri.encodeComponent(query)}'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return DailyInsight(
+            headline: data['headline'] ?? 'Market Update',
+            insightText: data['insight'] ?? '',
+            recommendation: data['recommendation'] ?? '',
+            trendIndicator: data['trend'] ?? 'stable',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Fin-Bites fetch failed: $e');
+    }
     return null;
   }
 
@@ -1547,7 +1765,7 @@ $emiRecommendation
         debugPrint('Error scanning receipt (Python bridge): $e');
       }
     }
-    
+
     // On Desktop: Use HTTP backend
     if (!_isAndroid) {
       try {
@@ -1570,7 +1788,7 @@ $emiRecommendation
         debugPrint('Error scanning receipt (HTTP backend): $e');
       }
     }
-    
+
     return null;
   }
 
@@ -1579,36 +1797,43 @@ $emiRecommendation
   /// Uses native Dart PDF parser (Syncfusion) - works on all platforms
   Future<List<TransactionModel>> scanBankStatement(String filePath) async {
     debugPrint('Parsing PDF with native Dart parser: $filePath');
-    
+
     try {
       // Use native Dart PDF parser (works on all platforms)
       final txList = await NativePdfParser.parseStatement(filePath);
-      
+
       if (txList.isNotEmpty) {
         debugPrint('Native PDF parsed ${txList.length} transactions.');
-        
-        return txList.map((tx) => TransactionModel(
-          id: null,
-          date: DateTime.tryParse(tx['date'] ?? '') ?? DateTime.now(),
-          description: tx['description'] ?? 'Transaction',
-          amount: (tx['amount'] as num?)?.toDouble() ?? 0.0,
-          category: tx['category'] ?? 'Other',
-          type: tx['type'] ?? 'expense',
-          merchant: tx['merchant'],
-        )).toList();
+
+        return txList
+            .map(
+              (tx) => TransactionModel(
+                id: null,
+                date: DateTime.tryParse(tx['date'] ?? '') ?? DateTime.now(),
+                description: tx['description'] ?? 'Transaction',
+                amount: (tx['amount'] as num?)?.toDouble() ?? 0.0,
+                category: tx['category'] ?? 'Other',
+                type: tx['type'] ?? 'expense',
+                merchant: tx['merchant'],
+              ),
+            )
+            .toList();
       }
     } catch (e) {
       debugPrint('Native PDF parsing failed: $e');
     }
-    
+
     return [];
   }
 
   /// Batch save multiple transactions to local database
   /// Used after user confirms transactions from confirmation screen
-  Future<int> saveTransactions(List<TransactionModel> transactions, String userId) async {
+  Future<int> saveTransactions(
+    List<TransactionModel> transactions,
+    String userId,
+  ) async {
     int savedCount = 0;
-    
+
     for (final tx in transactions) {
       try {
         final result = await createTransaction(
@@ -1628,7 +1853,7 @@ $emiRecommendation
         debugPrint('Error saving transaction: ${tx.description} - $e');
       }
     }
-    
+
     debugPrint('Saved $savedCount of ${transactions.length} transactions');
     return savedCount;
   }
@@ -1659,7 +1884,8 @@ $emiRecommendation
       'session_started': true,
       'business_idea': businessIdea,
       'initial_question': {
-        'question': 'What specific problem does your business solve for customers?',
+        'question':
+            'What specific problem does your business solve for customers?',
         'question_type': 'clarification',
         'section': section,
       },
@@ -1778,10 +2004,513 @@ $emiRecommendation
       },
     };
   }
+
+  // ==================== GAMIFICATION & MILESTONES ====================
+
+  /// Save analysis snapshot and check for milestone achievements
+  Future<Map<String, dynamic>> saveAnalysisSnapshot({
+    required String userId,
+    required double totalIncome,
+    required double totalExpense,
+    required double savingsRate,
+    required double healthScore,
+    required Map<String, double> categoryBreakdown,
+    List<String> insights = const [],
+    int transactionCount = 0,
+    int budgetCount = 0,
+    int goalsCompleted = 0,
+    int currentStreak = 0,
+    int underBudgetMonths = 0,
+  }) async {
+    if (_isAndroid) {
+      debugPrint("[Analysis] Android: snapshot saved locally");
+      return {
+        "success": true,
+        "snapshot_id": "local_${DateTime.now().millisecondsSinceEpoch}",
+        "newly_achieved_milestones": <Map<String, dynamic>>[],
+        "user_level": 1,
+        "total_xp": 0,
+      };
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/analysis/save-snapshot'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'total_income': totalIncome,
+          'total_expense': totalExpense,
+          'savings_rate': savingsRate,
+          'health_score': healthScore,
+          'category_breakdown': categoryBreakdown,
+          'insights': insights,
+          'transaction_count': transactionCount,
+          'budget_count': budgetCount,
+          'goals_completed': goalsCompleted,
+          'current_streak': currentStreak,
+          'under_budget_months': underBudgetMonths,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('[Analysis] Save snapshot error: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[Analysis] Save snapshot exception: $e');
+    }
+    return {
+      "success": false,
+      "newly_achieved_milestones": <Map<String, dynamic>>[],
+    };
+  }
+
+  /// Get milestones and XP progress for a user
+  Future<Map<String, dynamic>> getMilestones(String userId) async {
+    final fallback = {
+      "success": true,
+      "milestones": <Map<String, dynamic>>[],
+      "level": 1,
+      "total_xp": 0,
+      "xp_to_next_level": 100,
+      "milestones_achieved": 0,
+      "total_milestones": 14,
+    };
+
+    if (_isAndroid) return fallback;
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analysis/milestones/$userId'),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[Milestones] Error: $e');
+    }
+    return fallback;
+  }
+
+  /// Get historical analysis snapshots
+  Future<List<Map<String, dynamic>>> getAnalysisHistory(
+    String userId, {
+    int months = 6,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analysis/history/$userId?months=$months'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['history'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('[Analysis History] Error: $e');
+    }
+    return [];
+  }
+
+  /// Get monthly financial metrics history
+  Future<List<Map<String, dynamic>>> getMetricsHistory(
+    String userId, {
+    int months = 12,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/metrics/history/$userId?months=$months'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['metrics'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('[Metrics History] Error: $e');
+    }
+    return [];
+  }
+
+  // ==================== IDEA EVALUATION (OPENAI) ====================
+
+  /// Evaluate a business idea using OpenAI backend
+  Future<Map<String, dynamic>?> evaluateIdea({
+    required String userId,
+    required String idea,
+    String location = "India",
+    String budgetRange = "5-10 Lakhs",
+    Map<String, dynamic>? userContext,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/ideas/evaluate'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'idea': idea,
+          'location': location,
+          'budget_range': budgetRange,
+          'user_context': userContext ?? {},
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['evaluation'] as Map<String, dynamic>;
+        }
+      }
+    } catch (e) {
+      debugPrint('[Idea Evaluation] Error: $e');
+    }
+    return null;
+  }
+
+  /// Get saved idea evaluations for a user
+  Future<List<Map<String, dynamic>>> getSavedIdeas(
+    String userId, {
+    int limit = 10,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/ideas/$userId?limit=$limit'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['ideas'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('[Saved Ideas] Error: $e');
+    }
+    return [];
+  }
+
+  // ==================== ENHANCED BRAINSTORMING CANVAS ====================
+
+  Future<Map<String, dynamic>> brainstormChat({
+    required String userId,
+    required String message,
+    List<Map<String, dynamic>>? conversationHistory,
+    String persona = 'neutral',
+    bool enableWebSearch = true,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/brainstorm/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'message': message,
+          'conversation_history': conversationHistory ?? [],
+          'persona': persona,
+          'enable_web_search': enableWebSearch,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('[Brainstorm Chat] Error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> reverseBrainstorm({
+    required List<String> ideas,
+    List<Map<String, dynamic>>? conversationHistory,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/brainstorm/critique'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'ideas': ideas,
+          'conversation_history': conversationHistory ?? [],
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('[Reverse Brainstorm] Error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> extractCanvasItems({
+    required List<Map<String, dynamic>> conversationHistory,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/brainstorm/extract-canvas'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'conversation_history': conversationHistory,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}', 'ideas': []};
+    } catch (e) {
+      debugPrint('[Extract Canvas] Error: $e');
+      return {'success': false, 'error': e.toString(), 'ideas': []};
+    }
+  }
+
+  // ==================== DPR MANAGEMENT ====================
+
+  /// Save a DPR document
+  Future<String?> saveDPR({
+    required String userId,
+    required String businessIdea,
+    required Map<String, dynamic> sections,
+    double completeness = 0.0,
+    Map<String, dynamic>? researchData,
+    Map<String, dynamic>? financialProjections,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/dpr/save'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'business_idea': businessIdea,
+          'sections': sections,
+          'completeness': completeness,
+          'research_data': researchData ?? {},
+          'financial_projections': financialProjections ?? {},
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['dpr_id'] as String?;
+      }
+    } catch (e) {
+      debugPrint('[DPR Save] Error: $e');
+    }
+    return null;
+  }
+
+  /// Get saved DPR documents
+  Future<List<Map<String, dynamic>>> getSavedDPRs(
+    String userId, {
+    int limit = 10,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/dpr/$userId?limit=$limit'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['dprs'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('[Saved DPRs] Error: $e');
+    }
+    return [];
+  }
+
+  // ==================== BUDGET AUTO-SYNC ON IMPORT ====================
+
+  /// After importing transactions, auto-create budgets for new categories
+  /// and recalculate spending for existing budgets
+  Future<Map<String, dynamic>> autoCategorizeAndSyncBudgets({
+    required String userId,
+    required List<TransactionData> transactions,
+  }) async {
+    try {
+      // Collect expense categories from imported transactions
+      final categories = <String>{};
+      for (final tx in transactions) {
+        final type = tx.type.toLowerCase();
+        if (type == 'expense' || type == 'debit') {
+          categories.add(tx.category);
+        }
+      }
+
+      // Load existing budgets
+      final existingBudgets = await getBudgets(userId);
+      final existingCategories = {
+        for (final b in existingBudgets) b.category.toLowerCase(),
+      };
+
+      int newBudgetsCreated = 0;
+      // Create missing budgets automatically
+      for (final category in categories) {
+        if (!existingCategories.contains(category.toLowerCase())) {
+          // Estimate budget based on imported spending in this category
+          double categorySpending = 0;
+          for (final tx in transactions) {
+            if (tx.category.toLowerCase() == category.toLowerCase() &&
+                (tx.type.toLowerCase() == 'expense' ||
+                    tx.type.toLowerCase() == 'debit')) {
+              categorySpending += tx.amount;
+            }
+          }
+          // Set budget at 130% of observed spending (20% buffer + 10% for variance)
+          final budgetAmount = (categorySpending * 1.3).clamp(1000.0, 500000.0);
+
+          await createBudget(
+            userId: userId,
+            name: category,
+            amount: budgetAmount,
+            category: category,
+          );
+          newBudgetsCreated++;
+        }
+      }
+
+      // Recalculate all budget spending from transactions
+      await databaseHelper.recalculateBudgetSpending();
+
+      return {
+        "success": true,
+        "categories_synced": categories.length,
+        "new_budgets_created": newBudgetsCreated,
+      };
+    } catch (e) {
+      debugPrint('[AutoSync] Error: $e');
+      return {"success": false, "error": e.toString()};
+    }
+  }
+
+  // ==================== MUDRA DPR ====================
+
+  /// Calculate full Mudra DPR from user inputs
+  Future<Map<String, dynamic>?> calculateMudraDPR({
+    required Map<String, dynamic> inputs,
+  }) async {
+    try {
+      if (_isAndroid) {
+        final result = await pythonBridge.calculateMudraDPR(inputs);
+        if (result['success'] != false) return result;
+      }
+      final response = await http.post(
+        Uri.parse('$_baseUrl/mudra-dpr/calculate'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(inputs),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[Mudra DPR Calculate] Error: $e');
+    }
+    return null;
+  }
+
+  /// Run what-if simulation with overrides
+  Future<Map<String, dynamic>?> whatIfSimulate({
+    required Map<String, dynamic> inputs,
+    required Map<String, dynamic> overrides,
+  }) async {
+    try {
+      if (_isAndroid) {
+        final result = await pythonBridge.whatIfSimulate(inputs, overrides);
+        if (result['success'] != false) return result;
+      }
+      final response = await http.post(
+        Uri.parse('$_baseUrl/mudra-dpr/whatif'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'inputs': inputs, 'overrides': overrides}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[Mudra DPR What-If] Error: $e');
+    }
+    return null;
+  }
+
+  /// Get cluster suggestions
+  Future<List<Map<String, dynamic>>> getClusterSuggestions({
+    required String city,
+    required String state,
+    String businessType = '',
+  }) async {
+    try {
+      if (_isAndroid) {
+        return await pythonBridge.getClusterSuggestions(
+          city: city,
+          state: state,
+          businessType: businessType,
+        );
+      }
+      final response = await http.post(
+        Uri.parse('$_baseUrl/mudra-dpr/clusters'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'city': city,
+          'state': state,
+          'business_type': businessType,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['clusters'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('[Cluster Suggestions] Error: $e');
+    }
+    return [];
+  }
+
+  /// Save Mudra DPR to backend
+  Future<String?> saveMudraDPR({
+    required String userId,
+    required Map<String, dynamic> dprData,
+  }) async {
+    try {
+      if (_isAndroid) {
+        return await pythonBridge.saveMudraDPR(
+          userId: userId,
+          dprData: dprData,
+        );
+      }
+      final response = await http.post(
+        Uri.parse('$_baseUrl/mudra-dpr/save'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId, ...dprData}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['id'] as String?;
+      }
+    } catch (e) {
+      debugPrint('[Mudra DPR Save] Error: $e');
+    }
+    return null;
+  }
+
+  /// Get saved Mudra DPRs
+  Future<List<Map<String, dynamic>>> getMudraDPRs(String userId) async {
+    try {
+      if (_isAndroid) {
+        return await pythonBridge.getMudraDPRs(userId);
+      }
+      final response = await http.get(
+        Uri.parse('$_baseUrl/mudra-dpr/$userId'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['dprs'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('[Mudra DPRs] Error: $e');
+    }
+    return [];
+  }
 }
 
 // ==================== DATA MODELS ====================
-
 
 class ScheduledPaymentData {
   final int? id;
@@ -1802,20 +2531,20 @@ class ScheduledPaymentData {
 
   ScheduledPaymentData({
     this.id,
-    this.userId = '',  // Optional - not stored in local DB
+    this.userId = '', // Optional - not stored in local DB
     required this.name,
     required this.amount,
     required this.category,
     this.frequency = 'monthly',
     required this.dueDate,
-    String? nextDueDate,  // Optional - derived from dueDate if not provided
+    String? nextDueDate, // Optional - derived from dueDate if not provided
     this.isAutopay = false,
-    this.status = 'active',  // Default active
+    this.status = 'active', // Default active
     this.reminderDays = 3,
     this.lastPaidDate,
     this.notes,
-    String? createdAt,  // Optional - default to now
-    String? updatedAt,  // Optional - default to now
+    String? createdAt, // Optional - default to now
+    String? updatedAt, // Optional - default to now
   }) : nextDueDate = nextDueDate ?? dueDate,
        createdAt = createdAt ?? DateTime.now().toIso8601String(),
        updatedAt = updatedAt ?? DateTime.now().toIso8601String();
@@ -1826,15 +2555,17 @@ class ScheduledPaymentData {
     if (json['status'] != null) {
       status = json['status'].toString();
     } else if (json['is_active'] != null) {
-      status = (json['is_active'] == 1 || json['is_active'] == true) ? 'active' : 'paused';
+      status = (json['is_active'] == 1 || json['is_active'] == true)
+          ? 'active'
+          : 'paused';
     }
-    
+
     // Handle is_autopay as int or bool
     bool isAutopay = false;
     if (json['is_autopay'] != null) {
       isAutopay = json['is_autopay'] == 1 || json['is_autopay'] == true;
     }
-    
+
     return ScheduledPaymentData(
       id: json['id'],
       userId: json['user_id']?.toString() ?? '',
@@ -1935,8 +2666,9 @@ class DashboardData {
     // Parse category breakdown
     Map<String, double> categories = {};
     // Check both top-level and inside summary (for backend compatibility)
-    final breakdownSource = json['category_breakdown'] ?? summary?['by_category'];
-    
+    final breakdownSource =
+        json['category_breakdown'] ?? summary?['by_category'];
+
     if (breakdownSource != null) {
       categories = Map<String, double>.from(
         (breakdownSource as Map).map(
@@ -1944,25 +2676,35 @@ class DashboardData {
         ),
       );
     }
-    
+
     // Derive top expense category if not explicitly provided
     String? topCat = json['top_expense_category'];
     double? topAmt = (json['top_expense_amount'] as num?)?.toDouble();
-    
+
     if (topCat == null && categories.isNotEmpty) {
-       // Find max value in categories
-       var sortedEntries = categories.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-       if (sortedEntries.isNotEmpty) {
-         topCat = sortedEntries.first.key;
-         topAmt = sortedEntries.first.value;
-       }
+      // Find max value in categories
+      var sortedEntries = categories.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      if (sortedEntries.isNotEmpty) {
+        topCat = sortedEntries.first.key;
+        topAmt = sortedEntries.first.value;
+      }
     }
 
     return DashboardData(
-      totalIncome: (json['total_income'] ?? summary?['total_income'] as num?)?.toDouble() ?? 0,
-      totalExpense: (json['total_expense'] ?? summary?['total_expenses'] as num?)?.toDouble() ?? 0,
+      totalIncome:
+          (json['total_income'] ?? summary?['total_income'] as num?)
+              ?.toDouble() ??
+          0,
+      totalExpense:
+          (json['total_expense'] ?? summary?['total_expenses'] as num?)
+              ?.toDouble() ??
+          0,
       balance: (json['balance'] ?? summary?['net'] as num?)?.toDouble() ?? 0,
-      savingsRate: (json['savings_rate'] ?? summary?['savings_rate'] as num?)?.toDouble() ?? 0,
+      savingsRate:
+          (json['savings_rate'] ?? summary?['savings_rate'] as num?)
+              ?.toDouble() ??
+          0,
       topExpenseCategory: topCat,
       topExpenseAmount: topAmt,
       categoryBreakdown: categories,
@@ -2072,9 +2814,13 @@ class DailyInsight {
       headline: json['headline'] ?? '',
       insightText: json['insightText'] ?? json['insight_text'] ?? '',
       recommendation: json['recommendation'] ?? '',
-      trendIndicator: json['trendIndicator'] ?? json['trend_indicator'] ?? 'stable',
-      categoryHighlight: json['categoryHighlight'] ?? json['category_highlight'],
-      amountHighlight: (json['amountHighlight'] ?? json['amount_highlight'] as num?)?.toDouble(),
+      trendIndicator:
+          json['trendIndicator'] ?? json['trend_indicator'] ?? 'stable',
+      categoryHighlight:
+          json['categoryHighlight'] ?? json['category_highlight'],
+      amountHighlight:
+          (json['amountHighlight'] ?? json['amount_highlight'] as num?)
+              ?.toDouble(),
     );
   }
 }
@@ -2107,12 +2853,16 @@ class ImportResult {
             description: t['description'] ?? '',
             category: t['category'] ?? 'Other',
             type: t['type'] ?? 'expense',
-            date: t['date'] != null ? DateTime.parse(t['date']) : DateTime.now(),
+            date: t['date'] != null
+                ? DateTime.parse(t['date'])
+                : DateTime.now(),
             paymentMethod: t['payment_method'],
             notes: t['notes'],
             receiptUrl: null,
             isRecurring: false,
-            createdAt: t['created_at'] != null ? DateTime.parse(t['created_at']) : DateTime.now(),
+            createdAt: t['created_at'] != null
+                ? DateTime.parse(t['created_at'])
+                : DateTime.now(),
           );
         }
         return TransactionModel(

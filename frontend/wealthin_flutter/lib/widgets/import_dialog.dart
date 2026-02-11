@@ -7,11 +7,12 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show debugPrint, defaultTargetPlatform, TargetPlatform;
 import '../core/services/backend_config.dart';
 import '../core/services/data_service.dart';
 import '../core/services/python_bridge_service.dart';
-
+import '../core/models/models.dart';
 
 /// Dialog for importing transactions from PDF/Image files
 /// - PDF icon: For structured bank statements (HDFC, SBI, ICICI, Axis)
@@ -105,30 +106,38 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
       if (defaultTargetPlatform == TargetPlatform.android) {
         // Save PDF to temp file
         final tempDir = await getTemporaryDirectory();
-        final tempPath = '${tempDir.path}/statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        final tempPath =
+            '${tempDir.path}/statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
         final tempFile = File(tempPath);
         await tempFile.writeAsBytes(_fileBytes!);
-        
+
         debugPrint('[ImportDialog] PDF saved to: $tempPath');
-        
+
         // Use DataService which calls Python backend (pdfplumber)
         final transactions = await dataService.scanBankStatement(tempPath);
-        
+
         List<Map<String, dynamic>> transactionMaps = [];
         if (transactions.isNotEmpty) {
-          transactionMaps = transactions.map((tx) => {
-            'date': tx.date.toIso8601String().substring(0, 10),
-            'description': tx.description,
-            'amount': tx.amount,
-            'type': tx.type,
-            'category': tx.category,
-            'merchant': tx.merchant,
-          }).toList().cast<Map<String, dynamic>>();
+          transactionMaps = transactions
+              .map(
+                (tx) => {
+                  'date': tx.date.toIso8601String().substring(0, 10),
+                  'description': tx.description,
+                  'amount': tx.amount,
+                  'type': tx.type,
+                  'category': tx.category,
+                  'merchant': tx.merchant,
+                },
+              )
+              .toList()
+              .cast<Map<String, dynamic>>();
         }
-        
+
         // Clean up temp file
-        try { await tempFile.delete(); } catch (_) {}
-        
+        try {
+          await tempFile.delete();
+        } catch (_) {}
+
         if (transactionMaps.isNotEmpty) {
           setState(() {
             _bankDetected = _detectBank(_fileName);
@@ -136,11 +145,14 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
             _showPreview = true;
             _isLoading = false;
           });
-          debugPrint('[ImportDialog] Found ${transactionMaps.length} transactions');
+          debugPrint(
+            '[ImportDialog] Found ${transactionMaps.length} transactions',
+          );
         } else {
-          throw Exception('No transactions found. Ensure the PDF has selectable text with dates and amounts.');
+          throw Exception(
+            'No transactions found. Ensure the PDF has selectable text with dates and amounts.',
+          );
         }
-
       } else {
         // === Desktop: Use HTTP backend ===
         final uri = Uri.parse(
@@ -196,7 +208,6 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
     }
   }
 
-
   Future<void> _extractFromImage() async {
     if (_fileBytes == null) return;
 
@@ -211,18 +222,21 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
         final tempDir = await getTemporaryDirectory();
         final tempFile = File('${tempDir.path}/$_fileName');
         await tempFile.writeAsBytes(_fileBytes!);
-        
+
         // Use Python bridge for receipt extraction
         final result = await pythonBridge.executeTool(
           'extract_receipt',
           {'file_path': tempFile.path},
         );
-        
+
         setState(() {
           if (result['success'] == true && result['transaction'] != null) {
-            _extractedTransactions = [result['transaction'] as Map<String, dynamic>];
+            _extractedTransactions = [
+              result['transaction'] as Map<String, dynamic>,
+            ];
           } else {
-             _error = result['error']?.toString() ?? 'Failed to extract from image';
+            _error =
+                result['error']?.toString() ?? 'Failed to extract from image';
           }
           _showPreview = true;
           _isLoading = false;
@@ -274,7 +288,9 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
           }
         } else {
           final errorData = jsonDecode(response.body);
-          throw Exception(errorData['detail'] ?? 'Failed to extract from image');
+          throw Exception(
+            errorData['detail'] ?? 'Failed to extract from image',
+          );
         }
       }
     } catch (e) {
@@ -298,19 +314,22 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
   }
 
   /// Deduplicate transactions based on date + amount + description prefix
-  List<Map<String, dynamic>> _deduplicateTransactions(List<Map<String, dynamic>> transactions) {
+  List<Map<String, dynamic>> _deduplicateTransactions(
+    List<Map<String, dynamic>> transactions,
+  ) {
     final seen = <String>{};
     final result = <Map<String, dynamic>>[];
-    
+
     for (final tx in transactions) {
       final desc = tx['description']?.toString() ?? '';
-      final key = '${tx['date']}_${tx['amount']}_${desc.length > 15 ? desc.substring(0, 15) : desc}';
+      final key =
+          '${tx['date']}_${tx['amount']}_${desc.length > 15 ? desc.substring(0, 15) : desc}';
       if (!seen.contains(key)) {
         seen.add(key);
         result.add(tx);
       }
     }
-    
+
     return result;
   }
 
@@ -318,9 +337,10 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
   String _detectBank(String? filename) {
     if (filename == null) return 'Statement';
     final lower = filename.toLowerCase();
-    
+
     if (lower.contains('phonepe')) return 'PhonePe';
-    if (lower.contains('gpay') || lower.contains('googlepay')) return 'Google Pay';
+    if (lower.contains('gpay') || lower.contains('googlepay'))
+      return 'Google Pay';
     if (lower.contains('paytm')) return 'Paytm';
     if (lower.contains('hdfc')) return 'HDFC Bank';
     if (lower.contains('sbi')) return 'SBI';
@@ -328,10 +348,9 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
     if (lower.contains('axis')) return 'Axis Bank';
     if (lower.contains('kotak')) return 'Kotak Bank';
     if (lower.contains('upi')) return 'UPI History';
-    
+
     return 'Statement';
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -413,7 +432,10 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                 // 5-page limit note
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -444,13 +466,14 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
 
                 const SizedBox(height: 20),
 
-
                 // Selected file indicator
                 if (_fileName != null && !_showPreview)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      color: theme.colorScheme.primaryContainer.withValues(
+                        alpha: 0.3,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -478,8 +501,9 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                                     ? 'Processing...'
                                     : 'Ready to extract',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                               ),
                             ],
@@ -549,6 +573,8 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                                 Chip(
                                   label: Text(
                                     t['category'],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 10),
                                   ),
                                   padding: EdgeInsets.zero,
@@ -582,20 +608,26 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                         Icon(
                           Icons.search_off,
                           size: 64,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.3,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No transactions found',
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Try a different file or format',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.4,
+                            ),
                           ),
                         ),
                       ],
@@ -653,58 +685,152 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                   const SizedBox(width: 12),
                   if (_showPreview && _extractedTransactions.isNotEmpty)
                     ElevatedButton.icon(
-                      onPressed: _isLoading ? null : () async {
-                        // Actually save transactions to database
-                        setState(() => _isLoading = true);
-                        
-                        int savedCount = 0;
-                        for (final tx in _extractedTransactions) {
-                          try {
-                            final amount = tx['amount'] is num
-                                ? (tx['amount'] as num).toDouble()
-                                : double.tryParse(tx['amount'].toString()) ?? 0;
-                            
-                            if (amount <= 0) continue;
-                            
-                            final result = await dataService.createTransaction(
-                              userId: widget.userId,
-                              amount: amount,
-                              description: tx['description']?.toString() ?? 'Transaction',
-                              category: tx['category']?.toString() ?? 'Other',
-                              type: tx['type']?.toString() ?? 'expense',
-                              date: tx['date']?.toString(),
-                              notes: tx['merchant']?.toString(),
-                            );
-                            
-                            if (result != null) {
-                              savedCount++;
-                            }
-                          } catch (e) {
-                            debugPrint('Error saving transaction: $e');
-                          }
-                        }
-                        
-                        if (mounted) {
-                          setState(() => _isLoading = false);
-                          Navigator.of(context).pop(true);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '✅ Saved $savedCount transaction(s) to database',
-                              ),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      },
-                      icon: _isLoading 
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              // Actually save transactions to database
+                              setState(() => _isLoading = true);
+
+                              List<TransactionModel> savedTransactions = [];
+                              int savedCount = 0;
+                              for (final tx in _extractedTransactions) {
+                                try {
+                                  final amount = tx['amount'] is num
+                                      ? (tx['amount'] as num).toDouble()
+                                      : double.tryParse(
+                                              tx['amount'].toString(),
+                                            ) ??
+                                            0;
+
+                                  if (amount <= 0) continue;
+
+                                  final result = await dataService
+                                      .createTransaction(
+                                        userId: widget.userId,
+                                        amount: amount,
+                                        description:
+                                            tx['description']?.toString() ??
+                                            'Transaction',
+                                        category:
+                                            tx['category']?.toString() ??
+                                            'Other',
+                                        type:
+                                            tx['type']?.toString() ?? 'expense',
+                                        date: tx['date']?.toString(),
+                                        notes: tx['merchant']?.toString(),
+                                      );
+
+                                  if (result != null) {
+                                    savedCount++;
+                                    savedTransactions.add(result);
+                                  }
+                                } catch (e) {
+                                  debugPrint('Error saving transaction: $e');
+                                }
+                              }
+
+                              if (mounted) {
+                                setState(() => _isLoading = false);
+
+                                // Auto-sync saved transactions to budgets
+                                if (savedCount > 0 &&
+                                    savedTransactions.isNotEmpty) {
+                                  try {
+                                    // Call auto-categorize and sync budgets
+                                    final syncResult = await dataService
+                                        .autoCategorizeAndSyncBudgets(
+                                          userId: widget.userId,
+                                          transactions: savedTransactions,
+                                        );
+
+                                    final budgetsUpdated =
+                                        syncResult['categories_synced'] ?? 0;
+                                    debugPrint(
+                                      '[Import] Auto-synced to $budgetsUpdated budgets',
+                                    );
+                                  } catch (e) {
+                                    debugPrint(
+                                      '[Import] Budget sync error (non-critical): $e',
+                                    );
+                                    // Sync is best-effort, don't block
+                                  }
+
+                                  // Trigger analysis snapshot after import
+                                  try {
+                                    final dashData = await dataService.getDashboard(widget.userId);
+                                    final healthScore = await dataService.getHealthScore(widget.userId);
+
+                                    if (dashData != null) {
+                                      final snapshotResult = await dataService.saveAnalysisSnapshot(
+                                        userId: widget.userId,
+                                        totalIncome: dashData.totalIncome,
+                                        totalExpense: dashData.totalExpense,
+                                        savingsRate: dashData.savingsRate,
+                                        healthScore: healthScore?.totalScore ?? 0,
+                                        categoryBreakdown: dashData.categoryBreakdown.map(
+                                          (k, v) => MapEntry(k, v.toDouble()),
+                                        ),
+                                        insights: healthScore?.insights ?? [],
+                                      );
+                                      debugPrint('[Import] Analysis snapshot triggered');
+
+                                      // Check for new milestones
+                                      final newMilestones = List<Map<String, dynamic>>.from(
+                                        snapshotResult['newly_achieved_milestones'] ?? [],
+                                      );
+                                      if (newMilestones.isNotEmpty && mounted) {
+                                        for (final m in newMilestones) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                '🎉 ${m['name']} unlocked! +${m['xp_reward']} XP',
+                                              ),
+                                              backgroundColor: const Color(0xFF4CAF50),
+                                              duration: const Duration(seconds: 3),
+                                            ),
+                                          );
+                                          await Future.delayed(const Duration(milliseconds: 500));
+                                        }
+                                      }
+                                    }
+                                  } catch (e) {
+                                    debugPrint('[Import] Analysis snapshot error (non-critical): $e');
+                                  }
+                                }
+
+                                Navigator.of(context).pop(true);
+
+                                // Show success message with budget sync details
+                                String message =
+                                    '✅ Saved $savedCount transaction(s)';
+                                if (savedCount > 0) {
+                                  message += ' & synced to budgets';
+                                }
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(message),
+                                    backgroundColor: Colors.green,
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            },
+                      icon: _isLoading
                           ? const SizedBox(
-                              width: 16, 
-                              height: 16, 
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Icon(Icons.save),
-                      label: Text(_isLoading ? 'Saving...' : 'Save (${_extractedTransactions.length})'),
+                      label: Text(
+                        _isLoading
+                            ? 'Saving...'
+                            : 'Save (${_extractedTransactions.length})',
+                      ),
                     ),
                 ],
               ),

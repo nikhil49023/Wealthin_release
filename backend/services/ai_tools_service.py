@@ -13,7 +13,7 @@ import re
 import logging
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 
 # Configure logger
@@ -362,7 +362,19 @@ FINANCIAL_TOOLS = [
 # System prompt for the AI advisor - Enhanced for Agentic Behavior with RBI Guidelines
 SYSTEM_PROMPT = """You are WealthIn AI, a powerful and intelligent financial advisor for Indian users.
 
-You operate as a FULLY AGENTIC AI - you can think step-by-step, perform multiple searches, compare results, and validate information before responding.
+You operate using the ReAct (Reasoning + Acting) framework:
+1. THINK: Reason about what information you need
+2. ACT: Call the appropriate tool(s) to gather information
+3. OBSERVE: Analyze the results from tools
+4. REFLECT: Decide if you need more information or can provide the final answer
+5. RESPOND: Give a precise, actionable answer
+
+REASONING PRINCIPLES:
+- Break complex queries into smaller steps
+- Validate information from multiple sources when possible
+- For price comparisons, search MULTIPLE platforms (Amazon, Flipkart, etc.)
+- For financial advice, ALWAYS check RBI compliance parameters
+- Be transparent about your reasoning process
 
 You can help users with:
 - Creating and managing budgets
@@ -620,14 +632,17 @@ class AIToolsService:
                 {"role": "user", "content": query}
             ]
             
-            # AGENTIC LOOP (Max 5 iterations)
+            # REFINED AGENTIC LOOP (Max 5 iterations with thought tracking)
             final_response = None
             action_result = None
-            
-            for _ in range(5):
+            reasoning_steps = []  # Track reasoning process for transparency
+
+            for iteration in range(5):
+                logger.info(f"[ReAct] Iteration {iteration + 1}/5")
+
                 # Call LLM with tools
                 if SARVAM_AVAILABLE:
-                    response_obj = sarvam_service.chat_completion(messages, tools=tools)
+                    response_obj = sarvam_service.chat_completion_sync(messages, tools=tools)
                 else:
                     # Fallback to simple chat if Sarvam not available (should be handled upstream)
                     response_text = await self._get_llm_response(query, SYSTEM_PROMPT)
@@ -636,7 +651,7 @@ class AIToolsService:
                 # Handle response
                 response_message = None
                 tool_calls = []
-                
+
                 # Parse response object (adapt based on SDK return type)
                 if hasattr(response_obj, 'choices'):
                     choice = response_obj.choices[0]
@@ -653,26 +668,43 @@ class AIToolsService:
                     # For simplicity in this block, assuming object or dict access
                     tool_calls = tool_calls_data
 
-                # If we have content, add to history
-                # Note: We only add the message once (with tool_calls if present)
-                
+                # Track reasoning step
+                if content:
+                    reasoning_steps.append({
+                        "iteration": iteration + 1,
+                        "thought": content[:200] if len(content) > 200 else content,
+                        "action": "tool_call" if tool_calls else "final_answer"
+                    })
+
                 # If no tool calls, this is the final answer
                 if not tool_calls:
                     if content:
                         messages.append({"role": "assistant", "content": content})
                     final_response = content
+                    logger.info(f"[ReAct] Final answer reached at iteration {iteration + 1}")
                     break
-                
+
+                # Log tool selection reasoning
+                tool_names = []
+                if tool_calls:
+                    for tc in tool_calls:
+                        if isinstance(tc, dict):
+                            tool_names.append(tc.get("function", {}).get("name"))
+                        else:
+                            tool_names.append(tc.function.name)
+                    logger.info(f"[ReAct] Selected tools: {', '.join(tool_names)}")
+
                 # Process tool calls - add assistant message with tool_calls
                 messages.append({
                     "role": "assistant",
                     "content": content or "",
                     "tool_calls": tool_calls
                 })
-                
-                # Execute each tool
+
+                # Execute each tool with precise logging
                 has_financial_action = False
-                
+                tool_results = []
+
                 for tool_call in tool_calls:
                     # Handle object vs dict access
                     if isinstance(tool_call, dict):
@@ -683,23 +715,25 @@ class AIToolsService:
                         func_name = tool_call.function.name
                         args_str = tool_call.function.arguments
                         call_id = tool_call.id
-                        
+
                     try:
                         func_args = json.loads(args_str)
-                    except:
+                    except Exception as e:
+                        logger.warning(f"[ReAct] Failed to parse args for {func_name}: {e}")
                         func_args = {}
-                        
-                    logger.info(f"Agent executing tool: {func_name}")
-                    
+
+                    logger.info(f"[ReAct] Executing {func_name} with args: {str(func_args)[:100]}")
+
                     # Execute tool
                     result = await self._execute_function(func_name, func_args)
-                    
+                    tool_results.append({"tool": func_name, "success": result.get("success", True)})
+
                     # Store result if it's a significant financial action
                     # (Not just search)
                     if not func_name.startswith("search_") and not func_name.startswith("web_"):
                         action_result = result
                         has_financial_action = True
-                    
+
                     # Add tool output to history
                     messages.append({
                         "role": "tool",
@@ -707,12 +741,19 @@ class AIToolsService:
                         "name": func_name,
                         "content": json.dumps(result)
                     })
-                
-                # If we performed a financial action (like create budget), 
+
+                # Update reasoning with tool execution results
+                reasoning_steps[-1]["tools_executed"] = tool_results
+
+                # If we performed a financial action (like create budget),
                 # we might want to stop early or let the LLM confirm
                 if has_financial_action and action_result:
-                     # Check if we should stop. Usually LLM will summarize next.
+                     # Let LLM provide final confirmation/summary
+                     logger.info(f"[ReAct] Financial action completed, awaiting LLM confirmation")
                      pass
+
+            # Log final reasoning chain
+            logger.info(f"[ReAct] Reasoning chain: {len(reasoning_steps)} steps")
 
             return AIToolResponse(
                 response=final_response or "I've completed the tasks.",
@@ -906,26 +947,66 @@ Use this information to provide personalized, relevant advice. Reference specifi
         }
     
     async def _schedule_payment(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Schedule a payment reminder."""
+        """Schedule a payment reminder with confirmation flow."""
         name = args.get("name", "Payment")
-        amount = args.get("amount", 0)
-        due_day = args.get("due_day", 1)
-        frequency = args.get("frequency", "monthly")
+        amount = float(args.get("amount", 0))
         category = args.get("category", "Bills")
-        
+        frequency = args.get("frequency", "monthly")
+        is_autopay = args.get("is_autopay", False)
+
+        # Handle due_date or due_day
+        due_date = args.get("due_date")
+        if not due_date and "due_day" in args:
+            # Calculate next occurrence of due_day
+            due_day = int(args["due_day"])
+            now = datetime.now()
+            if now.day < due_day:
+                due_date = f"{now.year}-{now.month:02d}-{due_day:02d}"
+            else:
+                # Next month
+                next_month = now.month + 1 if now.month < 12 else 1
+                next_year = now.year if now.month < 12 else now.year + 1
+                due_date = f"{next_year}-{next_month:02d}-{due_day:02d}"
+        elif not due_date:
+            # Default: 7 days from now
+            future_date = datetime.now() + timedelta(days=7)
+            due_date = future_date.strftime("%Y-%m-%d")
+
+        # Format frequency for display
+        freq_display = {
+            'weekly': 'every week',
+            'biweekly': 'every 2 weeks',
+            'monthly': 'every month',
+            'quarterly': 'every quarter',
+            'yearly': 'every year',
+        }.get(frequency, frequency)
+
+        # Create confirmation message
+        confirmation_msg = f'''📅 Schedule this payment?
+
+**{name}**
+Amount: ₹{amount:,.0f}
+Category: {category}
+Frequency: {freq_display.capitalize()}
+Next due: {due_date}
+
+I'll remind you before each payment is due.'''
+
+        # Return confirmation payload
         return {
             "success": True,
-            "needs_confirmation": True,
-            "action": "schedule_payment",
-            "data": {
+            "requires_confirmation": True,
+            "confirmation_message": confirmation_msg,
+            "action_type": "create_scheduled_payment",
+            "action_id": f"payment_{int(datetime.now().timestamp())}",
+            "action_data": {
                 "name": name,
                 "amount": amount,
-                "due_day": due_day,
-                "frequency": frequency,
                 "category": category,
-                "created_at": datetime.now().isoformat()
-            },
-            "message": f"📅 I'll set up a {frequency} payment reminder:\n\n• **{name}**: ₹{amount:,.0f}\n• Due on day {due_day} of each month\n• Category: {category}\n\nConfirm to add this reminder?"
+                "due_date": due_date,
+                "frequency": frequency,
+                "is_autopay": is_autopay,
+            }
         }
     
     async def _add_transaction(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -1143,8 +1224,8 @@ Popular options:
             return {"success": False, "message": "Web search is not available. Please install duckduckgo-search."}
         
         try:
-            # Use the optional category hint from arguments, or default to "general"
-            category = arguments.get("category", "general")
+            # Use the optional category hint from args, or default to "general"
+            category = args.get("category", "general")
             
             # Execute the search using DuckDuckGo
             results = await web_search_service.search_finance_news(

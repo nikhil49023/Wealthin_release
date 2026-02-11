@@ -81,6 +81,11 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Get current user asynchronously
+  Future<User?> getCurrentUser() async {
+    return _user;
+  }
+
   /// Get current user ID safely
   String get currentUserId => currentUser?.id ?? 'anonymous';
 

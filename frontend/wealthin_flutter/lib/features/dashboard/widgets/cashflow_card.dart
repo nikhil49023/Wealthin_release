@@ -321,29 +321,41 @@ class _CashflowCardState extends State<CashflowCard> {
   BarChartData _buildBarChartData(ThemeData theme, bool isDark) {
     // Group data by day for the bar chart
     final Map<String, Map<String, double>> groupedData = {};
-    
+
     for (var point in _cashflowData) {
       final dayKey = point.date.length >= 10 ? point.date.substring(8, 10) : point.date;
       groupedData[dayKey] ??= {'income': 0, 'expense': 0};
-      
-      // Approximate income/expense from balance changes
+
+      // Separate income and expense based on transaction type or balance sign
       if (point.balance > 0) {
         groupedData[dayKey]!['income'] = groupedData[dayKey]!['income']! + point.balance.abs();
       } else {
         groupedData[dayKey]!['expense'] = groupedData[dayKey]!['expense']! + point.balance.abs();
       }
     }
-    
-    // Use last 7 data points or generate sample data
+
+    // Use last 7 data points or generate placeholder based on real totals
     List<String> labels;
     List<double> incomes;
     List<double> expenses;
-    
-    if (groupedData.isEmpty) {
-      // Sample data for visualization
+
+    if (groupedData.isEmpty && (_totalIncome > 0 || _totalExpenses > 0)) {
+      // Generate realistic placeholder based on actual totals
+      final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      labels = weekDays;
+
+      // Distribute totals across week (with some variation)
+      final dailyIncome = _totalIncome / 7;
+      final dailyExpense = _totalExpenses / 7;
+      final variations = [0.8, 1.2, 0.6, 1.4, 1.5, 0.9, 0.6];
+
+      incomes = variations.map((v) => dailyIncome * v).toList();
+      expenses = variations.reversed.map((v) => dailyExpense * v).toList();
+    } else if (groupedData.isEmpty) {
+      // No data at all - show empty state placeholder
       labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      incomes = [4000, 2000, 3000, 5000, 8000, 3000, 2000];
-      expenses = [2000, 3000, 1500, 4000, 1500, 2000, 1000];
+      incomes = [0, 0, 0, 0, 0, 0, 0];
+      expenses = [0, 0, 0, 0, 0, 0, 0];
     } else {
       final entries = groupedData.entries.toList();
       final displayEntries = entries.length > 7 ? entries.sublist(entries.length - 7) : entries;
@@ -351,10 +363,10 @@ class _CashflowCardState extends State<CashflowCard> {
       incomes = displayEntries.map((e) => e.value['income']!).toList();
       expenses = displayEntries.map((e) => e.value['expense']!).toList();
     }
-    
-    // Colors for income and expense
-    const incomeColor = Color(0xFF2ECC71);  // Green
-    const expenseColor = Color(0xFF8E44AD); // Purple
+
+    // WealthIn brand colors for income and expense
+    const incomeColor = Color(0xFF2ECC71);  // Green (income)
+    const expenseColor = Color(0xFFE74C3C); // Red (expense) - clearer distinction
 
     return BarChartData(
       alignment: BarChartAlignment.spaceAround,
@@ -630,23 +642,29 @@ class _CashflowItem extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
-              ),
-              Text(
-                '₹${_formatAmount(amount)}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '₹${_formatAmount(amount)}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

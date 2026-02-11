@@ -320,3 +320,36 @@ class InvestmentNudge {
     );
   }
 }
+
+/// Comprehensive Financial Health Score (0-100)
+class HealthScore {
+  final double totalScore;
+  final String grade; // Excellent, Good, Fair, Poor
+  final Map<String, double> breakdown;
+  final List<String> insights;
+
+  HealthScore({
+    required this.totalScore,
+    required this.grade,
+    required this.breakdown,
+    required this.insights,
+  });
+
+  factory HealthScore.fromJson(Map<String, dynamic> json) {
+    final breakdownJson = json['breakdown'] as Map<String, dynamic>? ?? {};
+    return HealthScore(
+      totalScore: (json['score'] as num?)?.toDouble() ?? 0,
+      grade: json['grade'] as String? ?? 'Fair',
+      breakdown: {
+        'savings': (breakdownJson['savings'] as num?)?.toDouble() ?? 0,
+        'debt': (breakdownJson['debt'] as num?)?.toDouble() ?? 0,
+        'liquidity': (breakdownJson['liquidity'] as num?)?.toDouble() ?? 0,
+        'investment': (breakdownJson['investment'] as num?)?.toDouble() ?? 0,
+      },
+      insights: (json['insights'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
+}

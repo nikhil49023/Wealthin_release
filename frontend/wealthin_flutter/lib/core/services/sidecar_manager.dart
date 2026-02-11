@@ -5,6 +5,12 @@ import 'package:path/path.dart' as path;
 
 /// Sidecar Manager - Manages Python Backend Lifecycle
 /// Automatically starts, monitors, and restarts the backend process
+///
+/// Features:
+/// - PID file management for process tracking
+/// - Log file output for debugging
+/// - Auto-restart on crash with backoff
+/// - Graceful shutdown handling
 class SidecarManager {
   SidecarManager._internal();
   static final SidecarManager _instance = SidecarManager._internal();
@@ -12,10 +18,15 @@ class SidecarManager {
 
   Process? _backendProcess;
   Timer? _healthCheckTimer;
+  IOSink? _logSink;
   bool _isRunning = false;
   int _restartCount = 0;
   static const int _maxRestarts = 3;
   static const Duration _healthCheckInterval = Duration(seconds: 30);
+
+  // File names for process management
+  static const String _pidFileName = 'sidecar.pid';
+  static const String _logFileName = 'sidecar.log';
 
   /// Whether the sidecar is currently running
   bool get isRunning => _isRunning;
@@ -86,6 +97,111 @@ class SidecarManager {
     return null;
   }
 
+  /// Get the PID file path
+  String? get _pidFilePath {
+    final backendDir = _backendDir;
+    if (backendDir == null) return null;
+    return path.join(backendDir, _pidFileName);
+  }
+
+  /// Get the log file path
+  String? get _logFilePath {
+    final backendDir = _backendDir;
+    if (backendDir == null) return null;
+    return path.join(backendDir, _logFileName);
+  }
+
+  /// Write PID to file for external tracking
+  Future<void> _writePidFile(int pid) async {
+    final pidPath = _pidFilePath;
+    if (pidPath == null) return;
+    try {
+      await File(pidPath).writeAsString('$pid');
+      debugPrint('[Sidecar] PID $pid written to $pidPath');
+    } catch (e) {
+      debugPrint('[Sidecar] Failed to write PID file: $e');
+    }
+  }
+
+  /// Read PID from file (check for existing process)
+  Future<int?> _readPidFile() async {
+    final pidPath = _pidFilePath;
+    if (pidPath == null) return null;
+    try {
+      final file = File(pidPath);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        return int.tryParse(content.trim());
+      }
+    } catch (e) {
+      debugPrint('[Sidecar] Failed to read PID file: $e');
+    }
+    return null;
+  }
+
+  /// Delete PID file on shutdown
+  Future<void> _deletePidFile() async {
+    final pidPath = _pidFilePath;
+    if (pidPath == null) return;
+    try {
+      final file = File(pidPath);
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint('[Sidecar] PID file deleted');
+      }
+    } catch (e) {
+      debugPrint('[Sidecar] Failed to delete PID file: $e');
+    }
+  }
+
+  /// Check if a process with given PID is running
+  Future<bool> _isProcessRunning(int pid) async {
+    try {
+      // On Unix, sending signal 0 checks if process exists
+      final result = await Process.run('kill', ['-0', '$pid']);
+      return result.exitCode == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Kill existing backend process from PID file
+  Future<void> _killExistingProcess() async {
+    final pid = await _readPidFile();
+    if (pid != null && await _isProcessRunning(pid)) {
+      debugPrint('[Sidecar] Killing existing backend process (PID: $pid)');
+      try {
+        Process.killPid(pid, ProcessSignal.sigterm);
+        await Future.delayed(const Duration(seconds: 2));
+        if (await _isProcessRunning(pid)) {
+          Process.killPid(pid, ProcessSignal.sigkill);
+        }
+      } catch (e) {
+        debugPrint('[Sidecar] Failed to kill existing process: $e');
+      }
+    }
+    await _deletePidFile();
+  }
+
+  /// Open log file for writing
+  Future<void> _openLogFile() async {
+    final logPath = _logFilePath;
+    if (logPath == null) return;
+    try {
+      _logSink = File(logPath).openWrite(mode: FileMode.append);
+      _logSink?.writeln('\n=== Sidecar started at ${DateTime.now()} ===');
+    } catch (e) {
+      debugPrint('[Sidecar] Failed to open log file: $e');
+    }
+  }
+
+  /// Close log file
+  Future<void> _closeLogFile() async {
+    await _logSink?.flush();
+    await _logSink?.close();
+    _logSink = null;
+  }
+
   /// Get the Python executable path
   String get _pythonPath {
     // Check for virtual environment first
@@ -126,8 +242,14 @@ class SidecarManager {
       return false;
     }
 
+    // Kill any existing backend process from previous run
+    await _killExistingProcess();
+
     debugPrint('[Sidecar] Starting backend from: $backendDir');
     debugPrint('[Sidecar] Using Python: $_pythonPath');
+
+    // Open log file for output
+    await _openLogFile();
 
     try {
       // 1. Production Mode: Check for compiled executable
@@ -175,35 +297,46 @@ class SidecarManager {
       }
 
       _isRunning = true;
-      debugPrint('[Sidecar] Backend process started (PID: ${_backendProcess!.pid})');
+      final pid = _backendProcess!.pid;
+      debugPrint('[Sidecar] Backend process started (PID: $pid)');
 
-      // Listen to stdout
+      // Write PID file for external tracking
+      await _writePidFile(pid);
+
+      // Listen to stdout and write to log file
       _backendProcess!.stdout.transform(const SystemEncoding().decoder).listen(
         (data) {
           for (final line in data.split('\n')) {
             if (line.trim().isNotEmpty) {
               debugPrint('[Backend] $line');
+              _logSink?.writeln('[${DateTime.now().toIso8601String()}] $line');
             }
           }
         },
       );
 
-      // Listen to stderr
+      // Listen to stderr and write to log file
       _backendProcess!.stderr.transform(const SystemEncoding().decoder).listen(
         (data) {
           for (final line in data.split('\n')) {
             if (line.trim().isNotEmpty) {
               debugPrint('[Backend:ERR] $line');
+              _logSink?.writeln('[${DateTime.now().toIso8601String()}] ERR: $line');
             }
           }
         },
       );
 
       // Monitor process exit
-      _backendProcess!.exitCode.then((exitCode) {
+      _backendProcess!.exitCode.then((exitCode) async {
         debugPrint('[Sidecar] Backend exited with code: $exitCode');
+        _logSink?.writeln('[${DateTime.now().toIso8601String()}] Backend exited with code: $exitCode');
         _isRunning = false;
         _backendProcess = null;
+
+        // Clean up PID file and log
+        await _deletePidFile();
+        await _closeLogFile();
 
         // Auto-restart if crashed unexpectedly
         if (exitCode != 0 && _restartCount < _maxRestarts) {
@@ -251,11 +384,13 @@ class SidecarManager {
     _healthCheckTimer = null;
 
     if (_backendProcess != null) {
-      debugPrint('[Sidecar] Stopping backend (PID: ${_backendProcess!.pid})');
-      
+      final pid = _backendProcess!.pid;
+      debugPrint('[Sidecar] Stopping backend (PID: $pid)');
+      _logSink?.writeln('[${DateTime.now().toIso8601String()}] Stopping backend...');
+
       // Send SIGTERM for graceful shutdown
       _backendProcess!.kill(ProcessSignal.sigterm);
-      
+
       // Wait for graceful exit
       try {
         await _backendProcess!.exitCode.timeout(
@@ -273,6 +408,11 @@ class SidecarManager {
 
       _backendProcess = null;
       _isRunning = false;
+
+      // Clean up PID file and log
+      await _deletePidFile();
+      await _closeLogFile();
+
       debugPrint('[Sidecar] Backend stopped');
     }
   }

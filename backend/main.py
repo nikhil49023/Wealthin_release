@@ -9,6 +9,7 @@ PERCEPTION LAYER (Sensing):
 COGNITION LAYER (Thinking):  
 - Sarvam Indic Expert for regional language support
 - Zoho Catalyst QuickML for general chat
+- Lightweight RAG (TF-IDF + SQLite) for Knowledge Retrieval
 
 ACTION LAYER (Doing):
 - Tool Dispatcher for budgets, goals, payments, transactions
@@ -31,19 +32,31 @@ from datetime import datetime
 # Service imports - The Three Layers
 from services.pdf_parser_advanced import pdf_parser_service, AdvancedPDFParser
 from services.investment_calculator import investment_calculator
-from services.transaction_categorizer import transaction_categorizer, categorize_transaction
-from services.ai_tools_service import ai_tools_service, ai_agent_service, AgentQueryRequest # Import new AI service
+from services.transaction_categorizer import transaction_categorizer
+from services.ai_tools_service import ai_tools_service
 from services.sarvam_service import sarvam_service
 from services.zoho_vision_service import zoho_vision_service
-from services.database_service import database_service, Budget, Goal, Transaction, ScheduledPayment
+from services.database_service import database_service
 from services.analytics_service import analytics_service
 from services.financial_calculator import FinancialCalculator
 from services.web_search_service import web_search_service
-from services.pdf_parser_advanced import pdf_parser_service, ReceiptParser, AdvancedPDFParser
 from services.deep_research_agent import get_deep_research_agent
-from services.merchant_service import merchant_service  # NEW: Merchant Flagging
-from services.ncm_service import ncm_service  # NEW: National Contribution Milestone
-from services.investment_nudge_service import investment_nudge_service  # NEW: Investment Nudges
+from services.merchant_service import merchant_service
+from services.ncm_service import ncm_service
+from services.financial_health_service import financial_health_service
+from services.openai_brainstorm_service import openai_brainstorm_service
+
+# NEW SERVICES (RAG Integration)
+from services.query_router import router, QueryType
+from services.lightweight_rag import rag
+from services.openai_service import openai_service
+from services.government_api_service import govt_api
+from services.static_knowledge_service import static_kb
+
+# NoSQL & Analysis Services
+from services.mongo_service import mongo_service
+from services.idea_evaluator_service import idea_evaluator
+from services.mudra_dpr_service import mudra_engine, MudraDPRInput
 
 load_dotenv()
 
@@ -55,27 +68,39 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Lifespan context manager (replaces deprecated @app.on_event)
+# Lifespan context manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize services on startup, cleanup on shutdown."""
     logger.info("Starting WealthIn Agent Service...")
     await database_service.initialize()
-    await merchant_service.initialize()  # Merchant Flagging
-    await ncm_service.initialize()  # NCM Engine
-    logger.info("Database initialized successfully")
+    await merchant_service.initialize()
+    await ncm_service.initialize()
+    await openai_brainstorm_service.initialize()
+    await mongo_service.initialize()  # Initialize MongoDB/NoSQL
+    
+    # Initialize RAG Knowledge Base
+    logger.info("loading RAG knowledge base...")
+    try:
+        rag.load_knowledge_base()
+        static_kb.load_all() # Ensure static KB is loaded
+        logger.info("Knowledge bases (RAG + Static) loaded successfully")
+        logger.info("Government API Service ready")
+    except Exception as e:
+        logger.error(f"Failed to load knowledge bases: {e}")
+
+    logger.info("All services initialized successfully")
     yield
     logger.info("Shutting down WealthIn Agent Service...")
-
 
 app = FastAPI(
     title="WealthIn Founder's OS",
     description="Agentic AI backend for Indian entrepreneurs - Sense, Plan, Act",
-    version="3.0.0",
+    version="4.1.0",
     lifespan=lifespan
 )
 
-# CORS middleware for Flutter - configurable via environment
+# CORS middleware
 cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -85,7 +110,151 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Analytics & Calculator Routes ---
+
+# ============== Request/Response Models ==============
+
+class AgentRequest(BaseModel):
+    query: str
+    context: dict = {}
+    user_id: Optional[str] = None
+    conversation_history: Optional[List[dict]] = None
+
+class AgenticChatRequest(BaseModel):
+    """Request model for agentic chat with tool execution"""
+    query: str
+    user_context: Optional[dict] = None
+    conversation_history: Optional[List[dict]] = None
+    user_id: Optional[str] = None
+
+class DPRRequest(BaseModel):
+    user_id: str
+    business_idea: str
+    user_data: Dict
+    include_market_research: bool = False
+
+class DeepResearchRequest(BaseModel):
+    query: str
+    user_context: Optional[dict] = None
+    max_iterations: int = 3
+    user_id: Optional[str] = None
+
+class ActionConfirmRequest(BaseModel):
+    action_type: str
+    action_data: dict
+    user_id: Optional[str] = None
+
+
+# Calculator Models
+class SIPRequest(BaseModel):
+    monthly_investment: float
+    expected_rate: float
+    duration_months: int
+
+class FDRequest(BaseModel):
+    principal: float
+    rate: float
+    tenure_months: int
+    compounding: str = "quarterly"
+
+class EMIRequest(BaseModel):
+    principal: float
+    rate: float
+    tenure_months: int
+    include_amortization: bool = False
+
+class RDRequest(BaseModel):
+    monthly_deposit: float
+    rate: float
+    tenure_months: int
+
+class GoalSIPRequest(BaseModel):
+    target_amount: float
+    duration_months: int
+    expected_rate: float
+
+class LumpsumRequest(BaseModel):
+    principal: float
+    rate: float
+    duration_years: int
+
+class CAGRRequest(BaseModel):
+    initial_value: float
+    final_value: float
+    years: float
+
+class CategorizeRequest(BaseModel):
+    description: str
+    amount: float
+    tx_type: str = "expense"
+
+class BatchCategorizeRequest(BaseModel):
+    transactions: List[Dict[str, Any]]
+
+class AnalyzeSpendingRequest(BaseModel):
+    transactions: List[Dict[str, Any]]
+
+# Analytics Models
+class SavingsRateRequest(BaseModel):
+    income: float
+    expenses: float
+
+class CompoundInterestRequest(BaseModel):
+    principal: float
+    rate: float
+    years: int
+    monthly_contribution: float = 0
+
+class PerCapitaRequest(BaseModel):
+    total_income: float
+    family_size: int
+
+class EmergencyFundRequest(BaseModel):
+    current_savings: float
+    monthly_expenses: float
+    target_months: int = 6
+
+
+# ============== Health Check ==============
+
+@app.get("/")
+def read_root():
+    return {
+        "status": "active",
+        "service": "WealthIn Agent",
+        "version": "4.1.0",
+        "features": ["RAG", "Deep Research", "Calculators", "Analytics"]
+    }
+
+@app.get("/health")
+def health_check():
+    rag_status = "active" if rag.vectorizer else "initializing"
+    rag_docs = len(rag.documents) if rag.documents else 0
+    return {
+        "status": "healthy", 
+        "rag_status": rag_status,
+        "rag_documents": rag_docs,
+        "rag_type": "lightweight_tfidf"
+    }
+
+
+# ============== Endpoint Implementations ==============
+
+# --- Analytics Routes ---
+@app.get("/analytics/health-score/{user_id}")
+async def get_health_score(user_id: str):
+    score = await financial_health_service.calculate_health_score(user_id)
+    return {
+        "score": score.total_score,
+        "grade": score.grade,
+        "breakdown": {
+            "savings": score.savings_score,
+            "debt": score.debt_score,
+            "liquidity": score.liquidity_score,
+            "investment": score.investment_score,
+        },
+        "insights": score.insights,
+        "metrics": score.metrics
+    }
 
 @app.post("/analytics/refresh/{user_id}")
 async def refresh_analytics(user_id: str):
@@ -101,41 +270,21 @@ async def get_monthly_trends(user_id: str):
         "next_month_prediction": prediction
     }
 
-class SavingsRateRequest(BaseModel):
-    income: float
-    expenses: float
-
 @app.post("/calculator/savings-rate")
 async def calc_savings_rate(data: SavingsRateRequest):
     rate = FinancialCalculator.calculate_savings_rate(data.income, data.expenses)
     return {"savings_rate_percentage": round(rate, 2)}
 
-class CompoundInterestRequest(BaseModel):
-    principal: float
-    rate: float
-    years: int
-    monthly_contribution: float = 0
-
 @app.post("/calculator/compound-interest")
 async def calc_compound_interest(data: CompoundInterestRequest):
-    result = FinancialCalculator.calculate_compound_interest(
+    return FinancialCalculator.calculate_compound_interest(
         data.principal, data.rate, data.years, data.monthly_contribution
     )
-    return result
-
-class PerCapitaRequest(BaseModel):
-    total_income: float
-    family_size: int
 
 @app.post("/calculator/per-capita")
 async def calc_per_capita(data: PerCapitaRequest):
     pci = FinancialCalculator.calculate_per_capita_income(data.total_income, data.family_size)
     return {"per_capita_income": round(pci, 2)}
-
-class EmergencyFundRequest(BaseModel):
-    current_savings: float
-    monthly_expenses: float
-    target_months: int = 6
 
 @app.post("/calculator/emergency-fund")
 async def calc_emergency_fund(data: EmergencyFundRequest):
@@ -145,294 +294,232 @@ async def calc_emergency_fund(data: EmergencyFundRequest):
 
 @app.get("/dashboard/{user_id}")
 async def get_dashboard_data(user_id: str):
-    """
-    Get aggregated dashboard data for the user.
-    Includes: summary, budgets, goals, upcoming payments, recent transactions, cashflow.
-    """
     return await database_service.get_dashboard_data(user_id)
 
 @app.get("/insights/daily/{user_id}")
 async def get_daily_insight(user_id: str):
-    """
-    Get a daily AI-generated financial insight for the user.
-    """
     return await ai_tools_service.generate_daily_insight(user_id)
 
-# --- End Analytics Routes ---
 
-
-# ============== Request/Response Models ==============
-
-class AgentRequest(BaseModel):
-    query: str
-    context: dict = {}
-    user_id: Optional[str] = None
-
-class AgenticChatRequest(BaseModel):
-    """Request model for agentic chat with tool execution"""
-    query: str
-    user_context: Optional[dict] = None
-    conversation_history: Optional[List[dict]] = None
-    user_id: Optional[str] = None
-
-
-class DeepResearchRequest(BaseModel):
-    """Request model for deep agentic research"""
-    query: str
-    user_context: Optional[dict] = None
-    max_iterations: int = 3
-    user_id: Optional[str] = None
-
-class ActionConfirmRequest(BaseModel):
-    """Request to confirm and execute an AI-suggested action"""
-    action_type: str
-    action_data: dict
-    user_id: Optional[str] = None
-
-
-class SIPRequest(BaseModel):
-    monthly_investment: float
-    expected_rate: float  # Annual rate in %
-    duration_months: int
-
-
-class FDRequest(BaseModel):
-    principal: float
-    rate: float  # Annual rate in %
-    tenure_months: int
-    compounding: str = "quarterly"
-
-
-class EMIRequest(BaseModel):
-    principal: float
-    rate: float  # Annual rate in %
-    tenure_months: int
-    include_amortization: bool = False
-
-
-class RDRequest(BaseModel):
-    monthly_deposit: float
-    rate: float  # Annual rate in %
-    tenure_months: int
-
-
-class GoalSIPRequest(BaseModel):
-    target_amount: float
-    duration_months: int
-    expected_rate: float
-
-
-class LumpsumRequest(BaseModel):
-    principal: float
-    rate: float
-    duration_years: int
-
-
-class CAGRRequest(BaseModel):
-    initial_value: float
-    final_value: float
-    years: float
-
-
-class CategorizeRequest(BaseModel):
-    description: str
-    amount: float
-    tx_type: str = "expense"
-
-
-class BatchCategorizeRequest(BaseModel):
-    transactions: List[Dict[str, Any]]
-
-
-class AnalyzeSpendingRequest(BaseModel):
-    transactions: List[Dict[str, Any]]
-
-
-# ============== CRUD Request Models ==============
-
-class CreateBudgetRequest(BaseModel):
-    user_id: str
-    name: str
-    amount: float
-    category: str
-    icon: str = "wallet"
-    period: str = "monthly"
-    start_date: Optional[str] = None
-
-class UpdateBudgetRequest(BaseModel):
-    name: Optional[str] = None
-    amount: Optional[float] = None
-    spent: Optional[float] = None
-    icon: Optional[str] = None
-    category: Optional[str] = None
-
-class CreateGoalRequest(BaseModel):
-    user_id: str
-    name: str
-    target_amount: float
-    deadline: Optional[str] = None
-    icon: str = "flag"
-    notes: Optional[str] = None
-
-class UpdateGoalRequest(BaseModel):
-    name: Optional[str] = None
-    target_amount: Optional[float] = None
-    deadline: Optional[str] = None
-    status: Optional[str] = None
-    icon: Optional[str] = None
-    notes: Optional[str] = None
-
-class AddFundsRequest(BaseModel):
-    amount: float
-
-class CreateTransactionRequest(BaseModel):
-    user_id: str
-    amount: float
-    description: str
-    category: str
-    type: str  # 'income' or 'expense'
-    date: Optional[str] = None
-    payment_method: Optional[str] = None
-    notes: Optional[str] = None
-    receipt_url: Optional[str] = None
-    is_recurring: bool = False
-
-class UpdateTransactionRequest(BaseModel):
-    amount: Optional[float] = None
-    description: Optional[str] = None
-    category: Optional[str] = None
-    type: Optional[str] = None
-    date: Optional[str] = None
-    payment_method: Optional[str] = None
-    notes: Optional[str] = None
-
-class CreateScheduledPaymentRequest(BaseModel):
-    user_id: str
-    name: str
-    amount: float
-    category: str
-    frequency: str = "monthly"
-    due_date: str
-    is_autopay: bool = False
-    reminder_days: int = 3
-    notes: Optional[str] = None
-
-class UpdateScheduledPaymentRequest(BaseModel):
-    name: Optional[str] = None
-    amount: Optional[float] = None
-    category: Optional[str] = None
-    frequency: Optional[str] = None
-    is_autopay: Optional[bool] = None
-    reminder_days: Optional[int] = None
-    status: Optional[str] = None
-    notes: Optional[str] = None
-
-
-# ============== Health Check ==============
-
-@app.get("/")
-def read_root():
-    return {
-        "status": "active",
-        "service": "WealthIn Agent",
-        "version": "3.0.0",
-        "endpoints": [
-            "/agent/chat",
-            "/agent/agentic-chat",
-            "/agent/confirm-action",
-            "/agent/tools",
-            "/agent/scan-document",
-            "/calculator/sip",
-            "/calculator/fd",
-            "/calculator/emi",
-            "/calculator/rd",
-            "/calculator/lumpsum",
-            "/calculator/cagr",
-            "/calculator/goal-sip",
-            "/categorize",
-            "/categorize/batch",
-            "/analyze/spending"
-        ]
-    }
-
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-
-
-# ============== AI Chat Endpoints ==============
+# --- AI Chat Routes ---
 
 @app.post("/agent/chat")
 async def agent_chat(request: AgentRequest):
-    """
-    Chat with the AI financial advisor.
-    Supports context-aware conversations with user transaction history.
-    """
-    context_str = str(request.context) if request.context else ""
-    
-    # Build enhanced prompt with financial context
-    system_context = """You are WealthIn, a friendly AI financial advisor for Indian entrepreneurs.
-You can help with:
-- Budgeting and expense tracking
-- Investment advice (SIP, FD, mutual funds)
-- Tax planning and GST
-- Business finance tips
-- Debt management
-
-Be concise, helpful, and use Indian Rupee (₹) for amounts."""
-    
-    full_context = f"{system_context}\n\nUser Context: {context_str}"
-    
-    # Use the AI tools service for chat
-    result = await ai_tools_service.process_with_tools(request.query, {"context": context_str})
-    return {"response": result.response, "user_id": request.user_id}
-
+    """Legacy endpoint - redirects to agentic-chat logic."""
+    internal_req = AgenticChatRequest(
+        query=request.query,
+        user_context=request.context, 
+        conversation_history=request.conversation_history,
+        user_id=request.user_id
+    )
+    result = await agentic_chat(internal_req)
+    return {
+        "response": result.get("response", ""),
+        "user_id": request.user_id,
+        "sources": result.get("sources", []),
+        "model_used": result.get("model_used", "unknown")
+    }
 
 @app.post("/agent/agentic-chat")
 async def agentic_chat(request: AgenticChatRequest):
     """
-    Agentic chat with tool/function calling capabilities.
-    Uses OpenAI for function calling to execute financial actions.
-    
-    Returns:
-    - response: The AI's response text
-    - action_taken: Whether an action was executed
-    - action_type: Type of action (create_budget, add_transaction, etc.)
-    - action_data: Data for the action (to be saved by Flutter)
-    - needs_confirmation: Whether Flutter should show a confirmation dialog
+    Agentic chat with tool/function calling capabilities and RAG integration.
+    Enhanced with Intelligent Query Router.
     """
     try:
-        result = await ai_tools_service.process_with_tools(
-            query=request.query,
-            user_context=request.user_context
+        # Step 1: Route the query
+        query_type, routing_config = router.classify_query(
+            request.query,
+            request.user_context
         )
         
+        logger.info(f"Query classified as: {query_type.value}")
+        
+        response_text = ""
+        model_used = "unknown"
+        sources = []
+        action_taken = False
+        action_type = None
+        action_data = None
+        needs_confirmation = False
+
+        # Step 2: Process based on route
+        if query_type == QueryType.GOV_API:
+             # Handle Government API queries
+             model_used = "govt_api"
+             sources = ["government_api"]
+             
+             # Simple regex-based extraction for now
+             import re
+             if "pan" in request.query.lower():
+                 pan_match = re.search(r'[A-Z]{5}[0-9]{4}[A-Z]{1}', request.query.upper())
+                 if pan_match:
+                     pan = pan_match.group(0)
+                     result = govt_api.verify_pan(pan)
+                     response_text = f"**PAN Verification Result:**\n" \
+                                     f"✅ Valid: {result['valid']}\n" \
+                                     f"👤 Name: {result['name']}\n" \
+                                     f"📋 Status: {result['status']}"
+                 else:
+                     response_text = "I can verify your PAN. Please provide a valid 10-character PAN number (e.g., ABCDE1234F)."
+                     
+             elif "gst" in request.query.lower():
+                 gst_match = re.search(r'[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}', request.query.upper())
+                 if gst_match:
+                     gstin = gst_match.group(0)
+                     result = govt_api.verify_gstin(gstin)
+                     response_text = f"**GST Verification Result:**\n" \
+                                     f"✅ Valid: {result['valid']}\n" \
+                                     f"🏢 Trade Name: {result['trade_name']}\n" \
+                                     f"📋 Status: {result['status']}"
+                 else:
+                     response_text = "I can verify GSTIN. Please provide a valid 15-character GSTIN."
+
+             elif "itr" in request.query.lower():
+                 response_text = "To check ITR status, please provide your PAN and Acknowledgement Number."
+                 # Implement extraction logic if needed
+             else:
+                 response_text = "I can help with Government data verification (PAN, GST, ITR, EPFO). Please provide the specific ID number."
+
+        elif query_type == QueryType.STATIC_KB:
+            # Handle Static Knowledge Base queries (Tax, Rules, Formulas)
+            results = static_kb.search(request.query)
+            if results:
+                top = results[0]
+                response_text = f"**{top['title']}**\n\n{top['content']}\n\n*Source: {top['title']} (Static KB)*"
+                model_used = "static_kb"
+                sources = ["static_knowledge"]
+            else:
+                 # Fallback to AI tools if not found in static KB
+                 result = await ai_tools_service.process_with_tools(request.query, request.user_context)
+                 response_text = result.response
+                 model_used = "ai_tools_fallback"
+                 sources = ["ai_tools"]
+
+        elif query_type == QueryType.TRANSACTION:
+            # Handle with existing tool-based agent (Local DB)
+            result = await ai_tools_service.process_with_tools(
+                query=request.query,
+                user_context=request.user_context
+            )
+            response_text = result.response
+            model_used = "local_agent"
+            action_taken = result.action_taken
+            action_type = result.action_type
+            action_data = result.action_data
+            needs_confirmation = result.needs_confirmation
+        
+        elif query_type == QueryType.SIMPLE:
+            # Check for Indic language first if configured
+            if sarvam_service.is_configured and sarvam_service.is_indic_query(request.query):
+                 lang = sarvam_service.detect_language(request.query)
+                 response_text = await sarvam_service.get_financial_advice_indic(request.query, lang)
+                 model_used = "sarvam"
+            else:
+                 result = await ai_tools_service.process_with_tools(request.query, request.user_context)
+                 response_text = result.response
+                 model_used = "ai_tools"
+        
+        elif query_type == QueryType.WEB_SEARCH:
+            # Use DuckDuckGo web search with clickable sources
+            search_category = "general"
+            lower_query = request.query.lower()
+
+            # Detect category from query
+            if any(word in lower_query for word in ['buy', 'price', 'shop', 'product']):
+                search_category = "shopping"
+            elif any(word in lower_query for word in ['stock', 'share', 'nse', 'bse']):
+                search_category = "stocks"
+            elif any(word in lower_query for word in ['news', 'latest', 'today']):
+                search_category = "news"
+            elif any(word in lower_query for word in ['tax', 'income tax', 'gst']):
+                search_category = "tax"
+            elif any(word in lower_query for word in ['scheme', 'pradhan mantri', 'government']):
+                search_category = "schemes"
+
+            # Perform web search
+            search_results = await web_search_service.search_finance_news(
+                query=request.query,
+                limit=5,
+                category=search_category
+            )
+
+            if search_results:
+                # Format results with clickable URLs
+                sources = [
+                    {
+                        "title": r.title,
+                        "url": r.url,
+                        "snippet": r.snippet,
+                        "source": r.source,
+                        "price": r.price_display if r.price else None,
+                        "can_add_to_goal": r.can_add_to_goal
+                    }
+                    for r in search_results
+                ]
+
+                # Create response text
+                response_text = f"I found {len(search_results)} results for your query:\n\n"
+                for idx, r in enumerate(search_results, 1):
+                    response_text += f"**{idx}. {r.title}**\n"
+                    response_text += f"{r.snippet}\n"
+                    if r.price_display:
+                        response_text += f"💰 Price: {r.price_display}\n"
+                    response_text += f"🔗 [{r.source}]({r.url})\n\n"
+
+                model_used = "duckduckgo_search"
+            else:
+                # Fallback if no results
+                result = await ai_tools_service.process_with_tools(
+                    query=request.query,
+                    user_context=request.user_context
+                )
+                response_text = result.response
+                model_used = "web_agent_fallback"
+                sources = []
+
+        elif query_type == QueryType.HEAVY_REASONING:
+            # RAG + GPT-4o with Static KB context
+            # First get static context to reduce hallucinations
+            kb_results = static_kb.search(request.query)
+            static_context = ""
+            if kb_results:
+                static_context = "\n\nRelevant Knowledge:\n" + "\n".join([f"- {r['title']}: {r['content'][:200]}..." for r in kb_results[:2]])
+            
+            # Use OpenAI service
+            result_dict = openai_service.chat_with_rag(
+                user_query=request.query + static_context,
+                conversation_history=request.conversation_history,
+                model="gpt-4o",
+                use_rag=True, # Still use RAG for other docs if needed
+                max_tokens=routing_config.get("max_tokens", 4000)
+            )
+            response_text = result_dict["response"]
+            model_used = result_dict["model_used"]
+            sources = result_dict["sources"]
+        
         return {
-            "response": result.response,
-            "action_taken": result.action_taken,
-            "action_type": result.action_type,
-            "action_data": result.action_data,
-            "needs_confirmation": result.needs_confirmation,
-            "user_id": request.user_id
+            "response": response_text,
+            "action_taken": action_taken,
+            "action_type": action_type,
+            "action_data": action_data,
+            "needs_confirmation": needs_confirmation,
+            "user_id": request.user_id,
+            "query_type": query_type.value,
+            "model_used": model_used,
+            "sources": sources
         }
+
     except Exception as e:
+        logger.error(f"Error in agentic_chat: {e}")
         return {
             "response": f"I'm having trouble processing your request: {str(e)}",
             "action_taken": False,
             "error": str(e)
         }
 
-
 @app.post("/agent/confirm-action")
 async def confirm_action(request: ActionConfirmRequest):
-    """
-    Confirm and finalize an AI-suggested action.
-    Called by Flutter after user confirms an action.
-    
-    Note: Actual data persistence happens in Flutter (local DB).
-    This endpoint just validates and returns success confirmation.
-    """
     return {
         "success": True,
         "message": f"Action '{request.action_type}' confirmed. Data saved locally.",
@@ -440,10 +527,8 @@ async def confirm_action(request: ActionConfirmRequest):
         "action_data": request.action_data
     }
 
-
 @app.get("/agent/tools")
 async def get_available_tools():
-    """Get list of available AI tools/actions."""
     from services.ai_tools_service import FINANCIAL_TOOLS
     return {
         "tools": [
@@ -452,37 +537,21 @@ async def get_available_tools():
         ]
     }
 
-
 @app.post("/agent/scan-document")
 async def scan_document(file: UploadFile = File(...)):
-    """
-    Scan and extract transactions from PDF bank statements.
-    Supports HDFC, ICICI, SBI, and generic formats.
-    """
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
-    # Use tempfile for safe file handling
     with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
         tmp.write(await file.read())
         temp_path = tmp.name
     
     try:
-        # Use AdvancedPDFParser for robust extraction
-        # It handles Text, Tables, OCR, and PhonePe formats
         result = await pdf_parser_service.extract_transactions(temp_path, document_type='auto')
         transactions = result.get('transactions', [])
         
-        # Auto-categorize extracted transactions if category is missing or 'Uncategorized'
-        # The parser already does some categorization, but we can enhance it with AI
-        for tx in transactions:
-            if not tx.get('category') or tx.get('category') in ['Uncategorized', 'Miscellaneous']:
-                pass # Let AI categorizer handle it if needed
-                
-        # Format for response (ensure all fields are present)
         formatted_transactions = []
         for tx in transactions:
-            # tx is a dict because extract_transactions returns list of dicts (via asdict)
             formatted_transactions.append({
                 "date": tx.get('date'),
                 "description": tx.get('description'),
@@ -499,12 +568,7 @@ async def scan_document(file: UploadFile = File(...)):
         return {
             "filename": file.filename,
             "transactions": formatted_transactions,
-            "count": len(formatted_transactions),
-            "note": f"Extracted using {', '.join(result.get('method', []))}",
-            "metadata": {
-                "document_type": result.get('document_type'),
-                "bank_detected": result.get('bank')
-            }
+            "metadata": result.get('metadata', {})
         }
     except Exception as e:
         logger.error(f"Error scanning document: {e}")
@@ -513,1421 +577,803 @@ async def scan_document(file: UploadFile = File(...)):
         if os.path.exists(temp_path):
             os.unlink(temp_path)
 
-
 @app.post("/agent/scan-receipt")
 async def scan_receipt(file: UploadFile = File(...)):
-    """
-    PERCEPTION LAYER: Scan a receipt image using Zoho Vision.
-    Extracts structured data: merchant, amount, items, category.
-    Triggers when user takes a photo of a physical receipt.
-    """
     allowed_types = [".jpg", ".jpeg", ".png", ".webp"]
     ext = os.path.splitext(file.filename or "")[1].lower()
-    
     if ext not in allowed_types:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Unsupported image format. Use: {', '.join(allowed_types)}"
-        )
+        raise HTTPException(status_code=400, detail="Unsupported image format")
     
     try:
         image_bytes = await file.read()
-        
         if zoho_vision_service.is_configured:
-            # Use Zoho Vision for high-quality OCR
             receipt = await zoho_vision_service.extract_receipt(image_bytes, file.filename)
-            
             return {
                 "success": True,
                 "source": "zoho_vision",
-                "data": {
-                    "merchant_name": receipt.merchant_name,
-                    "date": receipt.date,
-                    "total_amount": receipt.total_amount,
-                    "currency": receipt.currency,
-                    "items": receipt.items,
-                    "category": receipt.category,
-                    "payment_method": receipt.payment_method,
-                    "confidence": receipt.confidence,
-                },
+                "data": receipt.dict(), # Assuming Pydantic model
                 "suggested_transaction": {
-                    "description": f"{receipt.merchant_name}",
+                    "description": receipt.merchant_name,
                     "amount": receipt.total_amount,
-                    "type": "expense",
-                    "category": receipt.category or "Shopping",
-                    "date": receipt.date,
+                    "date": receipt.date
                 }
             }
         else:
-            # Fallback: Use Gemini for basic extraction
-            import base64
-            image_b64 = base64.b64encode(image_bytes).decode('utf-8')
-            
-            prompt = f"Extract merchant name, total amount, and date from this receipt. Return as JSON."
-            # Note: Gemini multimodal would need different implementation
-            
-            return {
+             return {
                 "success": False,
                 "source": "fallback",
-                "error": "Zoho Vision not configured. Please set ZOHO_CLIENT_ID and ZOHO_CLIENT_SECRET.",
+                "error": "Zoho Vision not configured.",
                 "data": None
             }
-            
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/transactions/import/image")
+async def import_transactions_from_image(
+    file: UploadFile = File(...),
+    user_id: str = "default"
+):
+    """
+    Import transactions from an image file using Sarvam Vision.
+    Supports receipts, bank statement screenshots, UPI screenshots, etc.
+    """
+    allowed_types = [".jpg", ".jpeg", ".png", ".webp"]
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed_types:
+        raise HTTPException(status_code=400, detail="Unsupported image format. Use JPG, PNG, or WebP.")
+
+    temp_path = None
+    try:
+        # Save to temp file
+        temp_path = f"/tmp/wealthin_img_{user_id}_{int(datetime.now().timestamp())}{ext}"
+        image_bytes = await file.read()
+        with open(temp_path, "wb") as f:
+            f.write(image_bytes)
+
+        logger.info(f"[Import Image] Processing {file.filename} for user {user_id}")
+
+        # Try Sarvam Vision first
+        if sarvam_service.is_configured:
+            result = sarvam_service.extract_transactions_from_image(temp_path)
+
+            if result.get("success") and result.get("transactions"):
+                # Categorize each transaction
+                transactions = result["transactions"]
+                for tx in transactions:
+                    if tx.get("category") == "Other":
+                        category = await transaction_categorizer.categorize_single(
+                            tx.get("description", ""),
+                            tx.get("amount", 0),
+                            tx.get("type", "expense")
+                        )
+                        tx["category"] = category
+
+                return {
+                    "success": True,
+                    "transaction_count": len(transactions),
+                    "transactions": transactions,
+                    "source": result.get("source", "sarvam_vision"),
+                    "confidence": 0.85 if result.get("source") == "sarvam_vision" else 0.6
+                }
+
+        # Fallback to Zoho Vision
+        if zoho_vision_service.is_configured:
+            receipt = await zoho_vision_service.extract_receipt(image_bytes, file.filename)
+            if receipt:
+                transaction = {
+                    "date": receipt.date or datetime.now().strftime('%Y-%m-%d'),
+                    "description": receipt.merchant_name or "Receipt",
+                    "amount": receipt.total_amount or 0,
+                    "type": "expense",
+                    "category": "Other",
+                    "merchant": receipt.merchant_name
+                }
+                # Categorize
+                category = await transaction_categorizer.categorize_single(
+                    transaction["description"],
+                    transaction["amount"],
+                    "expense"
+                )
+                transaction["category"] = category
+
+                return {
+                    "success": True,
+                    "transaction_count": 1,
+                    "transactions": [transaction],
+                    "source": "zoho_vision",
+                    "confidence": 0.7
+                }
+
+        return {
+            "success": False,
+            "error": "No vision service available. Configure Sarvam AI or Zoho Vision.",
+            "transactions": []
+        }
+
+    except Exception as e:
+        logger.error(f"[Import Image] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+
+
 @app.post("/agent/indic-chat")
 async def indic_chat(request: AgentRequest):
-    """
-    COGNITION LAYER: Chat in Indian regional languages using Sarvam AI.
-    Provides culturally relevant financial advice in Hindi, Telugu, Tamil, etc.
-    """
     if not sarvam_service.is_configured:
-        # Fallback to OpenAI/Gemini
         return await agent_chat(request)
-    
     try:
         detected_lang = sarvam_service.detect_language(request.query)
-        is_indic = sarvam_service.is_indic_query(request.query)
-        
-        if is_indic:
-            response = await sarvam_service.get_financial_advice_indic(
-                request.query,
-                detected_lang
-            )
-            return {
-                "response": response,
-                "language": detected_lang,
-                "source": "sarvam",
-                "user_id": request.user_id
-            }
+        if sarvam_service.is_indic_query(request.query):
+            response = await sarvam_service.get_financial_advice_indic(request.query, detected_lang)
+            return {"response": response, "language": detected_lang, "user_id": request.user_id}
         else:
-            # Not Indic, use regular chat
             return await agent_chat(request)
-            
     except Exception as e:
-        # Fallback on error
         return await agent_chat(request)
-
 
 @app.post("/agent/deep-research")
 async def deep_research(request: DeepResearchRequest):
-    """
-    Deep Research Agentic Loop.
-    Performs multi-step research: PLAN → SEARCH → BROWSE → REFLECT → SYNTHESIZE.
-    
-    Returns:
-    - report: Comprehensive research report (markdown)
-    - sources: List of URLs referenced
-    - status_log: Step-by-step execution log for UI streaming
-    - iterations: Number of research iterations performed
-    """
     try:
         agent = get_deep_research_agent()
-        result = await agent.research(
-            query=request.query,
-            context=request.user_context,
-        )
-        
+        result = await agent.research(query=request.query, context=request.user_context)
         return {
             "success": True,
             "report": result.get("report", ""),
             "sources": result.get("sources", []),
             "status_log": result.get("status_log", []),
-            "iterations": result.get("iterations", 0),
             "user_id": request.user_id,
         }
     except Exception as e:
-        logger.error(f"Deep research error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# --- Brainstorming & DPR ---
+
+class BrainstormRequest(BaseModel):
+    user_id: str
+    message: str
+    conversation_history: Optional[List[Dict]] = []
+    enable_web_search: bool = True
+    search_category: str = "general"
+    persona: str = "neutral"  # Thinking hat persona
+
+@app.post("/brainstorm/chat")
+async def brainstorm_chat(request: BrainstormRequest):
+    """Chat with AI using selected persona (thinking hat)."""
+    try:
+        result = await openai_brainstorm_service.brainstorm(
+            user_message=request.message,
+            conversation_history=request.conversation_history,
+            enable_web_search=request.enable_web_search,
+            search_category=request.search_category,
+            persona=request.persona
+        )
         return {
-            "success": False,
-            "error": str(e),
-            "report": f"Research failed: {str(e)}",
-            "sources": [],
-            "status_log": [f"❌ Error: {str(e)}"],
+            "success": True,
+            "content": result.content,
+            "sources": result.sources
         }
+    except Exception as e:
+        logger.error(f"Brainstorm error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/brainstorm/generate-dpr")
+async def generate_dpr(request: DPRRequest):
+    try:
+        market_research = None
+        # Future: Integrate web search here
+        
+        dpr_content = openai_service.generate_dpr(
+            business_idea=request.business_idea,
+            user_data=request.user_data,
+            market_research=market_research
+        )
+        return {
+            "dpr": dpr_content,
+            "status": "success",
+            "model_used": "gpt-4o"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/brainstorm/status")
+async def brainstorm_status():
+    return {
+        "available": openai_brainstorm_service.is_available,
+        "web_search_available": web_search_service.is_available,
+        "personas": list(openai_brainstorm_service.PERSONAS.keys())
+    }
+
+@app.post("/brainstorm/critique")
+async def reverse_brainstorm(request: dict):
+    """
+    REFINERY STAGE: Critique ideas to find weaknesses.
+    Uses reverse brainstorming psychology.
+    """
+    try:
+        ideas = request.get("ideas", [])
+        history = request.get("conversation_history", [])
+
+        result = await openai_brainstorm_service.reverse_brainstorm(
+            ideas=ideas,
+            conversation_history=history
+        )
+
+        return {
+            "success": True,
+            "critique": result.content,
+            "sources": result.sources
+        }
+    except Exception as e:
+        logger.error(f"Reverse brainstorm error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/brainstorm/extract-canvas")
+async def extract_canvas_items(request: dict):
+    """
+    ANCHOR STAGE: Extract ideas that survived critique for canvas.
+    Returns structured ideas ready for visual canvas.
+    """
+    try:
+        history = request.get("conversation_history", [])
+
+        result = await openai_brainstorm_service.extract_canvas_candidates(
+            conversation_history=history
+        )
+
+        return {
+            "success": True,
+            "ideas": result["ideas"],
+            "message": result["message"]
+        }
+    except Exception as e:
+        logger.error(f"Extract canvas error: {e}")
+        return {"success": False, "error": str(e), "ideas": []}
 
 
-# ============== Investment Calculator Endpoints ==============
+# --- Investment Calculators ---
 
 @app.post("/calculator/sip")
-async def calculate_sip(request: SIPRequest) -> dict:
-    """
-    Calculate SIP (Systematic Investment Plan) returns.
-    """
+async def calculate_sip(request: SIPRequest):
     result = investment_calculator.calculate_sip(
-        monthly_investment=request.monthly_investment,
-        expected_rate=request.expected_rate,
-        duration_months=request.duration_months
+        request.monthly_investment, request.expected_rate, request.duration_months
     )
     return {
         "monthly_investment": result.monthly_investment,
-        "duration_months": result.duration_months,
-        "expected_rate": result.expected_rate,
         "total_invested": result.total_invested,
         "future_value": result.future_value,
-        "wealth_gained": result.wealth_gained,
-        "returns_percentage": round((result.wealth_gained / result.total_invested) * 100, 2) if result.total_invested > 0 else 0
+        "wealth_gained": result.wealth_gained
     }
-
 
 @app.post("/calculator/fd")
-async def calculate_fd(request: FDRequest) -> dict:
-    """
-    Calculate Fixed Deposit maturity amount.
-    """
+async def calculate_fd(request: FDRequest):
     result = investment_calculator.calculate_fd(
-        principal=request.principal,
-        rate=request.rate,
-        tenure_months=request.tenure_months,
-        compounding=request.compounding
+        request.principal, request.rate, request.tenure_months, request.compounding
     )
     return {
-        "principal": result.principal,
-        "rate": result.rate,
-        "tenure_months": result.tenure_months,
         "maturity_amount": result.maturity_amount,
-        "interest_earned": result.interest_earned,
-        "effective_annual_rate": result.effective_annual_rate
-    }
-
-
-@app.post("/calculator/emi")
-async def calculate_emi(request: EMIRequest) -> dict:
-    """
-    Calculate EMI (Equated Monthly Installment) for loans.
-    """
-    result = investment_calculator.calculate_emi(
-        principal=request.principal,
-        rate=request.rate,
-        tenure_months=request.tenure_months,
-        include_amortization=request.include_amortization
-    )
-    return {
-        "principal": result.principal,
-        "rate": result.rate,
-        "tenure_months": result.tenure_months,
-        "emi": result.emi,
-        "total_payment": result.total_payment,
-        "total_interest": result.total_interest,
-        "amortization_schedule": result.amortization_schedule if request.include_amortization else []
-    }
-
-
-@app.post("/calculator/rd")
-async def calculate_rd(request: RDRequest) -> dict:
-    """
-    Calculate RD (Recurring Deposit) maturity amount.
-    """
-    result = investment_calculator.calculate_rd(
-        monthly_deposit=request.monthly_deposit,
-        rate=request.rate,
-        tenure_months=request.tenure_months
-    )
-    return {
-        "monthly_deposit": result.monthly_deposit,
-        "rate": result.rate,
-        "tenure_months": result.tenure_months,
-        "maturity_amount": result.maturity_amount,
-        "total_deposited": result.total_deposited,
         "interest_earned": result.interest_earned
     }
 
+@app.post("/calculator/emi")
+async def calculate_emi(request: EMIRequest):
+    result = investment_calculator.calculate_emi(
+        request.principal, request.rate, request.tenure_months
+    )
+    return {
+        "emi": result.emi,
+        "total_payment": result.total_payment,
+        "total_interest": result.total_interest
+    }
+
+@app.post("/calculator/rd")
+async def calculate_rd(request: RDRequest):
+    result = investment_calculator.calculate_rd(
+        request.monthly_deposit, request.rate, request.tenure_months
+    )
+    return {"maturity_amount": result.maturity_amount}
 
 @app.post("/calculator/lumpsum")
-async def calculate_lumpsum(request: LumpsumRequest) -> dict:
-    """
-    Calculate lumpsum investment returns.
-    """
-    return investment_calculator.calculate_lumpsum(
-        principal=request.principal,
-        rate=request.rate,
-        duration_years=request.duration_years
+async def calculate_lumpsum(request: LumpsumRequest):
+    result = investment_calculator.calculate_lumpsum(
+        request.principal, request.rate, request.duration_years
     )
-
+    return {"maturity_amount": result.maturity_amount}
 
 @app.post("/calculator/cagr")
-async def calculate_cagr(request: CAGRRequest) -> dict:
-    """
-    Calculate CAGR (Compound Annual Growth Rate).
-    """
-    cagr = investment_calculator.calculate_cagr(
-        initial_value=request.initial_value,
-        final_value=request.final_value,
-        years=request.years
+async def calculate_cagr(request: CAGRRequest):
+    result = investment_calculator.calculate_cagr(
+        request.initial_value, request.final_value, request.years
     )
-    return {
-        "initial_value": request.initial_value,
-        "final_value": request.final_value,
-        "years": request.years,
-        "cagr": cagr
-    }
-
+    return {"cagr": result}
 
 @app.post("/calculator/goal-sip")
-async def calculate_goal_sip(request: GoalSIPRequest) -> dict:
-    """
-    Calculate required monthly SIP to reach a financial goal.
-    """
-    monthly_sip = investment_calculator.calculate_goal_sip(
-        target_amount=request.target_amount,
-        duration_months=request.duration_months,
-        expected_rate=request.expected_rate
+async def calculate_goal_sip(request: GoalSIPRequest):
+    result = investment_calculator.calculate_sip_for_goal(
+        request.target_amount, request.duration_months, request.expected_rate
     )
-    return {
-        "target_amount": request.target_amount,
-        "duration_months": request.duration_months,
-        "expected_rate": request.expected_rate,
-        "required_monthly_sip": monthly_sip
-    }
+    return {"required_monthly_investment": result}
 
 
-# ============== Categorization Endpoints ==============
+# --- Categorization ---
 
 @app.post("/categorize")
-async def categorize_transaction(request: CategorizeRequest) -> dict:
-    """
-    Categorize a single transaction using AI.
-    """
-    category = await transaction_categorizer.categorize_single(
-        description=request.description,
-        amount=request.amount,
-        tx_type=request.tx_type
-    )
-    return {
-        "description": request.description,
-        "amount": request.amount,
-        "type": request.tx_type,
-        "category": category
-    }
-
+async def categorize_single(request: CategorizeRequest):
+    category = await transaction_categorizer.categorize_single(request.description, request.amount, request.tx_type)
+    return {"description": request.description, "category": category}
 
 @app.post("/categorize/batch")
-async def categorize_batch(request: BatchCategorizeRequest) -> dict:
-    """
-    Categorize multiple transactions efficiently.
-    """
+async def categorize_batch(request: BatchCategorizeRequest):
     categorized = await transaction_categorizer.categorize_batch(request.transactions)
-    return {
-        "transactions": categorized,
-        "count": len(categorized)
-    }
+    return {"transactions": categorized}
+
+@app.post("/analyze/spending")
+async def analyze_spending(request: AnalyzeSpendingRequest):
+    return await analytics_service.analyze_spending_patterns(request.transactions)
 
 
-# ============== NCM (National Contribution Milestone) Endpoints ==============
+# --- Transaction Management ---
 
-@app.get("/ncm/score/{user_id}")
-async def get_ncm_score(user_id: str):
-    """
-    Get user's NCM score (Consumption + Savings + Tax).
-    Gamified contribution to Viksit Bharat 2047.
-    """
-    score = await ncm_service.calculate_score(user_id)
-    return {
-        "score": score.total_score,
-        "milestone": score.milestone,
-        "next_milestone": score.next_milestone,
-        "progress": score.progress_to_next,
-        "breakdown": {
-            "consumption": score.consumption_score,
-            "savings": score.savings_score,
-            "tax": score.tax_score,
-        }
-    }
+class TransactionUpdateRequest(BaseModel):
+    category: Optional[str] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None
 
+@app.put("/transactions/{transaction_id}")
+async def update_transaction(
+    transaction_id: int,
+    request: TransactionUpdateRequest,
+    user_id: str = "default"
+):
+    """Update a transaction's category or other fields."""
+    try:
+        updates = {}
+        if request.category:
+            updates['category'] = request.category
+        if request.description:
+            updates['description'] = request.description
+        if request.notes:
+            updates['notes'] = request.notes
 
-@app.get("/ncm/insight/{user_id}")
-async def get_ncm_insight(user_id: str):
-    """Get NCM insight with contextual message."""
-    return await ncm_service.get_insight(user_id)
+        if not updates:
+            return {"success": False, "error": "No updates provided"}
 
-
-class NCMContributionRequest(BaseModel):
-    consumption: float = 0
-    savings: float = 0
-    tax: float = 0
-    sovereign: float = 0
-
-
-@app.post("/ncm/record/{user_id}")
-async def record_ncm_contribution(user_id: str, request: NCMContributionRequest):
-    """Record a contribution to the user's NCM ledger."""
-    return await ncm_service.record_contribution(
-        user_id=user_id,
-        consumption=request.consumption,
-        savings=request.savings,
-        tax=request.tax,
-        sovereign=request.sovereign
-    )
+        result = await database_service.update_transaction(transaction_id, user_id, updates)
+        if result:
+            return {"success": True, "transaction": result.dict() if hasattr(result, 'dict') else result}
+        return {"success": False, "error": "Transaction not found"}
+    except Exception as e:
+        logger.error(f"Error updating transaction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ============== INVESTMENT NUDGES (RBI Compliant) ==============
+# --- Merchant Rules Management ---
 
-@app.get("/nudges/{user_id}")
-async def get_investment_nudges(user_id: str, limit: int = 3):
-    """
-    Get personalized investment nudges with Insight Chips.
-    
-    RBI Compliance:
-    - Informational only (no execution)
-    - User directed to bank apps
-    - Transparent risk disclosure
-    """
-    return await investment_nudge_service.get_nudge_summary(user_id)
-
-
-@app.get("/nudges/surplus/{user_id}")
-async def get_surplus_analysis(user_id: str):
-    """
-    Get user's surplus analysis for investment planning.
-    Formula: Income - Expenses - 20% buffer
-    """
-    return await investment_nudge_service.calculate_surplus(user_id)
-
-
-# ============== DEBT MANAGER Endpoints ==============
-
-@app.get("/debt/snowball/{user_id}")
-async def get_debt_snowball(user_id: str):
-    """
-    Get Debt Snowball visualization data.
-    Shows all loans with principal/interest breakdown and progress.
-    """
-    return await database_service.get_debt_snowball_data(user_id)
-
-
-# ============== MERCHANT RULES Endpoints (One-Click Flagging) ==============
-
-class AddMerchantRuleRequest(BaseModel):
+class MerchantRuleRequest(BaseModel):
     keyword: str
     category: str
-    is_auto: bool = True
-
+    is_auto: bool = False  # False = manual rule from user
 
 @app.get("/merchant-rules")
 async def get_merchant_rules():
-    """Get all merchant-category rules."""
-    rules = await merchant_service.get_all_rules()
-    return {
-        "rules": [{"id": r.id, "keyword": r.keyword, "category": r.category, "is_auto": r.is_auto} for r in rules],
-        "count": len(rules)
-    }
-
+    """Get all merchant categorization rules."""
+    try:
+        from services.merchant_service import merchant_service
+        rules = await merchant_service.get_all_rules()
+        return {
+            "success": True,
+            "rules": [{"id": r.id, "keyword": r.keyword, "category": r.category, "is_auto": r.is_auto} for r in rules]
+        }
+    except Exception as e:
+        logger.error(f"Error getting merchant rules: {e}")
+        return {"success": False, "error": str(e), "rules": []}
 
 @app.post("/merchant-rules")
-async def add_merchant_rule(request: AddMerchantRuleRequest):
-    """
-    Add a new merchant-category rule.
-    The keyword will be cleaned and stored in uppercase for fuzzy matching.
-    """
-    rule = await merchant_service.add_rule(request.keyword, request.category, request.is_auto)
-    if rule:
-        return {"success": True, "rule": {"id": rule.id, "keyword": rule.keyword, "category": rule.category}}
-    return {"success": False, "error": "Failed to add rule"}
-
+async def add_merchant_rule(request: MerchantRuleRequest):
+    """Add a new merchant categorization rule."""
+    try:
+        from services.merchant_service import merchant_service
+        rule = await merchant_service.add_rule(request.keyword, request.category, request.is_auto)
+        if rule:
+            return {
+                "success": True,
+                "rule": {"id": rule.id, "keyword": rule.keyword, "category": rule.category, "is_auto": rule.is_auto}
+            }
+        return {"success": False, "error": "Failed to add rule"}
+    except Exception as e:
+        logger.error(f"Error adding merchant rule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/merchant-rules/{rule_id}")
 async def delete_merchant_rule(rule_id: int):
-    """Delete a merchant rule by ID."""
-    success = await merchant_service.delete_rule(rule_id)
-    return {"success": success}
-
-
-@app.post("/merchant-rules/seed")
-async def seed_merchant_rules():
-    """Seed database with common Indian merchant rules for demo."""
-    await merchant_service.seed_default_rules()
-    return {"success": True, "message": "Seeded default rules"}
-
-
-# ============== BUDGET CRUD Endpoints ==============
-
-@app.post("/budgets")
-async def create_budget(request: CreateBudgetRequest):
-    """Create a new budget"""
-    from datetime import datetime
-    budget = Budget(
-        id=None,
-        user_id=request.user_id,
-        name=request.name,
-        amount=request.amount,
-        spent=0,
-        icon=request.icon,
-        category=request.category,
-        period=request.period,
-        start_date=request.start_date or datetime.utcnow().date().isoformat(),
-        end_date=None,
-        created_at='',
-        updated_at=''
-    )
-    created = await database_service.create_budget(budget)
-    return {"success": True, "budget": created.__dict__}
-
-
-@app.get("/budgets/{user_id}")
-async def get_budgets(user_id: str):
-    """Get all budgets for a user"""
-    budgets = await database_service.get_budgets(user_id)
-    return {"budgets": [b.__dict__ for b in budgets], "count": len(budgets)}
-
-
-@app.get("/budgets/{user_id}/{budget_id}")
-async def get_budget(user_id: str, budget_id: int):
-    """Get a specific budget"""
-    budget = await database_service.get_budget(budget_id, user_id)
-    if not budget:
-        raise HTTPException(status_code=404, detail="Budget not found")
-    return {"budget": budget.__dict__}
-
-
-@app.put("/budgets/{user_id}/{budget_id}")
-async def update_budget(user_id: str, budget_id: int, request: UpdateBudgetRequest):
-    """Update a budget"""
-    updates = {k: v for k, v in request.dict().items() if v is not None}
-    if not updates:
-        raise HTTPException(status_code=400, detail="No updates provided")
-    
-    budget = await database_service.update_budget(budget_id, user_id, updates)
-    if not budget:
-        raise HTTPException(status_code=404, detail="Budget not found")
-    return {"success": True, "budget": budget.__dict__}
-
-
-@app.delete("/budgets/{user_id}/{budget_id}")
-async def delete_budget(user_id: str, budget_id: int):
-    """Delete a budget"""
-    deleted = await database_service.delete_budget(budget_id, user_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Budget not found")
-    return {"success": True, "message": "Budget deleted"}
-
-
-# ============== GOAL CRUD Endpoints ==============
-
-@app.post("/goals")
-async def create_goal(request: CreateGoalRequest):
-    """Create a new savings goal"""
-    goal = Goal(
-        id=None,
-        user_id=request.user_id,
-        name=request.name,
-        target_amount=request.target_amount,
-        current_amount=0,
-        deadline=request.deadline,
-        status='active',
-        icon=request.icon,
-        notes=request.notes,
-        created_at='',
-        updated_at=''
-    )
-    created = await database_service.create_goal(goal)
-    return {"success": True, "goal": created.__dict__}
-
-
-@app.get("/goals/{user_id}")
-async def get_goals(user_id: str):
-    """Get all goals for a user"""
-    goals = await database_service.get_goals(user_id)
-    return {"goals": [g.__dict__ for g in goals], "count": len(goals)}
-
-
-@app.get("/goals/{user_id}/{goal_id}")
-async def get_goal(user_id: str, goal_id: int):
-    """Get a specific goal"""
-    goal = await database_service.get_goal(goal_id, user_id)
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-    return {"goal": goal.__dict__}
-
-
-@app.put("/goals/{user_id}/{goal_id}")
-async def update_goal(user_id: str, goal_id: int, request: UpdateGoalRequest):
-    """Update a goal"""
-    updates = {k: v for k, v in request.dict().items() if v is not None}
-    if not updates:
-        raise HTTPException(status_code=400, detail="No updates provided")
-    
-    goal = await database_service.update_goal(goal_id, user_id, updates)
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-    return {"success": True, "goal": goal.__dict__}
-
-
-@app.post("/goals/{user_id}/{goal_id}/add-funds")
-async def add_funds_to_goal(user_id: str, goal_id: int, request: AddFundsRequest):
-    """Add funds to a savings goal"""
-    goal = await database_service.add_funds_to_goal(goal_id, user_id, request.amount)
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-    return {
-        "success": True, 
-        "goal": goal.__dict__,
-        "message": f"Added ₹{request.amount:,.2f} to {goal.name}"
-    }
-
-
-@app.delete("/goals/{user_id}/{goal_id}")
-async def delete_goal(user_id: str, goal_id: int):
-    """Delete a goal"""
-    deleted = await database_service.delete_goal(goal_id, user_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Goal not found")
-    return {"success": True, "message": "Goal deleted"}
-
-
-# ============== TRANSACTION CRUD Endpoints ==============
-
-@app.post("/transactions")
-async def create_transaction(request: CreateTransactionRequest):
-    """Create a new transaction"""
-    from datetime import datetime
-    
-    # Auto-categorize if category not provided meaningfully
-    if request.category == 'uncategorized' or not request.category:
-        category = await transaction_categorizer.categorize_single(
-            request.description, request.amount, request.type
-        )
-    else:
-        category = request.category
-    
-    transaction = Transaction(
-        id=None,
-        user_id=request.user_id,
-        amount=request.amount,
-        description=request.description,
-        category=category,
-        type=request.type,
-        date=request.date or datetime.utcnow().date().isoformat(),
-        payment_method=request.payment_method,
-        notes=request.notes,
-        receipt_url=request.receipt_url,
-        is_recurring=request.is_recurring,
-        created_at=''
-    )
-    created = await database_service.create_transaction(transaction)
-    return {"success": True, "transaction": created.__dict__}
-
-
-@app.get("/transactions/{user_id}")
-async def get_transactions(
-    user_id: str, 
-    limit: int = 50, 
-    offset: int = 0,
-    category: Optional[str] = None,
-    type: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None
-):
-    """Get transactions with optional filtering"""
-    transactions = await database_service.get_transactions(
-        user_id, limit, offset, category, type, start_date, end_date
-    )
-    return {"transactions": [t.__dict__ for t in transactions], "count": len(transactions)}
-
-
-@app.get("/transactions/{user_id}/{transaction_id}")
-async def get_transaction(user_id: str, transaction_id: int):
-    """Get a specific transaction"""
-    transaction = await database_service.get_transaction(transaction_id, user_id)
-    if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    return {"transaction": transaction.__dict__}
-
-
-@app.put("/transactions/{user_id}/{transaction_id}")
-async def update_transaction(user_id: str, transaction_id: int, request: UpdateTransactionRequest):
-    """Update a transaction"""
-    updates = {k: v for k, v in request.dict().items() if v is not None}
-    if not updates:
-        raise HTTPException(status_code=400, detail="No updates provided")
-    
-    transaction = await database_service.update_transaction(transaction_id, user_id, updates)
-    if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    return {"success": True, "transaction": transaction.__dict__}
-
-
-@app.delete("/transactions/{user_id}/{transaction_id}")
-async def delete_transaction(user_id: str, transaction_id: int):
-    """Delete a transaction"""
-    deleted = await database_service.delete_transaction(transaction_id, user_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    return {"success": True, "message": "Transaction deleted"}
-
-
-@app.get("/transactions/{user_id}/summary")
-async def get_spending_summary(user_id: str, start_date: str, end_date: str):
-    """Get spending summary for a date range"""
-    summary = await database_service.get_spending_summary(user_id, start_date, end_date)
-    return {"summary": summary}
-
-
-# ============== SCHEDULED PAYMENT CRUD Endpoints ==============
-
-@app.post("/scheduled-payments")
-async def create_scheduled_payment(request: CreateScheduledPaymentRequest):
-    """Create a new scheduled payment"""
-    payment = ScheduledPayment(
-        id=None,
-        user_id=request.user_id,
-        name=request.name,
-        amount=request.amount,
-        category=request.category,
-        frequency=request.frequency,
-        due_date=request.due_date,
-        next_due_date=request.due_date,  # Initially same as due_date
-        is_autopay=request.is_autopay,
-        status='active',
-        reminder_days=request.reminder_days,
-        last_paid_date=None,
-        notes=request.notes,
-        created_at='',
-        updated_at=''
-    )
-    created = await database_service.create_scheduled_payment(payment)
-    return {"success": True, "payment": created.__dict__}
-
-
-@app.get("/scheduled-payments/{user_id}")
-async def get_scheduled_payments(user_id: str, status: Optional[str] = None):
-    """Get all scheduled payments for a user"""
-    payments = await database_service.get_scheduled_payments(user_id, status)
-    return {"payments": [p.__dict__ for p in payments], "count": len(payments)}
-
-
-@app.get("/scheduled-payments/{user_id}/{payment_id}")
-async def get_scheduled_payment(user_id: str, payment_id: int):
-    """Get a specific scheduled payment"""
-    payment = await database_service.get_scheduled_payment(payment_id, user_id)
-    if not payment:
-        raise HTTPException(status_code=404, detail="Scheduled payment not found")
-    return {"payment": payment.__dict__}
-
-
-@app.put("/scheduled-payments/{user_id}/{payment_id}")
-async def update_scheduled_payment(user_id: str, payment_id: int, request: UpdateScheduledPaymentRequest):
-    """Update a scheduled payment"""
-    updates = {k: v for k, v in request.dict().items() if v is not None}
-    if not updates:
-        raise HTTPException(status_code=400, detail="No updates provided")
-    
-    payment = await database_service.update_scheduled_payment(payment_id, user_id, updates)
-    if not payment:
-        raise HTTPException(status_code=404, detail="Scheduled payment not found")
-    return {"success": True, "payment": payment.__dict__}
-
-
-@app.post("/scheduled-payments/{user_id}/{payment_id}/mark-paid")
-async def mark_payment_paid(user_id: str, payment_id: int):
-    """Mark a scheduled payment as paid"""
-    payment = await database_service.mark_payment_paid(payment_id, user_id)
-    if not payment:
-        raise HTTPException(status_code=404, detail="Scheduled payment not found")
-    return {
-        "success": True, 
-        "payment": payment.__dict__,
-        "message": f"Payment '{payment.name}' marked as paid. Next due: {payment.next_due_date}"
-    }
-
-
-@app.delete("/scheduled-payments/{user_id}/{payment_id}")
-async def delete_scheduled_payment(user_id: str, payment_id: int):
-    """Delete a scheduled payment"""
-    deleted = await database_service.delete_scheduled_payment(payment_id, user_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Scheduled payment not found")
-    return {"success": True, "message": "Scheduled payment deleted"}
-
-
-@app.get("/scheduled-payments/{user_id}/upcoming")
-async def get_upcoming_payments(user_id: str, days: int = 7):
-    """Get payments due in the next N days"""
-    payments = await database_service.get_upcoming_payments(user_id, days)
-    return {"payments": [p.__dict__ for p in payments], "count": len(payments)}
-
-
-# ============== DASHBOARD Endpoint ==============
-
-@app.get("/dashboard/{user_id}")
-async def get_dashboard(user_id: str, start_date: Optional[str] = None, end_date: Optional[str] = None):
-    """Get aggregated dashboard data for a user"""
-    data = await database_service.get_dashboard_data(user_id, start_date, end_date)
-    return {"dashboard": data}
-
-
-# ============== Transaction Import Endpoints ==============
-
-@app.post("/transactions/import/pdf")
-async def import_transactions_from_pdf(
-    user_id: str,
-    file: UploadFile = File(...)
-):
-    """
-    Import transactions from a bank statement PDF.
-    Uses intelligent parsing for Indian bank formats.
-    """
-    if not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
-    
-    temp_path = None
+    """Delete a merchant categorization rule."""
     try:
-        # Save to temp file
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-            tmp.write(await file.read())
-            temp_path = tmp.name
-        
-        # Extract transactions using enhanced parser
-        # Note: extract_transactions takes a file path
-        result = await pdf_parser_service.extract_transactions(temp_path)
-        
-        if result.get('status') == 'error':
-            raise HTTPException(status_code=400, detail=result.get('error', 'Failed to parse PDF'))
-        
-        # Save extracted transactions to database
-        saved_transactions = []
-        for tx in result['transactions']:
-                # Use category from parser if available, else standard fallback
-                category = tx.get('extra_data', {}).get('category', 'Other')
-                
-                transaction = Transaction(
-                    id=None,
-                    user_id=user_id,
-                    amount=tx['amount'],
-                    description=tx['description'],
-                    category=category,
-                    type=tx['transaction_type'],
-                    date=tx['date'],
-                    time=tx.get('extra_data', {}).get('time'),
-                    merchant=tx.get('merchant'),
-                    payment_method=result.get('bank', 'Unknown'),
-                    notes=f"Imported from {file.filename}. Confidence: {tx.get('confidence', 0)}",
-                    receipt_url=None,
-                    is_recurring=False,
-                    created_at=""
-                )
-                created = await database_service.create_transaction(transaction)
-                saved_transactions.append(created.__dict__)
-        
-        return {
-            "success": True,
-            "bank_detected": result.get('bank', 'generic'),
-            "imported_count": len(saved_transactions),
-            "transactions": saved_transactions
-        }
-        
-    except HTTPException:
-        raise
+        from services.merchant_service import merchant_service
+        success = await merchant_service.delete_rule(rule_id)
+        return {"success": success}
     except Exception as e:
-        logger.error(f"Import PDF error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
-
-
-@app.post("/transactions/import/image")
-async def import_transaction_from_image(
-    user_id: str,
-    file: UploadFile = File(...)
-):
-    """
-    Import a transaction from a receipt image using Vision OCR.
-    Supports handwritten, scanned, and photographed receipts.
-    Uses Zoho Catalyst VLM for intelligent extraction.
-    """
-    allowed_types = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"]
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    
-    if ext not in allowed_types:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Unsupported image format. Use: {', '.join(allowed_types)}"
-        )
-    
-    try:
-        image_bytes = await file.read()
-        
-        if not zoho_vision_service.is_configured:
-            raise HTTPException(
-                status_code=503, 
-                detail="Vision service not configured. Please set up Zoho Catalyst credentials."
-            )
-        
-        # Extract receipt data using Zoho Vision
-        receipt = await zoho_vision_service.extract_receipt(image_bytes, file.filename)
-        
-        # Auto-categorize based on merchant
-        category = receipt.category or await transaction_categorizer.categorize_single(
-            receipt.merchant_name,
-            receipt.total_amount or 0.0,
-            "expense"
-        )
-        
-        # Create transaction
-        transaction = Transaction(
-            id=None,
-            user_id=user_id,
-            amount=receipt.total_amount,
-            description=receipt.merchant_name or "Receipt",
-            category=category,
-            type='expense',
-            date=receipt.date,
-            payment_method=receipt.payment_method or 'Cash',
-            notes=f"Items: {', '.join(receipt.items[:3]) if receipt.items else 'N/A'}",
-            receipt_url=None,
-            is_recurring=False,
-            created_at=''
-        )
-        created = await database_service.create_transaction(transaction)
-        
-        return {
-            "success": True,
-            "source": "zoho_vision",
-            "confidence": receipt.confidence,
-            "extracted_data": {
-                "merchant_name": receipt.merchant_name,
-                "total_amount": receipt.total_amount,
-                "date": receipt.date,
-                "items": receipt.items,
-                "category": category,
-            },
-            "transaction": created.__dict__
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
+        logger.error(f"Error deleting merchant rule: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/transactions/import/batch")
-async def import_transactions_batch(
-    user_id: str,
-    transactions: List[Dict[str, Any]]
+@app.post("/transactions/{transaction_id}/set-category")
+async def set_transaction_category_and_remember(
+    transaction_id: int,
+    category: str,
+    remember: bool = True,
+    user_id: str = "default"
 ):
     """
-    Import multiple transactions at once.
-    Used after preview/confirmation in the Flutter app.
+    Set a transaction's category and optionally remember this merchant-category mapping.
+    This is the 'one-click' categorization feature.
     """
     try:
-        saved = []
-        for tx_data in transactions:
-            # Auto-categorize if needed
-            category = tx_data.get('category', 'Other')
-            if category in ['Other', 'uncategorized', '']:
-                category = await transaction_categorizer.categorize_single(
-                    tx_data.get('description', ''),
-                    tx_data.get('amount', 0),
-                    tx_data.get('type', 'expense')
-                )
-            
-            transaction = Transaction(
-                id=None,
-                user_id=user_id,
-                amount=tx_data.get('amount', 0),
-                description=tx_data.get('description', ''),
+        # Get the transaction to extract merchant info
+        transaction = await database_service.get_transaction(transaction_id, user_id)
+        if not transaction:
+            return {"success": False, "error": "Transaction not found"}
+
+        # Update the transaction category
+        updates = {"category": category}
+        await database_service.update_transaction(transaction_id, user_id, updates)
+
+        # If remember is True, add a merchant rule
+        if remember and transaction.description:
+            from services.merchant_service import merchant_service
+            await merchant_service.add_rule(
+                keyword=transaction.description,
                 category=category,
-                type=tx_data.get('type', 'expense'),
-                date=tx_data.get('date', ''),
-                payment_method=tx_data.get('payment_method', ''),
-                notes=tx_data.get('notes', ''),
-                receipt_url=None,
-                is_recurring=False,
-                created_at=''
+                is_auto=False  # Manual rule
             )
-            created = await database_service.create_transaction(transaction)
-            saved.append(created.__dict__)
-        
-        return {
-            "success": True,
-            "imported_count": len(saved),
-            "transactions": saved
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============== Trends Analysis Endpoints ==============
-
-@app.get("/trends/{user_id}")
-async def get_user_trends(user_id: str, period_days: int = 30):
-    """
-    Get comprehensive spending trends analysis for a user.
-    Returns insights for the AI advisor to provide personalized responses.
-    """
-    from services.trends_service import trends_service
-    
-    try:
-        # Fetch user transactions
-        transactions = await database_service.get_transactions(
-            user_id, limit=500, offset=0
-        )
-        
-        # Convert to dict format
-        tx_dicts = [t.__dict__ for t in transactions]
-        
-        # Analyze trends
-        trends = await trends_service.analyze_transactions(tx_dicts, user_id, period_days)
-        
-        return {
-            "success": True,
-            "trends": trends_service.trends_to_dict(trends)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/trends/{user_id}/ai-context")
-async def get_ai_context(user_id: str):
-    """
-    Get AI-ready context summary of user's financial trends.
-    This is used by the AI advisor to provide personalized responses.
-    """
-    from services.trends_service import trends_service
-    
-    try:
-        transactions = await database_service.get_transactions(
-            user_id, limit=500, offset=0
-        )
-        tx_dicts = [t.__dict__ for t in transactions]
-        
-        trends = await trends_service.analyze_transactions(tx_dicts, user_id)
-        
-        return {
-            "success": True,
-            "ai_context": trends.ai_context,
-            "summary": {
-                "total_income": trends.total_income,
-                "total_expenses": trends.total_expenses,
-                "savings_rate": trends.savings_rate,
-                "top_categories": [c['category'] for c in trends.top_spending_categories[:3]],
-            }
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============== Analysis Endpoints ==============
-
-@app.post("/analyze/spending")
-async def analyze_spending(request: AnalyzeSpendingRequest) -> dict:
-    """
-    Analyze spending patterns and provide category-wise breakdown.
-    """
-    # First, ensure all transactions are categorized
-    categorized = await transaction_categorizer.categorize_batch(request.transactions)
-    
-    # Get spending by category
-    spending_by_category = transaction_categorizer.get_spending_by_category(categorized)
-    
-    # Calculate totals
-    total_expense = sum(
-        tx.get("amount", 0) for tx in categorized 
-        if tx.get("type") == "expense"
-    )
-    total_income = sum(
-        tx.get("amount", 0) for tx in categorized 
-        if tx.get("type") == "income"
-    )
-    
-    # Generate AI insights
-    insights = []
-    if spending_by_category:
-        top_category = list(spending_by_category.keys())[0]
-        top_amount = spending_by_category[top_category]
-        insights.append(f"Your highest spending category is {top_category} at ₹{top_amount:,.2f}")
-        
-        if total_income > 0:
-            savings_rate = ((total_income - total_expense) / total_income) * 100
-            if savings_rate < 20:
-                insights.append("⚠️ Your savings rate is below 20%. Consider reducing discretionary spending.")
-            elif savings_rate > 30:
-                insights.append("✅ Great savings rate! Consider investing the surplus.")
-    
-    return {
-        "spending_by_category": spending_by_category,
-        "total_expense": round(total_expense, 2),
-        "total_income": round(total_income, 2),
-        "net_savings": round(total_income - total_expense, 2),
-        "savings_rate": round(((total_income - total_expense) / total_income * 100), 2) if total_income > 0 else 0,
-        "insights": insights,
-        "transaction_count": len(categorized)
-    }
-
-
-# ============== LLM Inference Endpoints ==============
-
-# LLM Inference Request/Response Models
-class LLMInferenceRequest(BaseModel):
-    """Request for LLM inference"""
-    prompt: str
-    tools: Optional[List[Dict[str, Any]]] = Field(default=None, description="Available tools/functions")
-    max_tokens: int = Field(default=2048, description="Maximum tokens to generate")
-    temperature: float = Field(default=0.7, description="Temperature for sampling (0.0-1.0)")
-    format: str = Field(default="nemotron", description="Response format: nemotron, openai, or raw")
-
-class ToolCall(BaseModel):
-    """Tool call extracted from model response"""
-    name: str
-    arguments: Dict[str, Any]
-
-class NemotronResponse(BaseModel):
-    """Response in Nemotron function calling format"""
-    text: str
-    tool_call: Optional[ToolCall] = None
-    finish_reason: str = Field(default="stop")
-    tokens_used: int = Field(default=0)
-    is_local: bool = Field(default=False)
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-
-class LLMInferenceResponse(BaseModel):
-    """Response from LLM inference"""
-    success: bool
-    response: Optional[str] = None
-    tool_call: Optional[ToolCall] = None
-    tokens_used: int = 0
-    mode: str = Field(default="cloud", description="Which inference mode was used")
-    error: Optional[str] = None
-
-# ============== LLM Inference Routes ==============
-
-@app.post("/llm/inference")
-async def llm_inference(request: LLMInferenceRequest) -> LLMInferenceResponse:
-    """
-    Perform LLM inference with tool calling support
-    
-    Supports Nemotron function calling format:
-    {"type": "tool_call", "tool_call": {"name": "...", "arguments": {...}}}
-    
-    This endpoint is called by the Flutter frontend's LLMInferenceRouter
-    when local inference is not available.
-    """
-    try:
-        print(f"[LLM] Inference request: {request.prompt[:100]}...")
-        print(f"[LLM] Format: {request.format}, Tools: {len(request.tools or [])}")
-        
-        # TODO: Implement actual LLM inference using:
-        # - ollama for Sarvam-1 local models
-        # - Hugging Face transformers for other models
-        # - Optional cloud API fallback
-        
-        # For now, return a mock response indicating that the endpoint works
-        # In production, this would call the actual LLM
-        
-        # Extract potential tool calls from the response
-        tool_call = None
-        # Tool extraction logic would go here
-        
-        response_text = f"Mock inference response: {request.prompt}"
-        
-        return LLMInferenceResponse(
-            success=True,
-            response=response_text,
-            tool_call=tool_call,
-            tokens_used=len(request.prompt.split()),
-            mode="cloud-nemotron",
-            error=None
-        )
-        
-    except Exception as e:
-        print(f"[LLM] Inference error: {e}")
-        return LLMInferenceResponse(
-            success=False,
-            response=None,
-            tool_call=None,
-            tokens_used=0,
-            mode="cloud-nemotron",
-            error=str(e)
-        )
-
-@app.post("/llm/parse-tool-call")
-async def parse_tool_call(response: str = ""):
-    """
-    Parse tool calls from LLM response (Nemotron format)
-    
-    Expected format:
-    {"type": "tool_call", "tool_call": {"name": "create_budget", "arguments": {...}}}
-    """
-    try:
-        if not response:
-            return {"success": False, "error": "Empty response"}
-        
-        # Try to extract JSON from response
-        import re
-        regex = re.compile(r'\{[\s\S]*\}')
-        match = regex.search(response)
-        
-        if not match:
-            return {"success": False, "error": "No JSON found in response"}
-        
-        json_str = match.group(0)
-        data = json.loads(json_str)
-        
-        # Check for Nemotron format
-        if data.get('type') == 'tool_call' and data.get('tool_call'):
-            tool_call = data['tool_call']
             return {
                 "success": True,
-                "tool_call": {
-                    "name": tool_call.get('name'),
-                    "arguments": tool_call.get('arguments', {})
-                }
+                "message": f"Category set to '{category}' and rule saved for future transactions",
+                "rule_created": True
             }
+
+        return {
+            "success": True,
+            "message": f"Category set to '{category}'",
+            "rule_created": False
+        }
+    except Exception as e:
+        logger.error(f"Error setting category: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== GAMIFICATION & ANALYSIS MILESTONES ====================
+
+class AnalysisMetricsRequest(BaseModel):
+    user_id: str
+    total_income: float
+    total_expense: float
+    savings_rate: float
+    health_score: float
+    category_breakdown: Dict[str, float] = {}
+    transaction_count: int = 0
+    budget_count: int = 0
+    goals_completed: int = 0
+    current_streak: int = 0
+    under_budget_months: int = 0
+    insights: List[str] = []
+
+
+@app.post("/analysis/save-snapshot")
+async def save_analysis_snapshot(request: AnalysisMetricsRequest):
+    """Save point-in-time analysis snapshot for trend tracking"""
+    try:
+        snapshot_id = await mongo_service.save_analysis_snapshot(
+            user_id=request.user_id,
+            analysis_data=request.dict()
+        )
         
-        return {"success": False, "error": "Not a valid Nemotron tool call"}
+        # Check for milestone achievements
+        newly_achieved = await mongo_service.check_and_award_milestones(
+            user_id=request.user_id,
+            metrics=request.dict()
+        )
         
-    except json.JSONDecodeError as e:
-        return {"success": False, "error": f"JSON parse error: {e}"}
+        # Get updated XP/level
+        xp_data = await mongo_service.get_user_xp(request.user_id)
+        
+        # Save monthly metrics for historical tracking
+        from datetime import datetime as dt
+        await mongo_service.save_monthly_metrics(
+            user_id=request.user_id,
+            metrics={
+                "month": dt.utcnow().strftime("%Y-%m"),
+                **request.dict()
+            }
+        )
+        
+        return {
+            "success": True,
+            "snapshot_id": snapshot_id,
+            "newly_achieved_milestones": newly_achieved,
+            "user_level": xp_data["level"],
+            "total_xp": xp_data["total_xp"],
+            "xp_to_next_level": xp_data["xp_to_next_level"],
+            "milestones_progress": f"{xp_data['milestones_achieved']}/{xp_data['total_milestones']}",
+        }
+    except Exception as e:
+        logger.error(f"Error saving analysis snapshot: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/analysis/milestones/{user_id}")
+async def get_milestones(user_id: str):
+    """Get all milestones and achievements for gamification display"""
+    try:
+        milestones = await mongo_service.get_milestones(user_id)
+        xp_data = await mongo_service.get_user_xp(user_id)
+        cooldown_data = await mongo_service.can_analyze_now(user_id, cooldown_days=7)
+
+        return {
+            "success": True,
+            "milestones": milestones,
+            "level": xp_data["level"],
+            "total_xp": xp_data["total_xp"],
+            "xp_in_current_level": xp_data["xp_in_current_level"],
+            "xp_to_next_level": xp_data["xp_to_next_level"],
+            "milestones_achieved": xp_data["milestones_achieved"],
+            "total_milestones": xp_data["total_milestones"],
+            # Cooldown info for 7-day analysis restriction
+            "can_analyze": cooldown_data["can_analyze"],
+            "last_analysis_date": cooldown_data["last_analysis_date"],
+            "next_analysis_date": cooldown_data["next_analysis_date"],
+            "days_remaining": cooldown_data["days_remaining"],
+            "hours_remaining": cooldown_data["hours_remaining"],
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-@app.get("/llm/status")
-async def llm_status():
-    """
-    Get LLM inference status and capabilities
-    """
-    return {
-        "status": "available",
-        "modes": ["local-nemotron", "cloud-nemotron", "openai-fallback"],
-        "default_mode": "cloud-nemotron",
-        "format": "nemotron-function-calling",
-        "max_tokens": 4096,
-        "supported_models": [
-            "sarvam-1-1b-q4",
-            "sarvam-1-3b-q4",
-            "sarvam-1-full"
-        ],
-        "endpoints": {
-            "inference": "/llm/inference",
-            "parse": "/llm/parse-tool-call",
-            "status": "/llm/status"
-        }
-    }
 
-
-# ============== New Web Search & PDF Endpoints ==============
-
-@app.post("/search/finance")
-async def search_finance(
-    query: str,
-    limit: int = 5,
-    category: Optional[str] = None,
-):
-    """
-    Search for financial news, tax updates, investment info
-    
-    Categories: finance_news, tax, investment, schemes, interest_rates
-    Returns cached results when available (6-12h TTL)
-    """
-    from services.web_search_service import web_search_service
-    
+@app.get("/analysis/history/{user_id}")
+async def get_analysis_history(user_id: str, months: int = 6):
+    """Get historical analysis snapshots for trend visualization"""
     try:
-        results = await web_search_service.search_finance_news(
-            query,
-            limit=limit,
-            category=category
+        history = await mongo_service.get_analysis_history(user_id, months=months)
+        return {
+            "success": True,
+            "history": history,
+            "count": len(history),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ==================== IDEA EVALUATION WITH OPENAI ====================
+
+class IdeaRequest(BaseModel):
+    user_id: str
+    idea: str
+    location: str = "India"
+    budget_range: str = "5-10 Lakhs"
+    user_context: Optional[Dict[str, Any]] = None
+
+
+@app.post("/ideas/evaluate")
+async def evaluate_idea(request: IdeaRequest):
+    """Evaluate a business idea with OpenAI - structured analysis"""
+    try:
+        evaluation = await idea_evaluator.evaluate_idea(
+            idea=request.idea,
+            user_context=request.user_context,
+            location=request.location,
+            budget_range=request.budget_range,
+        )
+        
+        # Save evaluation to MongoDB
+        eval_id = await mongo_service.save_idea_evaluation(
+            user_id=request.user_id,
+            evaluation=evaluation
         )
         
         return {
             "success": True,
-            "query": query,
-            "category": category,
-            "results_count": len(results),
-            "results": [
-                {
-                    "title": r.title,
-                    "url": r.url,
-                    "snippet": r.snippet,
-                    "date": r.date,
-                    "relevance": r.relevance_score,
-                }
-                for r in results
-            ]
+            "evaluation_id": eval_id,
+            "evaluation": evaluation,
         }
     except Exception as e:
+        logger.error(f"Idea evaluation error: {e}")
         return {
             "success": False,
             "error": str(e),
-            "results": []
+            "note": "Failed to evaluate idea - OpenAI may be unavailable"
         }
 
 
-@app.post("/search/tax-updates")
-async def search_tax_updates(query: str = "income tax India 2025", limit: int = 5):
-    """Search for current tax updates and guidelines"""
-    from services.web_search_service import web_search_service
-    
-    results = await web_search_service.search_tax_updates(query, limit)
-    return {
-        "success": True,
-        "category": "tax",
-        "results_count": len(results),
-        "results": [
-            {
-                "title": r.title,
-                "url": r.url,
-                "snippet": r.snippet,
-            }
-            for r in results
-        ]
-    }
+@app.get("/ideas/{user_id}")
+async def get_saved_ideas(user_id: str, limit: int = 10):
+    """Get all saved idea evaluations for a user"""
+    try:
+        ideas = await mongo_service.get_idea_evaluations(user_id, limit=limit)
+        return {
+            "success": True,
+            "ideas": ideas,
+            "count": len(ideas),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
-@app.post("/search/schemes")
-async def search_schemes(query: str, limit: int = 5):
-    """Search for government schemes and benefits"""
-    from services.web_search_service import web_search_service
-    
-    results = await web_search_service.search_schemes(query, limit)
-    return {
-        "success": True,
-        "category": "schemes",
-        "query": query,
-        "results_count": len(results),
-        "results": [
-            {
-                "title": r.title,
-                "url": r.url,
-                "snippet": r.snippet,
-            }
-            for r in results
-        ]
-    }
+# ==================== DPR DOCUMENT MANAGEMENT ====================
+
+class DPRSaveRequest(BaseModel):
+    user_id: str
+    business_idea: str
+    sections: Dict[str, Any] = {}
+    completeness: float = 0.0
+    research_data: Dict[str, Any] = {}
+    financial_projections: Dict[str, Any] = {}
 
 
-@app.post("/search/interest-rates")
-async def search_interest_rates(query: str = "current interest rates India", limit: int = 5):
-    """Search for current interest rates and market data"""
-    from services.web_search_service import web_search_service
-    
-    results = await web_search_service.search_interest_rates(query, limit)
-    return {
-        "success": True,
-        "category": "interest_rates",
-        "results_count": len(results),
-        "results": [
-            {
-                "title": r.title,
-                "url": r.url,
-                "snippet": r.snippet,
-            }
-            for r in results
-        ]
-    }
+@app.post("/dpr/save")
+async def save_dpr(request: DPRSaveRequest):
+    """Save a DPR document to MongoDB"""
+    try:
+        dpr_id = await mongo_service.save_dpr(
+            user_id=request.user_id,
+            dpr_data=request.dict()
+        )
+        
+        return {
+            "success": True,
+            "dpr_id": dpr_id,
+            "message": "DPR document saved successfully",
+        }
+    except Exception as e:
+        logger.error(f"DPR save error: {e}")
+        return {"success": False, "error": str(e)}
 
 
-# ============== Advanced PDF Parsing with OCR ==============
+@app.get("/dpr/{user_id}")
+async def get_user_dprs(user_id: str, limit: int = 10):
+    """Get all saved DPR documents for a user"""
+    try:
+        dprs = await mongo_service.get_dprs(user_id, limit=limit)
+        return {
+            "success": True,
+            "dprs": dprs,
+            "count": len(dprs),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
-@app.post("/extract-transactions")
-async def extract_transactions_advanced(
-    file: UploadFile = File(...),
-    document_type: str = "auto",  # auto, receipt, bank_statement
+
+# ==================== MUDRA DPR FINANCIAL ENGINE ====================
+
+class MudraDPRInputRequest(BaseModel):
+    """Pydantic model for Mudra DPR calculation requests."""
+    promoter_name: str = ""
+    qualification: str = ""
+    experience_years: int = 0
+    life_skills: List[str] = []
+    city: str = ""
+    state: str = ""
+    business_name: str = ""
+    nature_of_business: str = ""
+    product_or_service: str = ""
+    target_customers: str = ""
+    constitution: str = "Proprietorship"
+    selling_price_per_unit: float = 0.0
+    units_at_full_capacity: float = 0.0
+    raw_material_cost_per_unit: float = 0.0
+    fixed_assets: List[Dict[str, Any]] = []
+    monthly_rent: float = 0.0
+    monthly_wages: float = 0.0
+    monthly_utilities: float = 0.0
+    monthly_other_expenses: float = 0.0
+    working_capital_months: int = 3
+    promoter_contribution_pct: float = 10.0
+    interest_rate: float = 12.0
+    tenure_months: int = 60
+    capacity_utilization_y1: float = 60.0
+    capacity_utilization_y2: float = 75.0
+    capacity_utilization_y3: float = 85.0
+    capacity_utilization_y4: float = 90.0
+    capacity_utilization_y5: float = 95.0
+    cost_inflation_rate: float = 5.0
+    tax_rate: float = 25.0
+
+
+class MudraDPRWhatIfRequest(BaseModel):
+    """Request for what-if simulation."""
+    inputs: MudraDPRInputRequest
+    overrides: Dict[str, Any] = {}
+
+
+@app.post("/mudra-dpr/calculate")
+async def calculate_mudra_dpr(request: MudraDPRInputRequest):
+    """Instant financial calculations for Mudra DPR (no AI)."""
+    try:
+        dpr_input = MudraDPRInput(**request.dict())
+        output = mudra_engine.generate_full_dpr(dpr_input)
+        return {
+            "success": True,
+            **output.to_dict(),
+        }
+    except Exception as e:
+        logger.error(f"Mudra DPR calculation error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/mudra-dpr/whatif")
+async def mudra_dpr_whatif(request: MudraDPRWhatIfRequest):
+    """Recalculate Mudra DPR with parameter overrides."""
+    try:
+        base_input = MudraDPRInput(**request.inputs.dict())
+        output = mudra_engine.whatif_simulate(base_input, request.overrides)
+        return {
+            "success": True,
+            **output.to_dict(),
+        }
+    except Exception as e:
+        logger.error(f"Mudra DPR what-if error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/mudra-dpr/clusters")
+async def get_cluster_suggestions(
+    city: str = "",
+    state: str = "",
+    business_type: str = "",
 ):
-    """
-    Extract transactions from PDF with OCR and multi-method parsing
-    
-    Supports:
-    - Bank statements (HDFC, SBI, ICICI, Axis)
-    - Receipts (e-commerce, restaurants, retail)
-    - Invoices
-    
-    Methods used (in order):
-    1. Table extraction (most reliable for structured data)
-    2. OCR for scanned documents
-    3. Pattern matching for unstructured text
-    """
-    from services.pdf_parser_advanced import pdf_parser_service
-    import tempfile
-    import os
-    
-    temp_filename = None
+    """Get industrial cluster suggestions by location."""
     try:
-        # Save file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            content = await file.read()
-            tmp.write(content)
-            temp_filename = tmp.name
-        
-        # Extract transactions
-        results = await pdf_parser_service.extract_transactions(
-            temp_filename,
-            document_type=document_type
-        )
-        
-        return results
-    
+        clusters = mudra_engine.suggest_cluster(city, state, business_type)
+        return {"success": True, "clusters": clusters}
     except Exception as e:
-        logger.error(f"PDF extraction error: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-            "transactions": [],
-            "count": 0,
-        }
-    
-    finally:
-        # Clean up temp file
-        if temp_filename and os.path.exists(temp_filename):
-            os.remove(temp_filename)
+        return {"success": False, "error": str(e)}
 
 
-@app.post("/extract-receipt")
-async def extract_receipt(file: UploadFile = File(...)):
-    """
-    Extract data from receipt image/PDF
-    Returns: merchant, amount, date, items, category
-    """
-    from services.pdf_parser_advanced import ReceiptParser
-    import tempfile
-    import os
-    import asyncio
-    
-    temp_filename = None
+@app.post("/mudra-dpr/save")
+async def save_mudra_dpr_doc(
+    user_id: str,
+    dpr_data: Dict[str, Any],
+):
+    """Save a Mudra DPR document."""
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            content = await file.read()
-            tmp.write(content)
-            temp_filename = tmp.name
-        
-        # Extract receipt data
-        receipt_data = await asyncio.to_thread(
-            ReceiptParser.extract_from_image,
-            temp_filename
+        dpr_id = await mongo_service.save_mudra_dpr(
+            user_id=user_id,
+            dpr_data=dpr_data,
         )
-        
-        if not receipt_data:
-            receipt_data = {}
-        
-        return {
-            "success": bool(receipt_data),
-            "merchant": receipt_data.get('merchant'),
-            "amount": receipt_data.get('amount'),
-            "date": receipt_data.get('date'),
-            "category": receipt_data.get('category'),
-            "items": receipt_data.get('items', []),
-            "confidence": receipt_data.get('confidence', 0.8),
-        }
-    
+        return {"success": True, "dpr_id": dpr_id}
     except Exception as e:
-        logger.error(f"Receipt extraction error: {e}")
+        logger.error(f"Mudra DPR save error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/mudra-dpr/{user_id}")
+async def get_mudra_dprs(user_id: str, limit: int = 10):
+    """Get saved Mudra DPR documents for a user."""
+    try:
+        dprs = await mongo_service.get_mudra_dprs(user_id, limit=limit)
+        return {"success": True, "dprs": dprs, "count": len(dprs)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ==================== METRICS HISTORY FOR TRENDS ====================
+
+@app.get("/metrics/history/{user_id}")
+async def get_metrics_history(user_id: str, months: int = 12):
+    """Get monthly metrics history for dashboard trends"""
+    try:
+        metrics = await mongo_service.get_metrics_history(user_id, months=months)
         return {
-            "success": False,
-            "error": str(e),
+            "success": True,
+            "metrics": metrics,
+            "count": len(metrics),
         }
-    
-    finally:
-        if temp_filename and os.path.exists(temp_filename):
-            os.remove(temp_filename)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
-
-# ============== Run Server ==============
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

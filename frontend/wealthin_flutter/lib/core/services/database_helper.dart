@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
 import 'transaction_categorizer.dart';
+import '../constants/categories.dart';
 
 /// Database Helper for local SQLite management
 /// Handles offline data storage for Transactions, Budgets, and Goals
@@ -24,7 +25,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -74,6 +75,66 @@ class DatabaseHelper {
           notes TEXT
         )
       ''');
+    }
+
+    if (oldVersion < 4) {
+      // Normalize legacy category names in transactions
+      await db.execute("UPDATE transactions SET category = 'Transportation' WHERE LOWER(category) = 'transport'");
+      await db.execute("UPDATE transactions SET category = 'Utilities' WHERE LOWER(category) IN ('bills', 'bills & utilities')");
+      await db.execute("UPDATE transactions SET category = 'Healthcare' WHERE LOWER(category) IN ('health', 'medical')");
+      await db.execute("UPDATE transactions SET category = 'Rent & Housing' WHERE LOWER(category) IN ('rent/housing', 'rent', 'housing')");
+
+      // Normalize legacy category names in budgets
+      await db.execute("UPDATE budgets SET category = 'Transportation' WHERE LOWER(category) = 'transport'");
+      await db.execute("UPDATE budgets SET category = 'Utilities' WHERE LOWER(category) IN ('bills', 'bills & utilities')");
+      await db.execute("UPDATE budgets SET category = 'Healthcare' WHERE LOWER(category) IN ('health', 'medical')");
+      await db.execute("UPDATE budgets SET category = 'Rent & Housing' WHERE LOWER(category) IN ('rent/housing', 'rent', 'housing')");
+
+      debugPrint('Migrated legacy category names to canonical names (v4)');
+    }
+
+    if (oldVersion < 5) {
+      // Add Brainstorming/Ideas canvas tables
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS brainstorm_sessions(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          persona TEXT DEFAULT 'neutral',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          is_archived INTEGER DEFAULT 0
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS brainstorm_messages(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER NOT NULL,
+          role TEXT NOT NULL,
+          content TEXT NOT NULL,
+          persona TEXT,
+          is_critique INTEGER DEFAULT 0,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES brainstorm_sessions(id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS brainstorm_canvas_items(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          category TEXT DEFAULT 'idea',
+          position_x REAL DEFAULT 0,
+          position_y REAL DEFAULT 0,
+          color_hex INTEGER,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES brainstorm_sessions(id) ON DELETE CASCADE
+        )
+      ''');
+
+      debugPrint('Created brainstorming canvas tables (v5)');
     }
   }
 
@@ -153,7 +214,49 @@ class DatabaseHelper {
       'last_activity_date': null,
       'total_days_active': 0,
     });
-    
+
+    // Brainstorming Sessions Table
+    await db.execute('''
+      CREATE TABLE brainstorm_sessions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        persona TEXT DEFAULT 'neutral',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        is_archived INTEGER DEFAULT 0
+      )
+    ''');
+
+    // Brainstorming Messages Table (Chat history)
+    await db.execute('''
+      CREATE TABLE brainstorm_messages(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        persona TEXT,
+        is_critique INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES brainstorm_sessions(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Brainstorming Canvas Items (Anchored ideas)
+    await db.execute('''
+      CREATE TABLE brainstorm_canvas_items(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        category TEXT DEFAULT 'idea',
+        position_x REAL DEFAULT 0,
+        position_y REAL DEFAULT 0,
+        color_hex INTEGER,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES brainstorm_sessions(id) ON DELETE CASCADE
+      )
+    ''');
+
     debugPrint('Database tables created successfully');
   }
 
@@ -171,7 +274,8 @@ class DatabaseHelper {
       if (category == null || category == 'Other' || category.isEmpty) {
         category = TransactionCategorizer.categorize(description);
       }
-      
+      category = Categories.normalize(category);
+
       final rowToInsert = Map<String, dynamic>.from(row);
       rowToInsert['category'] = category;
 
@@ -276,47 +380,16 @@ class DatabaseHelper {
   }
 
   // ==================== INCOME VS EXPENSE CATEGORIES ====================
-  
-  /// Categories for income transactions
-  static const List<String> incomeCategories = [
-    'Salary',
-    'Business',
-    'Freelance',
-    'Investment',
-    'Rental',
-    'Dividend',
-    'Interest',
-    'Gift',
-    'Refund',
-    'Other Income',
-  ];
-  
-  /// Categories for expense transactions
-  static const List<String> expenseCategories = [
-    'Food & Dining',
-    'Groceries',
-    'Shopping',
-    'Transport',
-    'Entertainment',
-    'Bills & Utilities',
-    'Health',
-    'Education',
-    'Rent/Housing',
-    'Travel',
-    'Subscriptions',
-    'Personal Care',
-    'Insurance',
-    'Transfer',
-    'Other',
-  ];
-  
+
+  /// Categories for income transactions (delegates to Categories)
+  static List<String> get incomeCategories => Categories.income;
+
+  /// Categories for expense transactions (delegates to Categories)
+  static List<String> get expenseCategories => Categories.expense;
+
   /// Get categories by transaction type
   List<String> getCategoriesForType(String type) {
-    final lowerType = type.toLowerCase();
-    if (lowerType == 'income' || lowerType == 'credit' || lowerType == 'deposit') {
-      return incomeCategories;
-    }
-    return expenseCategories;
+    return Categories.getForType(type);
   }
 
   // ==================== BUDGET THRESHOLD ALERTS ====================
@@ -508,6 +581,110 @@ class DatabaseHelper {
     };
   }
 
+  /// Get transactions for a specific category (for budget details view)
+  Future<List<Map<String, dynamic>>> getTransactionsByCategory(
+    String category, {
+    int limit = 20,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final db = await database;
+    List<String> conditions = ['LOWER(category) = LOWER(?)'];
+    List<dynamic> whereArgs = [category];
+    
+    // Default to current month if no dates provided
+    if (startDate == null) {
+      final now = DateTime.now();
+      startDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+    }
+    conditions.add('date >= ?');
+    whereArgs.add(startDate);
+    
+    if (endDate != null) {
+      conditions.add('date <= ?');
+      whereArgs.add(endDate);
+    }
+    
+    final whereClause = conditions.join(' AND ');
+    
+    return await db.query(
+      'transactions',
+      where: whereClause,
+      whereArgs: whereArgs,
+      orderBy: 'date DESC',
+      limit: limit,
+    );
+  }
+
+  /// Get savings-related transactions (for goals screen)
+  Future<List<Map<String, dynamic>>> getSavingsTransactions({
+    int limit = 20,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final db = await database;
+    
+    // Keywords that indicate savings/investment transactions
+    final savingsKeywords = [
+      'saving', 'savings', 'investment', 'invest', 'fd', 'fixed deposit',
+      'rd', 'recurring deposit', 'mutual fund', 'mf', 'sip', 'ppf', 'nps',
+      'elss', 'deposit', 'interest earned', 'dividend'
+    ];
+    
+    // Build LIKE conditions for each keyword
+    final likeConditions = savingsKeywords
+        .map((kw) => "(LOWER(description) LIKE '%$kw%' OR LOWER(category) LIKE '%$kw%')")
+        .join(' OR ');
+    
+    String whereClause = "LOWER(type) IN ('income', 'credit', 'deposit') AND ($likeConditions)";
+    List<dynamic> whereArgs = [];
+    
+    if (startDate != null) {
+      whereClause += " AND date >= ?";
+      whereArgs.add(startDate);
+    }
+    if (endDate != null) {
+      whereClause += " AND date <= ?";
+      whereArgs.add(endDate);
+    }
+    
+    return await db.rawQuery('''
+      SELECT * FROM transactions
+      WHERE $whereClause
+      ORDER BY date DESC
+      LIMIT ?
+    ''', [...whereArgs, limit]);
+  }
+
+  /// Get income transactions (for goals screen income section)
+  Future<List<Map<String, dynamic>>> getIncomeTransactions({
+    int limit = 10,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final db = await database;
+
+    String whereClause = "LOWER(type) IN ('income', 'credit', 'deposit')";
+    List<dynamic> whereArgs = [];
+
+    if (startDate != null) {
+      whereClause += " AND date >= ?";
+      whereArgs.add(startDate);
+    }
+    if (endDate != null) {
+      whereClause += " AND date <= ?";
+      whereArgs.add(endDate);
+    }
+
+    return await db.query(
+      'transactions',
+      where: whereClause,
+      whereArgs: whereArgs,
+      orderBy: 'date DESC',
+      limit: limit,
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getDailyCashflow({String? startDate, String? endDate}) async {
     final db = await database;
     String whereClause = "1=1";
@@ -567,9 +744,9 @@ class DatabaseHelper {
     
     final db = await database;
     await db.rawUpdate('''
-      UPDATE budgets 
-      SET spent_amount = spent_amount + ? 
-      WHERE category = ?
+      UPDATE budgets
+      SET spent_amount = spent_amount + ?
+      WHERE LOWER(category) = LOWER(?)
     ''', [amount, category]);
   }
 
@@ -860,12 +1037,196 @@ class DatabaseHelper {
       final total = (row['total'] as num?)?.toDouble() ?? 0;
       if (category != null) {
         await db.rawUpdate('''
-          UPDATE budgets SET spent_amount = ? WHERE category = ?
+          UPDATE budgets SET spent_amount = ? WHERE LOWER(category) = LOWER(?)
         ''', [total, category]);
       }
     }
     
     debugPrint('Budget spending recalculated for ${spending.length} categories');
+  }
+
+  // --- Brainstorming Sessions CRUD ---
+
+  Future<int> createBrainstormSession(String title, {String persona = 'neutral'}) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    return await db.insert('brainstorm_sessions', {
+      'title': title,
+      'persona': persona,
+      'created_at': now,
+      'updated_at': now,
+      'is_archived': 0,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getBrainstormSessions({bool includeArchived = false}) async {
+    final db = await database;
+    final whereClause = includeArchived ? null : 'is_archived = ?';
+    final whereArgs = includeArchived ? null : [0];
+    return await db.query(
+      'brainstorm_sessions',
+      where: whereClause,
+      whereArgs: whereArgs,
+      orderBy: 'updated_at DESC',
+    );
+  }
+
+  Future<Map<String, dynamic>?> getBrainstormSession(int sessionId) async {
+    final db = await database;
+    final results = await db.query(
+      'brainstorm_sessions',
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  Future<void> updateBrainstormSession(int sessionId, {String? title, String? persona}) async {
+    final db = await database;
+    final updates = <String, dynamic>{
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (title != null) updates['title'] = title;
+    if (persona != null) updates['persona'] = persona;
+
+    await db.update(
+      'brainstorm_sessions',
+      updates,
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  Future<void> archiveBrainstormSession(int sessionId) async {
+    final db = await database;
+    await db.update(
+      'brainstorm_sessions',
+      {'is_archived': 1, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  Future<void> deleteBrainstormSession(int sessionId) async {
+    final db = await database;
+    // Foreign key constraints will cascade delete messages and canvas items
+    await db.delete('brainstorm_sessions', where: 'id = ?', whereArgs: [sessionId]);
+  }
+
+  // --- Brainstorming Messages CRUD ---
+
+  Future<int> addBrainstormMessage({
+    required int sessionId,
+    required String role,
+    required String content,
+    String? persona,
+    bool isCritique = false,
+  }) async {
+    final db = await database;
+    final messageId = await db.insert('brainstorm_messages', {
+      'session_id': sessionId,
+      'role': role,
+      'content': content,
+      'persona': persona,
+      'is_critique': isCritique ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    // Update session's updated_at timestamp
+    await db.update(
+      'brainstorm_sessions',
+      {'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+
+    return messageId;
+  }
+
+  Future<List<Map<String, dynamic>>> getBrainstormMessages(int sessionId) async {
+    final db = await database;
+    return await db.query(
+      'brainstorm_messages',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at ASC',
+    );
+  }
+
+  Future<void> deleteBrainstormMessage(int messageId) async {
+    final db = await database;
+    await db.delete('brainstorm_messages', where: 'id = ?', whereArgs: [messageId]);
+  }
+
+  Future<void> clearBrainstormMessages(int sessionId) async {
+    final db = await database;
+    await db.delete('brainstorm_messages', where: 'session_id = ?', whereArgs: [sessionId]);
+  }
+
+  // --- Brainstorming Canvas Items CRUD ---
+
+  Future<int> addCanvasItem({
+    required int sessionId,
+    required String title,
+    required String content,
+    String category = 'idea',
+    double positionX = 0,
+    double positionY = 0,
+    int? colorHex,
+  }) async {
+    final db = await database;
+    return await db.insert('brainstorm_canvas_items', {
+      'session_id': sessionId,
+      'title': title,
+      'content': content,
+      'category': category,
+      'position_x': positionX,
+      'position_y': positionY,
+      'color_hex': colorHex,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getCanvasItems(int sessionId) async {
+    final db = await database;
+    return await db.query(
+      'brainstorm_canvas_items',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'created_at DESC',
+    );
+  }
+
+  Future<void> updateCanvasItem(int itemId, {
+    String? title,
+    String? content,
+    String? category,
+    double? positionX,
+    double? positionY,
+    int? colorHex,
+  }) async {
+    final db = await database;
+    final updates = <String, dynamic>{};
+    if (title != null) updates['title'] = title;
+    if (content != null) updates['content'] = content;
+    if (category != null) updates['category'] = category;
+    if (positionX != null) updates['position_x'] = positionX;
+    if (positionY != null) updates['position_y'] = positionY;
+    if (colorHex != null) updates['color_hex'] = colorHex;
+
+    if (updates.isNotEmpty) {
+      await db.update(
+        'brainstorm_canvas_items',
+        updates,
+        where: 'id = ?',
+        whereArgs: [itemId],
+      );
+    }
+  }
+
+  Future<void> deleteCanvasItem(int itemId) async {
+    final db = await database;
+    await db.delete('brainstorm_canvas_items', where: 'id = ?', whereArgs: [itemId]);
   }
 
   Future<void> close() async {

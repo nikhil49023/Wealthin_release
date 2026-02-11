@@ -14,10 +14,11 @@ import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/finance/finance_hub_screen.dart';
 import 'features/ai_hub/ai_hub_screen.dart';
-import 'features/brainstorm/brainstorm_screen.dart';
+import 'features/brainstorm/enhanced_brainstorm_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'core/services/ai_agent_service.dart';
 import 'core/services/data_service.dart';
+import 'core/config/secrets.dart';
 import 'features/analysis/analysis_screen.dart';
 
 
@@ -51,6 +52,13 @@ void main() async {
   // Initialize daily streak
   final streakData = await dataService.initStreak();
   debugPrint('[App] Daily Streak: ${streakData['current_streak']} days');
+
+  // Initialize secure storage for API keys
+  await AppSecrets.initialize();
+  debugPrint('[App] Secure storage initialized');
+  if (AppSecrets.isUsingDefaultKeys) {
+    debugPrint('[App] Warning: Using default API keys. Configure in Settings for production.');
+  }
 
   // Initialize backend based on platform
   if (!kIsWeb) {
@@ -183,7 +191,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     FinanceHubScreen(),
     AiHubScreen(),
     AnalysisScreen(),
-    BrainstormScreen(),
+    EnhancedBrainstormScreen(),
     // ProfileScreen removed - accessible from dashboard header
   ];
 

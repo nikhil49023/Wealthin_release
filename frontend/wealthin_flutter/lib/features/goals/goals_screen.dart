@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart' show authService;
 import '../../core/theme/app_theme.dart';
 import '../../core/services/data_service.dart';
+import '../../core/services/database_helper.dart';
+import '../../core/utils/responsive_utils.dart';
 
 /// Savings Goals Screen - Track progress towards financial goals
 class GoalsScreen extends StatelessWidget {
@@ -28,6 +30,8 @@ class GoalsScreenBody extends StatefulWidget {
 class _GoalsScreenBodyState extends State<GoalsScreenBody> {
   bool _isLoading = true;
   List<GoalData> _goals = [];
+  List<Map<String, dynamic>> _savingsTransactions = [];
+  List<Map<String, dynamic>> _incomeTransactions = [];
   Map<String, dynamic> _progress = {};
 
   String get _userId => authService.currentUserId;
@@ -42,6 +46,8 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
     setState(() => _isLoading = true);
     try {
       final goals = await dataService.getGoals(_userId);
+      final savingsTx = await DatabaseHelper().getSavingsTransactions(limit: 10);
+      final incomeTx = await DatabaseHelper().getIncomeTransactions(limit: 10);
 
       // Calculate progress
       double totalTarget = 0;
@@ -56,6 +62,8 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
       if (mounted) {
         setState(() {
           _goals = goals;
+          _savingsTransactions = savingsTx;
+          _incomeTransactions = incomeTx;
           _progress = {
             'totalGoals': goals.length,
             'completedGoals': completed,
@@ -74,6 +82,8 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final padding = ResponsiveUtils.getResponsivePadding(context);
+    final maxWidth = ResponsiveUtils.getMaxCardWidth(context);
 
     return Scaffold(
       body: _isLoading
@@ -82,10 +92,10 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
               onRefresh: _loadGoals,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(padding),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
+                    constraints: BoxConstraints(maxWidth: maxWidth),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -142,18 +152,179 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                                       .slideX(),
                             );
                           }),
+
+                        if (_savingsTransactions.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            'Recent Savings Activity',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Card(
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _savingsTransactions.length,
+                              separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey[100]),
+                              itemBuilder: (context, index) {
+                                final tx = _savingsTransactions[index];
+                                final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
+                                final description = tx['description'] as String? ?? 'Unknown';
+                                final date = tx['date'] as String? ?? '';
+                                final category = tx['category'] as String? ?? '';
+                                
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: AppTheme.incomeGreen.withValues(alpha: 0.1),
+                                    child: const Icon(
+                                      Icons.savings_outlined,
+                                      color: AppTheme.incomeGreen,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    description,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    category.isNotEmpty ? category : 'Savings',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '+₹${_formatAmount(amount)}',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.incomeGreen,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatTransactionDate(date),
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          fontSize: 10,
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+
+                        if (_incomeTransactions.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            'Income Sources',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Card(
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _incomeTransactions.length,
+                              separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey[100]),
+                              itemBuilder: (context, index) {
+                                final tx = _incomeTransactions[index];
+                                final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
+                                final description = tx['description'] as String? ?? 'Unknown';
+                                final date = tx['date'] as String? ?? '';
+                                final category = tx['category'] as String? ?? '';
+
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: AppTheme.incomeGreen.withValues(alpha: 0.1),
+                                    child: const Icon(
+                                      Icons.trending_up,
+                                      color: AppTheme.incomeGreen,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    description,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    category.isNotEmpty ? category : 'Income',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '+₹${_formatAmount(amount)}',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.incomeGreen,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatTransactionDate(date),
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          fontSize: 10,
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 80), // Pad for FAB
                       ],
                     ),
                   ),
                 ),
+                ),
               ),
-            ),
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddGoalDialog(context),
         icon: const Icon(Icons.flag),
         label: const Text('New Goal'),
       ).animate().scale(delay: 300.ms),
     );
+  }
+
+  String _formatTransactionDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      if (date.year == now.year && date.month == now.month && date.day == now.day) {
+        return 'Today';
+      } else if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
+        return 'Yesterday';
+      }
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
+    } catch (e) {
+      return dateStr;
+    }
   }
 
   void _showAddGoalDialog(BuildContext context) {

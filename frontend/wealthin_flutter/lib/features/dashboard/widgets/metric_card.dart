@@ -62,14 +62,18 @@ class MetricCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.dmSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white70 : AppTheme.slate500,
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white70 : AppTheme.slate500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -103,12 +107,16 @@ class MetricCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     )
-                  : Text(
-                      value,
-                      style: GoogleFonts.dmSans(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : AppTheme.slate900,
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : AppTheme.slate900,
+                        ),
                       ),
                     ),
             ],

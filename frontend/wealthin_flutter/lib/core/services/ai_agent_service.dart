@@ -66,6 +66,7 @@ class AIAgentService {
         actionData: result['action_data'],
         needsConfirmation: result['needs_confirmation'] ?? false,
         error: result['error'],
+        sources: result['sources'],
       );
 
       // --- Credit System Integration ---
@@ -112,6 +113,7 @@ class AgentResponse {
   final String? error;
   final String? inferenceMode;
   final int tokensUsed;
+  final List<dynamic>? sources;  // Web search sources with URLs
 
   AgentResponse({
     required this.response,
@@ -122,6 +124,7 @@ class AgentResponse {
     this.error,
     this.inferenceMode,
     this.tokensUsed = 0,
+    this.sources,
   });
 
   factory AgentResponse.fromJson(Map<String, dynamic> json) {
@@ -134,6 +137,7 @@ class AgentResponse {
       error: json['error'],
       inferenceMode: json['inference_mode'],
       tokensUsed: json['tokens_used'] ?? 0,
+      sources: json['sources'],
     );
   }
 
@@ -146,6 +150,7 @@ class AgentResponse {
     'error': error,
     'inference_mode': inferenceMode,
     'tokens_used': tokensUsed,
+    'sources': sources,
   };
 }
 
