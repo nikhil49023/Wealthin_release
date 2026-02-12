@@ -9,6 +9,7 @@ import 'core/services/auth_service.dart';
 import 'core/services/backend_config.dart';
 import 'core/services/sidecar_manager.dart';
 import 'core/services/python_bridge_service.dart';
+import 'core/services/startup_permissions_service.dart';
 import 'features/auth/auth_wrapper.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -194,6 +195,17 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     EnhancedBrainstormScreen(),
     // ProfileScreen removed - accessible from dashboard header
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Request permissions after a short delay (allow UI to settle)
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        startupPermissions.requestStartupPermissions(context);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

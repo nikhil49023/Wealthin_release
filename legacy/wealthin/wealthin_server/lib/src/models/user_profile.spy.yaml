@@ -1,6 +1,0 @@
-class: UserProfile
-table: user_profiles
-fields:
-  uid: String
-  credits: int
-  completedGoals: List<String>?

@@ -34,6 +34,7 @@ class MainActivity: FlutterActivity() {
                         val pyResult = when (functionName) {
                             "init_python_backend" -> module.callAttr("init_python_backend")
                             "get_available_tools" -> module.callAttr("get_available_tools")
+                            "health_check" -> module.callAttr("health_check")
                             "set_config" -> {
                                 val configJson = args["config_json"] as? String ?: "{}"
                                 module.callAttr("set_config", configJson)
@@ -43,6 +44,12 @@ class MainActivity: FlutterActivity() {
                                 Log.d(TAG, "chat_with_llm query: $query")
                                 // Pass all expected parameters
                                 module.callAttr("chat_with_llm", query, null, null, null)
+                            }
+                            "brainstorm_chat" -> {
+                                val message = args["message"] as? String ?: ""
+                                val persona = args["persona"] as? String ?: "neutral"
+                                Log.d(TAG, "brainstorm_chat: $message")
+                                module.callAttr("chat_with_llm", message, null, null, null)
                             }
                             "parse_bank_statement" -> {
                                 val imageB64 = args["image_b64"] as? String ?: ""
@@ -65,14 +72,13 @@ class MainActivity: FlutterActivity() {
                                 val annualRate = (args["annual_rate"] as? Number)?.toDouble() ?: 0.0
                                 val tenureMonths = (args["tenure_months"] as? Number)?.toInt() ?: 12
                                 module.callAttr("calculate_emi", principal, annualRate, tenureMonths)
-
                             }
                             "analyze_spending" -> {
                                 val transactionsJson = args["transactions"] as? String ?: "[]"
                                 module.callAttr("analyze_spending", transactionsJson)
                             }
                             else -> {
-                                Log.d(TAG, "Calling unknown function: $functionName")
+                                Log.d(TAG, "Calling generic function: $functionName")
                                 module.callAttr(functionName)
                             }
                         }

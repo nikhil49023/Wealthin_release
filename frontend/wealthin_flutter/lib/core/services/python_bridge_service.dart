@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:wealthin_flutter/core/services/backend_config.dart';
 
@@ -32,14 +33,52 @@ class PythonBridgeService {
   static final PythonBridgeService _instance = PythonBridgeService._internal();
   factory PythonBridgeService() => _instance;
 
-  // Use BackendConfig to get the dynamic base URL
+  // MethodChannel for Android (Chaquopy embedded Python)
+  static const _channel = MethodChannel('wealthin/python');
+  bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
+
+  // Use BackendConfig to get the dynamic base URL (desktop only)
   String get _baseUrl => backendConfig.baseUrl;
   
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
+  /// Call Python function via MethodChannel (Android only)
+  Future<Map<String, dynamic>> _callPython(String function, Map<String, dynamic> args) async {
+    try {
+      final result = await _channel.invokeMethod<String>('callPython', {
+        'function': function,
+        'args': args,
+      });
+      if (result != null) {
+        return jsonDecode(result) as Map<String, dynamic>;
+      }
+      return {'success': false, 'error': 'No result from Python'};
+    } catch (e) {
+      debugPrint('[PythonBridge] MethodChannel error ($function): $e');
+      return {'success': false, 'error': 'Python bridge error: $e'};
+    }
+  }
+
   /// Initialize and check backend health
   Future<bool> initialize() async {
+    if (_isAndroid) {
+      // Android: Use Chaquopy MethodChannel
+      try {
+        final result = await _callPython('health_check', {});
+        _isInitialized = result['success'] == true || result['status'] == 'ready';
+        if (_isInitialized) {
+          debugPrint('[PythonBridge] ✓ Embedded Python ready (Chaquopy)');
+        }
+        return _isInitialized;
+      } catch (e) {
+        debugPrint('[PythonBridge] Chaquopy health check failed: $e');
+        _isInitialized = false;
+        return false;
+      }
+    }
+
+    // Desktop: Use HTTP health check
     try {
       final url = Uri.parse('$_baseUrl/health');
       final response = await http.get(url).timeout(const Duration(seconds: 3));
@@ -58,6 +97,32 @@ class PythonBridgeService {
 
   /// Check system health - useful for Settings screen
   Future<SystemHealth> checkSystemHealth() async {
+    if (_isAndroid) {
+      try {
+        final result = await _callPython('health_check', {});
+        if (result['success'] == true || result['status'] == 'ready') {
+          final components = result['components'] as Map<String, dynamic>? ?? {};
+          return SystemHealth(
+            status: SystemHealthStatus.ready,
+            message: 'Embedded AI Engine Ready',
+            components: {
+              'python': components['python'] == true,
+              'sarvam': components['sarvam_configured'] == true,
+              'tools': (components['tools_count'] ?? 0) > 0,
+            },
+          );
+        }
+      } catch (e) {
+        debugPrint('[PythonBridge] Chaquopy health error: $e');
+      }
+      return SystemHealth(
+        status: SystemHealthStatus.unavailable,
+        message: 'Embedded Python not available',
+        components: {'python': false},
+      );
+    }
+
+    // Desktop: HTTP health check
     try {
       final url = Uri.parse('$_baseUrl/health');
       final response = await http.get(url).timeout(const Duration(seconds: 3));
@@ -324,10 +389,20 @@ class PythonBridgeService {
     }
   }
 
-  /// Set config/secrets on the backend (e.g. API keys for Android sidecar)
+  /// Set config/secrets on the backend (e.g. API keys for Android embedded Python)
   Future<void> setConfig(Map<String, String> config) async {
-    // Config is managed via environment variables on the backend.
-    // This is a no-op on HTTP-based bridge; secrets are already loaded via .env.
+    if (_isAndroid) {
+      try {
+        final result = await _callPython('set_config', {
+          'config_json': jsonEncode(config),
+        });
+        debugPrint('[PythonBridge] setConfig result: $result');
+      } catch (e) {
+        debugPrint('[PythonBridge] setConfig error: $e');
+      }
+      return;
+    }
+    // Desktop: Config is managed via environment variables on the backend.
     debugPrint('[PythonBridge] setConfig called (no-op for HTTP bridge)');
   }
 
@@ -338,6 +413,24 @@ class PythonBridgeService {
     Map<String, dynamic>? userContext,
     String? userId,
   }) async {
+    if (_isAndroid) {
+      // Android: Use Chaquopy MethodChannel → flutter_bridge.chat_with_llm
+      try {
+        final result = await _callPython('chat_with_llm', {
+          'query': query,
+        });
+        // flutter_bridge.chat_with_llm returns JSON string, _callPython already decodes it
+        if (result['success'] == true || result.containsKey('response')) {
+          return result;
+        }
+        return {'success': false, 'response': result['error'] ?? 'No response from AI'};
+      } catch (e) {
+        debugPrint('[PythonBridge] chatWithLLM (Android) Exception: $e');
+        return {'success': false, 'response': 'AI engine error: $e'};
+      }
+    }
+
+    // Desktop: Use HTTP
     final url = Uri.parse('$_baseUrl/agent/agentic-chat');
 
     try {
@@ -392,6 +485,21 @@ class PythonBridgeService {
     String toolName,
     Map<String, dynamic> params,
   ) async {
+    if (_isAndroid) {
+      // Android: Use Chaquopy MethodChannel → flutter_bridge.execute_tool
+      try {
+        final result = await _callPython('execute_tool', {
+          'tool_name': toolName,
+          'tool_args': params,
+        });
+        return result;
+      } catch (e) {
+        debugPrint('[PythonBridge] executeTool($toolName) Android Exception: $e');
+        return {'success': false, 'error': e.toString()};
+      }
+    }
+
+    // Desktop: Route via HTTP
     try {
       switch (toolName) {
         case 'parse_bank_statement':
@@ -543,7 +651,21 @@ class PythonBridgeService {
 
   /// Detect recurring subscriptions from transaction history
   Future<Map<String, dynamic>> detectSubscriptions(List<Map<String, dynamic>> transactions) async {
-    // Use the agentic chat to analyze subscriptions, or the analyze/spending endpoint
+    if (_isAndroid) {
+      // Android: Use Chaquopy's detect_subscriptions tool directly
+      try {
+        final result = await _callPython('execute_tool', {
+          'tool_name': 'detect_subscriptions',
+          'tool_args': {'transactions': transactions},
+        });
+        return result;
+      } catch (e) {
+        debugPrint('[PythonBridge] detectSubscriptions (Android) Exception: $e');
+        return {'success': false, 'error': e.toString()};
+      }
+    }
+
+    // Desktop: Use HTTP analyze/spending endpoint
     try {
       final url = Uri.parse('$_baseUrl/analyze/spending');
       final response = await http.post(
@@ -554,12 +676,10 @@ class PythonBridgeService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Extract subscription-like recurring items from analysis
         final subscriptions = <Map<String, dynamic>>[];
         final recurringHabits = <Map<String, dynamic>>[];
         double totalMonthlyCost = 0;
 
-        // Look for recurring patterns in the spending analysis
         if (data is Map<String, dynamic>) {
           final categories = data['category_breakdown'] as Map<String, dynamic>? ?? {};
           for (final entry in categories.entries) {

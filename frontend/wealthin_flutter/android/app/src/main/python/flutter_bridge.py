@@ -2630,7 +2630,7 @@ def extract_receipt_from_path(file_path: str) -> str:
             except Exception as sdk_e:
                 print(f"[Sarvam Vision] SDK error: {sdk_e}, falling back to urllib")
         
-        # Fallback: Use urllib with Sarvam Vision API
+        # Fallback: Use urllib with Sarvam multimodal chat API (FIXED - no /vision/analyze endpoint)
         with open(file_path, 'rb') as f:
             image_data = f.read()
         
@@ -2644,28 +2644,53 @@ def extract_receipt_from_path(file_path: str) -> str:
         }
         content_type = content_types.get(ext, 'image/jpeg')
         
-        # Use Sarvam Vision API via multipart form
-        boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        # Encode image as base64 for multimodal chat
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
         
-        body = []
-        body.append(f'--{boundary}'.encode())
-        body.append(b'Content-Disposition: form-data; name="prompt_type"')
-        body.append(b'')
-        body.append(b'default_ocr')
-        body.append(f'--{boundary}'.encode())
-        body.append(f'Content-Disposition: form-data; name="file"; filename="{os.path.basename(file_path)}"'.encode())
-        body.append(f'Content-Type: {content_type}'.encode())
-        body.append(b'')
-        body.append(image_data)
-        body.append(f'--{boundary}--'.encode())
+        # Use Sarvam chat/completions with image_url (OpenAI-compatible multimodal)
+        request_body = {
+            "model": "sarvam-m",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": """You are an expert receipt/document parser. Extract ALL financial details from this image.
+Return a JSON object with these fields:
+{
+  "merchant_name": "store or merchant name",
+  "date": "YYYY-MM-DD",
+  "total_amount": 0.00,
+  "currency": "INR",
+  "category": "Food & Dining|Shopping|Transport|Utilities|Healthcare|Entertainment|Other",
+  "items": [{"name": "item", "amount": 0.00}]
+}
+Return ONLY the JSON. No explanation."""
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{content_type};base64,{image_base64}"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": "Extract receipt details from this image. Return ONLY JSON."
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.1
+        }
         
-        body_data = b'\r\n'.join(body)
-        
+        data = json.dumps(request_body).encode('utf-8')
         req = urllib.request.Request(
-            "https://api.sarvam.ai/v1/vision/analyze",
-            data=body_data,
+            "https://api.sarvam.ai/v1/chat/completions",
+            data=data,
             headers={
-                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Type': 'application/json',
                 'api-subscription-key': _sarvam_api_key
             },
             method='POST'
@@ -2675,12 +2700,35 @@ def extract_receipt_from_path(file_path: str) -> str:
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         
-        with urllib.request.urlopen(req, timeout=30, context=context) as response:
+        with urllib.request.urlopen(req, timeout=60, context=context) as response:
             res = json.loads(response.read().decode('utf-8'))
-            ocr_text = res.get('content', res.get('text', str(res)))
+            content = res.get('choices', [{}])[0].get('message', {}).get('content', '')
             
-            print(f"[Sarvam Vision] OCR result: {ocr_text[:200]}...")
-            return _parse_receipt_from_ocr(ocr_text, file_path)
+            print(f"[Sarvam Vision] Chat response: {content[:200]}...")
+            
+            # Try to parse as JSON first
+            try:
+                clean = content.strip()
+                if clean.startswith("```json"):
+                    clean = clean[7:]
+                if clean.startswith("```"):
+                    clean = clean[3:]
+                if clean.endswith("```"):
+                    clean = clean[:-3]
+                clean = clean.strip()
+                
+                # Find JSON object
+                start = clean.find('{')
+                end = clean.rfind('}') + 1
+                if start >= 0 and end > start:
+                    parsed = json.loads(clean[start:end])
+                    parsed["success"] = True
+                    return json.dumps(parsed)
+            except json.JSONDecodeError:
+                pass
+            
+            # Fallback to text parsing
+            return _parse_receipt_from_ocr(content, file_path)
             
     except urllib.error.HTTPError as e:
         error_body = ""

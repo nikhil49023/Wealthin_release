@@ -1,9 +1,0 @@
-class: BusinessIdea
-fields:
-  title: String
-  score: int
-  strengths: List<String>
-  weaknesses: List<String>
-  suggestions: List<String>
-  estimatedInvestment: String
-  timeToBreakeven: String

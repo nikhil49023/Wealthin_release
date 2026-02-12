@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../main.dart' show authService;
 import '../../core/theme/wealthin_theme.dart';
 import '../../core/services/data_service.dart';
+import '../../core/services/sms_transaction_service.dart';
 import '../../widgets/import_dialog.dart';
 
 /// Transactions Screen - List and manage transactions with Bulk Delete
@@ -42,6 +44,52 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   void initState() {
     super.initState();
     _loadTransactions();
+    _autoScanSmsInBackground(); // Auto-scan SMS on startup
+  }
+
+  /// Automatically scan SMS for transactions in background
+  Future<void> _autoScanSmsInBackground() async {
+    try {
+      final smsService = SmsTransactionService();
+      
+      // Check if permission is granted
+      if (!await smsService.hasPermission()) {
+        debugPrint('[TransactionsScreen] SMS permission not granted, skipping auto-scan');
+        return;
+      }
+
+      debugPrint('[TransactionsScreen] Starting auto SMS scan...');
+      
+      // Scan silently in background
+      final transactionsFound = await smsService.scanAllSms();
+      
+      if (transactionsFound > 0) {
+        debugPrint('[TransactionsScreen] Auto-scan found $transactionsFound new transactions');
+        
+        // Reload transactions to show new ones
+        _loadTransactions();
+        
+        // Show subtle notification
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Added $transactionsFound new transaction${transactionsFound > 1 ? 's' : ''} from SMS'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[TransactionsScreen] Error in auto SMS scan: $e');
+    }
   }
 
   Future<void> _loadTransactions() async {
