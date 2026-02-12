@@ -155,65 +155,66 @@ class FinancialHealthService:
             print(f"Cache write error: {e}")
 
     async def _calculate_metrics(self, user_id: str) -> Dict[str, Any]:
-        """Fetch raw metrics from database."""
+        """Fetch raw metrics from database with optimized single query."""
         async with aiosqlite.connect(TRANSACTIONS_DB_PATH) as db:
             db.row_factory = aiosqlite.Row
-            
+
             # Last 3 months average for stable metrics
             cutoff = (datetime.utcnow() - timedelta(days=90)).isoformat()
-            
+
+            # OPTIMIZED: Single query using CTEs and CASE aggregations
             cursor = await db.execute('''
-                SELECT 
-                    SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
-                    SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expense,
-                    SUM(CASE WHEN (description LIKE '%invest%' OR category='Investment') THEN amount ELSE 0 END) as investments
-                FROM transactions
-                WHERE user_id = ? AND date >= ?
-            ''', (user_id, cutoff))
+                WITH metrics AS (
+                    SELECT
+                        -- 90-day metrics
+                        SUM(CASE WHEN type='income' AND date >= ? THEN amount ELSE 0 END) as income_90d,
+                        SUM(CASE WHEN type='expense' AND date >= ? THEN amount ELSE 0 END) as expense_90d,
+                        SUM(CASE WHEN date >= ? AND (description LIKE '%invest%' OR category='Investment')
+                            THEN amount ELSE 0 END) as investments_90d,
+                        SUM(CASE WHEN date >= ? AND (category='Loan' OR description LIKE '%EMI%')
+                            THEN amount ELSE 0 END) as debt_payments_90d,
+                        -- Lifetime net worth
+                        SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as net_worth
+                    FROM transactions
+                    WHERE user_id = ?
+                ),
+                diversity AS (
+                    SELECT COUNT(DISTINCT category) as asset_classes
+                    FROM transactions
+                    WHERE user_id = ? AND type='expense'
+                        AND category IN ('Investment', 'Stocks', 'Mutual Fund', 'Gold', 'Real Estate')
+                )
+                SELECT
+                    m.income_90d,
+                    m.expense_90d,
+                    m.investments_90d,
+                    m.debt_payments_90d,
+                    m.net_worth,
+                    d.asset_classes
+                FROM metrics m, diversity d
+            ''', (cutoff, cutoff, cutoff, cutoff, user_id, user_id))
+
             row = await cursor.fetchone()
-            
-            total_income = row['income'] if row and row['income'] else 1  # Avoid div/0
-            total_expense = row['expense'] if row and row['expense'] else 0
-            total_investments = row['investments'] if row and row['investments'] else 0
-            
+
+            # Extract values with fallbacks
+            total_income = row['income_90d'] if row and row['income_90d'] else 1  # Avoid div/0
+            total_expense = row['expense_90d'] if row and row['expense_90d'] else 0
+            total_investments = row['investments_90d'] if row and row['investments_90d'] else 0
+            total_debt_payments = row['debt_payments_90d'] if row and row['debt_payments_90d'] else 0
+            liquid_assets = row['net_worth'] if row and row['net_worth'] else 0
+            asset_classes = row['asset_classes'] if row and row['asset_classes'] else 0
+
+            # Calculate monthly averages (90 days = ~3 months)
             monthly_income = total_income / 3
             monthly_expense = total_expense / 3
-            
-            savings_rate = ((total_income - total_expense) / total_income) * 100
-            
-            # Debt Payments (EMI)
-            cursor = await db.execute('''
-                SELECT SUM(amount) as debt_payments
-                FROM transactions
-                WHERE user_id = ? AND date >= ? AND (category='Loan' OR description LIKE '%EMI%')
-            ''', (user_id, cutoff))
-            debt_row = await cursor.fetchone()
-            monthly_debt = (debt_row['debt_payments'] if debt_row and debt_row['debt_payments'] else 0) / 3
-            
+            monthly_debt = total_debt_payments / 3
+
+            # Calculate ratios
+            savings_rate = ((total_income - total_expense) / total_income) * 100 if total_income > 0 else 0
             dti = (monthly_debt / monthly_income * 100) if monthly_income > 0 else 0
-            
-            # Liquidity (Cash + Bank balances - rough estimate from 'surplus' accumulation)
-            # In a real app, this would query account balances directly. 
-            # Here we estimate based on historical surplus.
-            cursor = await db.execute('''
-                SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as net_worth
-                FROM transactions
-                WHERE user_id = ?
-            ''', (user_id,))
-            nw_row = await cursor.fetchone()
-            liquid_assets = nw_row['net_worth'] if nw_row and nw_row['net_worth'] else 0
-            
             liquidity_ratio = liquid_assets / monthly_expense if monthly_expense > 0 else 0
-            
-            # Investment Diversity Score (0-100)
-            cursor = await db.execute('''
-                SELECT DISTINCT category FROM transactions
-                WHERE user_id = ? AND type='expense' AND (category IN ('Investment', 'Stocks', 'Mutual Fund', 'Gold', 'Real Estate'))
-            ''', (user_id,))
-            rows = await cursor.fetchall()
-            asset_classes = len(rows)
             diversity_score = min(asset_classes * 25, 100)  # 4 classes = 100%
-            
+
             return {
                 'savings_rate': max(0, savings_rate),
                 'debt_to_income': dti,

@@ -588,7 +588,19 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
 
       _addAIMessage(response.response, sources: sources);
     } catch (e) {
-      _addAIMessage("I'm having a bit of trouble right now. Could you try asking that differently? 🤔");
+      String errorMsg;
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('timeout') || errorStr.contains('timed out')) {
+        errorMsg = "The AI is taking too long to respond. This can happen with complex queries — please try a simpler question. ⏱️";
+      } else if (errorStr.contains('api key') || errorStr.contains('no api key')) {
+        errorMsg = "AI API key not configured. Please check Settings → API Keys. 🔑";
+      } else if (errorStr.contains('connection') || errorStr.contains('socket')) {
+        errorMsg = "Couldn't connect to the AI engine. Please restart the app and try again. 🔄";
+      } else {
+        errorMsg = "I'm having a bit of trouble right now. Could you try asking that differently? 🤔";
+      }
+      debugPrint('[AIAdvisor] Chat error: $e');
+      _addAIMessage(errorMsg);
     }
   }
 

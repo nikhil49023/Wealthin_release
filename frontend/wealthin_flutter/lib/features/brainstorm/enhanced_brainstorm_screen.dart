@@ -83,8 +83,17 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // On mobile, start with chat view; on desktop, show both panels
+    _isCanvasVisible = !(_isMobileLayout);
     _loadOrCreateSession();
     _showProTipOnFirstLaunch();
+  }
+
+  // Helper to check if we're on a mobile-sized screen
+  bool get _isMobileLayout {
+    final window = WidgetsBinding.instance.platformDispatcher.views.first;
+    final width = window.physicalSize.width / window.devicePixelRatio;
+    return width < 600;
   }
 
   Future<void> _showProTipOnFirstLaunch() async {
@@ -560,21 +569,93 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
           ),
         ],
       ),
-      body: Row(
-        children: [
-          // CHAT SIDE (Left)
-          Expanded(
-            flex: _isCanvasVisible ? 1 : 2,
-            child: _buildChatPanel(isDark),
-          ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600;
 
-          // CANVAS SIDE (Right)
-          if (_isCanvasVisible)
-            Expanded(
-              flex: 1,
-              child: _buildCanvasPanel(isDark),
-            ),
-        ],
+          if (isMobile) {
+            // MOBILE: Show one panel at a time with toggle FAB
+            return Stack(
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: _isCanvasVisible
+                              ? const Offset(0.1, 0)
+                              : const Offset(-0.1, 0),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        )),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _isCanvasVisible
+                      ? KeyedSubtree(
+                          key: const ValueKey('canvas'),
+                          child: _buildCanvasPanel(isDark),
+                        )
+                      : KeyedSubtree(
+                          key: const ValueKey('chat'),
+                          child: _buildChatPanel(isDark),
+                        ),
+                ),
+                // Toggle FAB
+                Positioned(
+                  bottom: 80,
+                  right: 16,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    child: FloatingActionButton.small(
+                      heroTag: 'brainstorm_toggle',
+                      backgroundColor: _isCanvasVisible
+                          ? WealthInColors.primary
+                          : const Color(0xFF2D9CDB),
+                      onPressed: () {
+                        setState(() => _isCanvasVisible = !_isCanvasVisible);
+                      },
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          _isCanvasVisible
+                              ? Icons.chat_bubble_outline
+                              : Icons.dashboard_customize,
+                          key: ValueKey(_isCanvasVisible),
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // DESKTOP/TABLET: Side-by-side layout
+          return Row(
+            children: [
+              // CHAT SIDE (Left)
+              Expanded(
+                flex: _isCanvasVisible ? 1 : 2,
+                child: _buildChatPanel(isDark),
+              ),
+
+              // CANVAS SIDE (Right)
+              if (_isCanvasVisible)
+                Expanded(
+                  flex: 1,
+                  child: _buildCanvasPanel(isDark),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -606,14 +687,17 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _isCritiqueMode
-                      ? 'REFINERY: Finding Weak Points 🔍'
-                      : 'INPUT: Free Association',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _isCritiqueMode ? Colors.red : null,
+                Flexible(
+                  child: Text(
+                    _isCritiqueMode
+                        ? 'REFINERY: Finding Weak Points 🔍'
+                        : 'INPUT: Free Association',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _isCritiqueMode ? Colors.red : null,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (_isCritiqueMode) ...[

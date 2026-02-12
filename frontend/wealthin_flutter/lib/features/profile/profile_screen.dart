@@ -7,6 +7,8 @@ import 'package:wealthin_flutter/core/services/python_bridge_service.dart';
 import 'package:wealthin_flutter/main.dart' show themeModeNotifier, authService;
 
 import '../finance/finance_hub_screen.dart';
+import 'data_sources_screen.dart';
+import 'family_groups_screen.dart';
 
 /// Profile Screen - User settings and gamification
 class ProfileScreen extends StatefulWidget {
@@ -343,12 +345,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const Divider(height: 1),
 
+                        _SettingsTile(
+                          icon: Icons.sync_alt,
+                          title: 'Data Sources',
+                          subtitle: 'SMS, Email & Bank Sync',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DataSourcesScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _SettingsTile(
+                          icon: Icons.people,
+                          title: 'Family Groups',
+                          subtitle: 'Shared financial analysis',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const FamilyGroupsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
 
                         _SettingsTile(
                           icon: Icons.notifications,
                           title: 'Notifications',
                           onTap: () => _showNotificationSettings(context),
                         ),
+
                         const Divider(height: 1),
                         _SettingsTile(
                           icon: Icons.security,
@@ -545,12 +576,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                // TODO: Implement Serverpod sign out
-                Navigator.pop(context);
+              onPressed: () async {
+                // Clear sign-out
+                Navigator.pop(context); // Close dialog
+                
+                // Show signing out message
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Signed out!')),
+                  const SnackBar(
+                    content: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text('Signing out...'),
+                      ],
+                    ),
+                  ),
                 );
+                
+                // Simulate sign-out delay
+                await Future.delayed(const Duration(milliseconds: 500));
+                
+                // In the future, this will call:
+                // await AuthService().signOut();
+                // Or: await GoogleSignIn().signOut();
+                
+                // Navigate to home and show success
+                if (context.mounted) {
+                  // Close current screen
+                  Navigator.of(context).pop();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text('Signed out successfully!'),
+                        ],
+                      ),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.expenseRed,

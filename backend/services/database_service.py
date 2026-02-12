@@ -208,6 +208,26 @@ class DatabaseService:
                     created_at TEXT NOT NULL
                 )
             ''')
+
+            # Groups and Collaboration
+            await db.execute('''
+                CREATE TABLE IF NOT EXISTS groups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            
+            await db.execute('''
+                CREATE TABLE IF NOT EXISTS group_members (
+                    group_id INTEGER NOT NULL,
+                    user_id TEXT NOT NULL,
+                    role TEXT DEFAULT 'member', -- 'admin', 'member' 
+                    joined_at TEXT NOT NULL,
+                    PRIMARY KEY (group_id, user_id)
+                )
+            ''')
             await db.commit()
             print(f"✅ Planning DB initialized at {PLANNING_DB_PATH}")
             
@@ -779,6 +799,113 @@ class DatabaseService:
                 for t in transactions
             ],
             'cashflow_data': cashflow
+        }
+
+
+    # ==================== GROUP OPERATIONS (planning.db) ====================
+
+    async def create_group(self, name: str, user_id: str) -> int:
+        """Create a new group and add creator as admin"""
+        async with aiosqlite.connect(PLANNING_DB_PATH) as db:
+            now = datetime.utcnow().isoformat()
+            cursor = await db.execute(
+                'INSERT INTO groups (name, created_by, created_at) VALUES (?, ?, ?)',
+                (name, user_id, now)
+            )
+            group_id = cursor.lastrowid
+            
+            # Add creator as admin
+            await db.execute(
+                'INSERT INTO group_members (group_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)',
+                (group_id, user_id, 'admin', now)
+            )
+            await db.commit()
+            return group_id
+
+    async def add_group_member(self, group_id: int, user_id: str, role: str = 'member') -> bool:
+        """Add a member to a group"""
+        try:
+            async with aiosqlite.connect(PLANNING_DB_PATH) as db:
+                now = datetime.utcnow().isoformat()
+                await db.execute(
+                    'INSERT INTO group_members (group_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)',
+                    (group_id, user_id, role, now)
+                )
+                await db.commit()
+                return True
+        except Exception as e:
+            print(f"Error adding member: {e}")
+            return False
+
+    async def get_user_groups(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get groups a user belongs to"""
+        async with aiosqlite.connect(PLANNING_DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute('''
+                SELECT g.id, g.name, gm.role, g.created_at 
+                FROM groups g
+                JOIN group_members gm ON g.id = gm.group_id
+                WHERE gm.user_id = ?
+            ''', (user_id,))
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def get_group_members(self, group_id: int) -> List[Dict[str, Any]]:
+        """Get all members of a group"""
+        async with aiosqlite.connect(PLANNING_DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute('SELECT * FROM group_members WHERE group_id = ?', (group_id,))
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def get_group_dashboard_data(self, group_id: int, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
+        """Aggregate dashboard data for all group members"""
+        if not start_date or not end_date:
+            today = datetime.utcnow().date()
+            start_date = today.replace(day=1).isoformat()
+            end_date = f"{today.isoformat()}T23:59:59"
+
+        members = await self.get_group_members(group_id)
+        if not members:
+            return {}
+
+        user_ids = [m['user_id'] for m in members]
+        placeholders = ','.join(['?'] * len(user_ids))
+        
+        async with aiosqlite.connect(TRANSACTIONS_DB_PATH) as db:
+            # Spending Summary
+            query = f'''
+                SELECT 
+                    SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
+                    SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expense
+                FROM transactions 
+                WHERE user_id IN ({placeholders}) AND date BETWEEN ? AND ?
+            '''
+            params = list(user_ids) + [start_date, end_date]
+            cursor = await db.execute(query, params)
+            
+            row = await cursor.fetchone()
+            total_income = row[0] if row and row[0] else 0
+            total_expense = row[1] if row and row[1] else 0
+            
+            # Category breakdown (aggregate)
+            query_cat = f'''
+                SELECT category, SUM(amount) as total 
+                FROM transactions 
+                WHERE user_id IN ({placeholders}) AND type = 'expense' AND date BETWEEN ? AND ?
+                GROUP BY category ORDER BY total DESC
+            '''
+            cursor = await db.execute(query_cat, params)
+            
+            by_category = {row[0]: row[1] for row in await cursor.fetchall()}
+
+        return {
+            'group_id': group_id,
+            'member_count': len(user_ids),
+            'total_income': total_income,
+            'total_expense': total_expense,
+            'net_balance': total_income - total_expense,
+            'by_category': by_category
         }
 
 

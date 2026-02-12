@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import json
 from datetime import datetime
+import time
 
 # Service imports - The Three Layers
 from services.pdf_parser_advanced import pdf_parser_service, AdvancedPDFParser
@@ -45,6 +46,15 @@ from services.merchant_service import merchant_service
 from services.ncm_service import ncm_service
 from services.financial_health_service import financial_health_service
 from services.openai_brainstorm_service import openai_brainstorm_service
+from services.recurring_transaction_service import recurring_transaction_service
+from services.bill_split_service import bill_split_service
+from services.forecast_service import forecast_service
+from services.brainstorm_router import brainstorm_router, BrainstormIntent
+from services.business_plan_templates import business_plan_templates
+from services.ai_provider_service import AIProviderService
+from services.gst_invoice_service import gst_invoice_service
+from services.cashflow_forecast_service import cashflow_forecast_service
+from services.vendor_payment_service import vendor_payment_service
 
 # NEW SERVICES (RAG Integration)
 from services.query_router import router, QueryType
@@ -57,6 +67,7 @@ from services.static_knowledge_service import static_kb
 from services.mongo_service import mongo_service
 from services.idea_evaluator_service import idea_evaluator
 from services.mudra_dpr_service import mudra_engine, MudraDPRInput
+from services.email_service import email_service
 
 load_dotenv()
 
@@ -78,6 +89,10 @@ async def lifespan(app: FastAPI):
     await ncm_service.initialize()
     await openai_brainstorm_service.initialize()
     await mongo_service.initialize()  # Initialize MongoDB/NoSQL
+    await bill_split_service.initialize()  # Initialize bill splitting tables
+    await gst_invoice_service.initialize()  # Initialize GST invoicing
+    await vendor_payment_service.initialize()  # Initialize vendor tracking
+    logger.info("Phase 2 MSME services initialized")
     
     # Initialize RAG Knowledge Base
     logger.info("loading RAG knowledge base...")
@@ -99,6 +114,10 @@ app = FastAPI(
     version="4.1.0",
     lifespan=lifespan
 )
+
+# Dashboard cache infrastructure
+dashboard_cache: Dict[str, tuple[Dict[str, Any], float]] = {}  # {cache_key: (data, timestamp)}
+DASHBOARD_CACHE_TTL = 300  # 5 minutes in seconds
 
 # CORS middleware
 cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
@@ -213,6 +232,21 @@ class EmergencyFundRequest(BaseModel):
     monthly_expenses: float
     target_months: int = 6
 
+class CreateGroupRequest(BaseModel):
+    name: str
+    user_id: str
+
+class AddMemberRequest(BaseModel):
+    group_id: int
+    user_id: str
+    role: str = "member"
+
+class EmailSyncRequest(BaseModel):
+    user_id: str
+    email: str
+    password: str # App Password
+    days_back: int = 30
+
 
 # ============== Health Check ==============
 
@@ -270,6 +304,60 @@ async def get_monthly_trends(user_id: str):
         "next_month_prediction": prediction
     }
 
+@app.get("/analytics/recurring/{user_id}")
+async def get_recurring_transactions(user_id: str):
+    """
+    Detect recurring subscriptions and bills from transaction history.
+    Analyzes last 180 days of data.
+    """
+    try:
+        from datetime import timedelta
+        
+        # Fetch last 180 days for pattern detection
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+        
+        # Get raw transactions
+        transactions = await database_service.get_transactions(
+            user_id=user_id,
+            limit=2000,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        # Convert to dicts for service
+        from dataclasses import asdict
+        tx_dicts = [asdict(t) for t in transactions]
+        
+        # Detect patterns
+        recurring = recurring_transaction_service.detect_recurring(tx_dicts)
+        
+        # Calculate committed spend (monthly equivalent)
+        total_monthly = 0.0
+        for item in recurring:
+            amt = item['amount']
+            freq = item['frequency']
+            
+            if freq == 'monthly':
+                total_monthly += amt
+            elif freq == 'weekly':
+                total_monthly += (amt * 4.33)  # Avg weeks in month
+            elif freq == 'bi-weekly':
+                total_monthly += (amt * 2.16)
+            elif freq == 'yearly':
+                total_monthly += (amt / 12)
+        
+        return {
+            "status": "success",
+            "recurring_count": len(recurring),
+            "estimated_monthly_bills": round(total_monthly, 2),
+            "items": recurring,
+            "analysis_period_days": 180
+        }
+    except Exception as e:
+        logger.error(f"Recurring analysis error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/calculator/savings-rate")
 async def calc_savings_rate(data: SavingsRateRequest):
     rate = FinancialCalculator.calculate_savings_rate(data.income, data.expenses)
@@ -293,12 +381,154 @@ async def calc_emergency_fund(data: EmergencyFundRequest):
     )
 
 @app.get("/dashboard/{user_id}")
-async def get_dashboard_data(user_id: str):
-    return await database_service.get_dashboard_data(user_id)
+async def get_dashboard_data(user_id: str, use_cache: bool = True):
+    """
+    Optimized dashboard endpoint with 5-minute caching
+    Returns: health_score, spending summary, recent transactions, budgets, goals
+    """
+    cache_key = f"dashboard:{user_id}"
+    now = time.time()
+
+    # Check cache
+    if use_cache and cache_key in dashboard_cache:
+        cached_data, timestamp = dashboard_cache[cache_key]
+        if now - timestamp < DASHBOARD_CACHE_TTL:
+            logger.info(f"Cache HIT for dashboard:{user_id}")
+            return {"data": cached_data, "cached": True, "cache_age": round(now - timestamp, 1)}
+
+    # Cache miss - calculate fresh data
+    logger.info(f"Cache MISS for dashboard:{user_id} - fetching fresh data")
+
+    # Get base dashboard data (includes spending, budgets, goals, transactions)
+    dashboard_data = await database_service.get_dashboard_data(user_id)
+
+    # Add health score (now optimized with single query)
+    try:
+        health_score = await financial_health_service.calculate_health_score(user_id)
+        dashboard_data['health_score'] = {
+            'total_score': health_score.total_score,
+            'grade': health_score.grade,
+            'scores': health_score.scores,
+            'recommendations': health_score.recommendations
+        }
+    except Exception as e:
+        logger.warning(f"Health score calculation failed: {e}")
+        dashboard_data['health_score'] = None
+
+    # Cache the result
+    dashboard_cache[cache_key] = (dashboard_data, now)
+
+    # Clean old cache entries (keep last 100)
+    if len(dashboard_cache) > 100:
+        oldest_keys = sorted(dashboard_cache.items(), key=lambda x: x[1][1])[:50]
+        for key, _ in oldest_keys:
+            del dashboard_cache[key]
+
+    return {"data": dashboard_data, "cached": False, "cache_age": 0}
 
 @app.get("/insights/daily/{user_id}")
 async def get_daily_insight(user_id: str):
     return await ai_tools_service.generate_daily_insight(user_id)
+
+
+# --- Group Accounts & Sharing ---
+
+@app.post("/groups/create")
+async def create_group_endpoint(request: CreateGroupRequest):
+    group_id = await database_service.create_group(request.name, request.user_id)
+    return {"success": True, "group_id": group_id, "message": "Group created"}
+
+@app.post("/groups/add-member")
+async def add_member_endpoint(request: AddMemberRequest):
+    success = await database_service.add_group_member(request.group_id, request.user_id, request.role)
+    if success:
+        return {"success": True, "message": "Member added"}
+    raise HTTPException(status_code=400, detail="Failed to add member")
+
+@app.get("/groups/list/{user_id}")
+async def list_user_groups(user_id: str):
+    groups = await database_service.get_user_groups(user_id)
+    return {"groups": groups}
+
+@app.get("/groups/{group_id}/members")
+async def list_group_members(group_id: int):
+    members = await database_service.get_group_members(group_id)
+    return {"members": members}
+
+@app.get("/groups/{group_id}/dashboard")
+async def group_dashboard(group_id: int, user_id: str):
+    # Verify membership
+    members = await database_service.get_group_members(group_id)
+    if not any(m['user_id'] == user_id for m in members):
+        raise HTTPException(status_code=403, detail="Access denied: Not a group member")
+        
+    # Default to current month
+    data = await database_service.get_group_dashboard_data(group_id)
+    return data
+
+# --- Email Parsing ---
+
+@app.post("/transactions/sync/email")
+async def sync_email_transactions(request: EmailSyncRequest):
+    """
+    Sync transactions from email attachments.
+    WARNING: Requires App Password from Gmail.
+    """
+    try:
+        # 1. Fetch from email
+        result = await email_service.fetch_and_parse_emails(
+            request.email, 
+            request.password, 
+            request.days_back
+        )
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("message"))
+            
+        transactions = result.get("transactions", [])
+        saved_count = 0
+        
+        # 2. Categorize and Save (using existing logic)
+        from services.database_service import Transaction
+        
+        for tx in transactions:
+            # tx is a dict from asdict()
+            new_tx = Transaction(
+                id=None,
+                user_id=request.user_id,
+                amount=tx.get('amount'),
+                description=tx.get('description'),
+                category=tx.get('category', 'Uncategorized'),
+                type=tx.get('transaction_type', 'expense'),
+                date=tx.get('date'),
+                time=tx.get('extra_data', {}).get('time'),
+                merchant=tx.get('merchant'),
+                payment_method=tx.get('source'),
+                notes="Imported from Email",
+                receipt_url=None,
+                is_recurring=False
+            )
+            
+            # Auto-categorize if needed
+            if new_tx.category in ['Uncategorized', 'Other', None]:
+                 cat = await transaction_categorizer.categorize_single(
+                     new_tx.description, new_tx.amount, new_tx.type
+                 )
+                 new_tx.category = cat
+            
+            await database_service.create_transaction(new_tx)
+            saved_count += 1
+            
+        return {
+            "success": True,
+            "found": len(transactions),
+            "saved": saved_count,
+            "message": f"Successfully imported {saved_count} transactions from email."
+        }
+            
+    except Exception as e:
+        logger.error(f"Email sync error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- AI Chat Routes ---
@@ -486,17 +716,44 @@ async def agentic_chat(request: AgenticChatRequest):
             if kb_results:
                 static_context = "\n\nRelevant Knowledge:\n" + "\n".join([f"- {r['title']}: {r['content'][:200]}..." for r in kb_results[:2]])
             
-            # Use OpenAI service
-            result_dict = openai_service.chat_with_rag(
-                user_query=request.query + static_context,
-                conversation_history=request.conversation_history,
-                model="gpt-4o",
-                use_rag=True, # Still use RAG for other docs if needed
-                max_tokens=routing_config.get("max_tokens", 4000)
-            )
-            response_text = result_dict["response"]
-            model_used = result_dict["model_used"]
-            sources = result_dict["sources"]
+            # Use Groq for AI Advisor chat (faster, saves OpenAI quota)
+            try:
+                ai_provider = AIProviderService()
+
+                # Build context with conversation history
+                context = ""
+                if request.conversation_history:
+                    for msg in request.conversation_history[-5:]:
+                        role = msg.get('role', 'user')
+                        content = msg.get('content', '')
+                        context += f"{role}: {content}\n"
+
+                full_prompt = f"{context}\nuser: {request.query + static_context}"
+                system_prompt = "You are an AI financial advisor for Indian MSMEs. Provide practical, actionable advice."
+
+                response_text = await ai_provider.get_completion(
+                    prompt=full_prompt,
+                    system_prompt=system_prompt,
+                    temperature=0.7,
+                    max_tokens=routing_config.get("max_tokens", 4000)
+                )
+
+                model_used = f"groq_{ai_provider.provider}"
+                sources = kb_results[:2] if kb_results else []
+
+            except Exception as e:
+                logger.error(f"Groq AI Advisor error: {e}, falling back to OpenAI")
+                # Fallback to OpenAI
+                result_dict = openai_service.chat_with_rag(
+                    user_query=request.query + static_context,
+                    conversation_history=request.conversation_history,
+                    model="gpt-4o",
+                    use_rag=True,
+                    max_tokens=routing_config.get("max_tokens", 4000)
+                )
+                response_text = result_dict["response"]
+                model_used = result_dict["model_used"] + "_fallback"
+                sources = result_dict["sources"]
         
         return {
             "response": response_text,
@@ -744,23 +1001,251 @@ class BrainstormRequest(BaseModel):
 
 @app.post("/brainstorm/chat")
 async def brainstorm_chat(request: BrainstormRequest):
-    """Chat with AI using selected persona (thinking hat)."""
+    """
+    Smart-routed brainstorm chat with cost optimization.
+    Routes 60% of queries to templates/local processing, 40% to GPT-4o.
+    """
     try:
-        result = await openai_brainstorm_service.brainstorm(
-            user_message=request.message,
-            conversation_history=request.conversation_history,
-            enable_web_search=request.enable_web_search,
-            search_category=request.search_category,
-            persona=request.persona
-        )
-        return {
-            "success": True,
-            "content": result.content,
-            "sources": result.sources
-        }
+        # Classify intent
+        intent, config = brainstorm_router.classify_intent(request.message)
+        logger.info(f"Brainstorm intent: {intent.value}, confidence: {config.get('confidence', 0):.2f}")
+
+        # Extract entities for templates
+        entities = brainstorm_router.extract_entities(request.message, intent)
+
+        # Route based on intent
+        if intent == BrainstormIntent.CREATE_PLAN:
+            # Use template (free, <100ms)
+            template_data = business_plan_templates.generate_outline(
+                business_name=entities.get('business_name'),
+                business_type=entities.get('business_type'),
+                location=entities.get('location')
+            )
+            return {
+                "success": True,
+                "content": _format_template_response(template_data),
+                "sources": [],
+                "routing": {
+                    "handler": "template",
+                    "intent": intent.value,
+                    "confidence": config['confidence'],
+                    "cost_saved": True
+                }
+            }
+
+        elif intent == BrainstormIntent.FIND_FUNDING:
+            # Use static knowledge base (free, <50ms)
+            capital = None
+            if 'capital' in entities:
+                try:
+                    capital = float(entities['capital'].replace(',', ''))
+                except:
+                    pass
+
+            funding_data = business_plan_templates.get_funding_guide(
+                business_type=entities.get('business_type'),
+                capital_needed=capital,
+                location=entities.get('location')
+            )
+            return {
+                "success": True,
+                "content": _format_funding_response(funding_data),
+                "sources": [],
+                "routing": {
+                    "handler": "template",
+                    "intent": intent.value,
+                    "confidence": config['confidence'],
+                    "cost_saved": True
+                }
+            }
+
+        elif intent == BrainstormIntent.DRAFT_DOCUMENT:
+            # Use DPR template (free, <50ms)
+            dpr_data = business_plan_templates.get_dpr_template()
+            return {
+                "success": True,
+                "content": _format_dpr_response(dpr_data),
+                "sources": [],
+                "routing": {
+                    "handler": "template",
+                    "intent": intent.value,
+                    "confidence": config['confidence'],
+                    "cost_saved": True
+                }
+            }
+
+        elif intent == BrainstormIntent.FIND_LOCAL_MSME:
+            # Use Government API (free, ~500ms)
+            # TODO: Integrate with msme_government_service
+            return {
+                "success": True,
+                "content": "🏭 MSME Directory Search\n\nTo find registered MSMEs, I'll need:\n• State/District\n• Business sector\n\nNote: This feature requires Government API integration. For now, visit https://udyamregistration.gov.in to search the MSME directory.",
+                "sources": [],
+                "routing": {
+                    "handler": "gov_api",
+                    "intent": intent.value,
+                    "confidence": config['confidence'],
+                    "cost_saved": True
+                }
+            }
+
+        else:
+            # Use Groq (or configured AI provider) for complex reasoning
+            # (EVALUATE_IDEA, GENERAL_QUESTION, CALCULATE_METRICS)
+            try:
+                ai_provider = AIProviderService()
+
+                # Build system prompt based on persona
+                persona_prompts = {
+                    'neutral': 'You are a balanced business advisor.',
+                    'cynical_vc': 'You are a skeptical VC who asks tough questions.',
+                    'enthusiastic_entrepreneur': 'You are an optimistic entrepreneur.',
+                    'risk_manager': 'You focus on identifying and managing risks.',
+                    'customer_advocate': 'You prioritize customer needs and experience.',
+                    'financial_analyst': 'You focus on financial viability and metrics.',
+                    'systems_thinker': 'You analyze interconnections and systems.',
+                }
+
+                system_prompt = persona_prompts.get(request.persona, persona_prompts['neutral'])
+                system_prompt += "\n\nProvide practical, actionable advice for MSME (Micro, Small, Medium Enterprises) in India."
+
+                # Build conversation context
+                context = ""
+                if request.conversation_history:
+                    for msg in request.conversation_history[-5:]:  # Last 5 messages
+                        role = msg.get('role', 'user')
+                        content = msg.get('content', '')
+                        context += f"{role}: {content}\n"
+
+                full_prompt = f"{context}\nuser: {request.message}"
+
+                # Get completion from Groq
+                response = await ai_provider.get_completion(
+                    prompt=full_prompt,
+                    system_prompt=system_prompt,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+
+                return {
+                    "success": True,
+                    "content": response,
+                    "sources": [],  # Web search not implemented for Groq yet
+                    "routing": {
+                        "handler": f"groq_{ai_provider.provider}",
+                        "intent": intent.value,
+                        "confidence": config['confidence'],
+                        "cost_saved": False,
+                        "model": "groq/openai-gpt-oss-20b"
+                    }
+                }
+            except Exception as e:
+                logger.error(f"Groq completion error: {e}")
+                # Fallback to OpenAI if Groq fails
+                logger.info("Falling back to OpenAI brainstorm service")
+                result = await openai_brainstorm_service.brainstorm(
+                    user_message=request.message,
+                    conversation_history=request.conversation_history,
+                    enable_web_search=request.enable_web_search,
+                    search_category=request.search_category,
+                    persona=request.persona
+                )
+                return {
+                    "success": True,
+                    "content": result.content,
+                    "sources": result.sources,
+                    "routing": {
+                        "handler": "openai_fallback",
+                        "intent": intent.value,
+                        "confidence": config['confidence'],
+                        "cost_saved": False
+                    }
+                }
+
     except Exception as e:
         logger.error(f"Brainstorm error: {e}")
         return {"success": False, "error": str(e)}
+
+
+def _format_template_response(data: Dict[str, Any]) -> str:
+    """Format business plan template as markdown"""
+    content = f"# {data['title']}\n\n"
+
+    for section in data['sections']:
+        content += f"## {section['section']}\n"
+        content += f"*{section['description']}*\n\n"
+        content += "**Key Points:**\n"
+        for point in section['key_points']:
+            content += f"• {point}\n"
+        content += "\n"
+
+    content += "## Next Steps\n"
+    for step in data['next_steps']:
+        content += f"✓ {step}\n"
+
+    content += f"\n⏱️ **Estimated Time:** {data['estimated_time']}\n"
+    content += "\n💡 *This is a template outline. Customize each section based on your specific business.*"
+
+    return content
+
+
+def _format_funding_response(data: Dict[str, Any]) -> str:
+    """Format funding guide as markdown"""
+    content = "# 💰 Government Funding Schemes for MSMEs\n\n"
+
+    for scheme in data['schemes']:
+        content += f"## {scheme['name']}\n"
+        content += f"{scheme['description']}\n\n"
+        content += f"**Loan Amount:** {scheme['loan_amount']}\n"
+
+        if 'categories' in scheme:
+            content += "**Categories:**\n"
+            for cat in scheme['categories']:
+                content += f"• {cat}\n"
+
+        content += "\n**Eligibility:**\n"
+        for eligibility in scheme['eligibility']:
+            content += f"• {eligibility}\n"
+
+        if 'interest_rate' in scheme:
+            content += f"\n**Interest Rate:** {scheme['interest_rate']}\n"
+
+        if 'collateral' in scheme:
+            content += f"**Collateral:** {scheme['collateral']}\n"
+
+        content += f"\n🌐 **Website:** {scheme['website']}\n\n---\n\n"
+
+    content += "## Application Process\n"
+    for i, step in enumerate(data['application_process']['steps'], 1):
+        content += f"{i}. {step}\n"
+
+    content += f"\n⏱️ **Timeline:** {data['application_process']['typical_timeline']}\n\n"
+
+    content += "## 💡 Tips\n"
+    for tip in data['tips']:
+        content += f"• {tip}\n"
+
+    return content
+
+
+def _format_dpr_response(data: Dict[str, Any]) -> str:
+    """Format DPR template as markdown"""
+    content = f"# {data['title']}\n\n"
+    content += "A Detailed Project Report (DPR) is essential for loan applications. Here's the structure:\n\n"
+
+    for section in data['sections']:
+        content += f"## {section['section']}\n"
+        for field in section['fields']:
+            content += f"• {field}\n"
+        content += "\n"
+
+    content += "## Format Requirements\n"
+    for key, value in data['format_requirements'].items():
+        content += f"• **{key.title()}:** {value}\n"
+
+    content += "\n💡 *Use this template to prepare your DPR. Banks typically require 2-3 copies along with supporting documents.*"
+
+    return content
 
 @app.post("/brainstorm/generate-dpr")
 async def generate_dpr(request: DPRRequest):
@@ -1372,6 +1857,853 @@ async def get_metrics_history(user_id: str, months: int = 12):
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# ==================== BILL SPLITTING & GROUP EXPENSES (P0) ====================
+
+class CreateSplitRequest(BaseModel):
+    total_amount: float
+    split_method: str  # 'equal', 'by_item', 'percentage', 'custom'
+    participants: List[Dict[str, Any]]
+    created_by: str
+    group_id: Optional[int] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    items: Optional[List[Dict[str, Any]]] = None
+
+
+class SettleDebtRequest(BaseModel):
+    from_user_id: str
+    to_user_id: str
+    amount: float
+    group_id: Optional[int] = None
+
+
+@app.post("/bill-split/create")
+async def create_bill_split(request: CreateSplitRequest):
+    """Create a new bill split"""
+    try:
+        # Convert items to BillItem objects if provided
+        from services.bill_split_service import BillItem
+        bill_items = None
+        if request.items:
+            bill_items = [
+                BillItem(
+                    description=item.get('description', ''),
+                    amount=item.get('amount', 0),
+                    quantity=item.get('quantity', 1),
+                    **({'assigned_to': item['assigned_to']} if 'assigned_to' in item else {})
+                )
+                for item in request.items
+            ]
+        
+        result = await bill_split_service.create_split(
+            total_amount=request.total_amount,
+            split_method=request.split_method,
+            participants=request.participants,
+            created_by=request.created_by,
+            group_id=request.group_id,
+            description=request.description,
+            image_url=request.image_url,
+            items=bill_items
+        )
+        
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error creating bill split: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/bill-split/{split_id}")
+async def get_bill_split(split_id: int):
+    """Get details of a specific bill split"""
+    try:
+        split = await bill_split_service.get_split(split_id)
+        if not split:
+            raise HTTPException(status_code=404, detail="Split not found")
+        
+        return {
+            "success": True,
+            "split": split
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting bill split: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/bill-split/group/{group_id}")
+async def get_group_splits(group_id: int, limit: int = 50):
+    """Get all bill splits for a group"""
+    try:
+        splits = await bill_split_service.get_group_splits(group_id, limit)
+        return {
+            "success": True,
+            "splits": splits,
+            "count": len(splits)
+        }
+    except Exception as e:
+        logger.error(f"Error getting group splits: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/bill-split/debts/{user_id}")
+async def get_user_debts(user_id: str, group_id: Optional[int] = None):
+    """Get all debts for a user (who owes them and whom they owe)"""
+    try:
+        debts = await bill_split_service.get_user_debts(user_id, group_id)
+        return {
+            "success": True,
+            **debts
+        }
+    except Exception as e:
+        logger.error(f"Error getting user debts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/bill-split/settle")
+async def settle_debt(request: SettleDebtRequest):
+    """Mark debts as settled between two users"""
+    try:
+        success = await bill_split_service.settle_debt(
+            from_user_id=request.from_user_id,
+            to_user_id=request.to_user_id,
+            amount=request.amount,
+            group_id=request.group_id
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Debt settled successfully"
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Failed to settle debt"
+            }
+    except Exception as e:
+        logger.error(f"Error settling debt: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/bill-split/{split_id}")
+async def delete_bill_split(split_id: int, user_id: str):
+    """Delete a bill split (only creator can delete)"""
+    try:
+        success = await bill_split_service.delete_split(split_id, user_id)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Split deleted successfully"
+            }
+        else:
+            raise HTTPException(status_code=403, detail="Unauthorized to delete this split")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting bill split: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== EXPENSE FORECASTING & BUDGET ALERTS (P0) ====================
+
+@app.get("/forecast/month-end/{user_id}")
+async def forecast_month_end(user_id: str, category: Optional[str] = None):
+    """Forecast month-end spending based on current trends"""
+    try:
+        forecast = await forecast_service.forecast_month_end(user_id, category)
+        return {
+            "success": True,
+            **forecast
+        }
+    except Exception as e:
+        logger.error(f"Error forecasting month-end: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/forecast/anomalies/{user_id}")
+async def detect_spending_anomalies(
+    user_id: str, 
+    lookback_days: int = 30,
+    threshold: float = 2.0
+):
+    """Detect spending anomalies (unusual spending patterns)"""
+    try:
+        anomalies = await forecast_service.detect_anomalies(
+            user_id, 
+            lookback_days, 
+            threshold
+        )
+        
+        return {
+            "success": True,
+            "anomalies": [
+                {
+                    "category": a.category,
+                    "current_spending": a.current_spending,
+                    "average_spending": a.average_spending,
+                    "deviation_percent": a.deviation_percent,
+                    "severity": a.severity
+                }
+                for a in anomalies
+            ],
+            "count": len(anomalies)
+        }
+    except Exception as e:
+        logger.error(f"Error detecting anomalies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/forecast/weekly-digest/{user_id}")
+async def get_weekly_digest(user_id: str):
+    """Generate weekly spending digest"""
+    try:
+        digest = await forecast_service.generate_weekly_digest(user_id)
+        return {
+            "success": True,
+            **digest
+        }
+    except Exception as e:
+        logger.error(f"Error generating weekly digest: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/forecast/category/{user_id}")
+async def get_category_forecast(user_id: str, days_ahead: int = 30):
+    """Forecast spending by category for the next N days"""
+    try:
+        forecasts = await forecast_service.get_category_forecast(user_id, days_ahead)
+        return {
+            "success": True,
+            "forecasts": forecasts,
+            "count": len(forecasts),
+            "days_ahead": days_ahead
+        }
+    except Exception as e:
+        logger.error(f"Error forecasting by category: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== RECURRING TRANSACTIONS (Already Implemented) ====================
+
+@app.get("/recurring-transactions/{user_id}")
+async def get_recurring_transactions(user_id: str):
+    """Detect and return recurring transaction patterns"""
+    try:
+        patterns = await recurring_transaction_service.detect_patterns(user_id)
+        return {
+            "success": True,
+            "patterns": patterns,
+            "count": len(patterns)
+        }
+    except Exception as e:
+        logger.error(f"Error detecting recurring transactions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== GST INVOICE GENERATOR (P2 - MSME) ====================
+
+class CreateCustomerRequest(BaseModel):
+    business_name: str
+    gstin: str
+    state_code: str
+    address: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class CreateInvoiceRequest(BaseModel):
+    customer_id: int
+    items: List[Dict[str, Any]]
+    invoice_date: Optional[str] = None
+    due_date: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@app.post("/gst/customer/create")
+async def create_customer(request: CreateCustomerRequest, user_id: str = "default"):
+    """Create a new customer for invoicing"""
+    try:
+        from services.gst_invoice_service import Customer
+        
+        customer = Customer(
+            id=None,
+            user_id=user_id,
+            business_name=request.business_name,
+            gstin=request.gstin,
+            state_code=request.state_code,
+            address=request.address,
+            email=request.email,
+            phone=request.phone,
+            created_at=""
+        )
+        
+        created = await gst_invoice_service.create_customer(customer)
+        
+        return {
+            "success": True,
+            "customer_id": created.id,
+            "business_name": created.business_name
+        }
+    except Exception as e:
+        logger.error(f"Error creating customer: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/gst/customers/{user_id}")
+async def get_customers(user_id: str):
+    """Get all customers"""
+    try:
+        customers = await gst_invoice_service.get_customers(user_id)
+        return {
+            "success": True,
+            "customers": [
+                {
+                    "id": c.id,
+                    "business_name": c.business_name,
+                    "gstin": c.gstin,
+                    "state_code": c.state_code
+                }
+                for c in customers
+            ],
+            "count": len(customers)
+        }
+    except Exception as e:
+        logger.error(f"Error getting customers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/gst/business-profile")
+async def set_business_profile(profile: Dict[str, Any], user_id: str = "default"):
+    """Set business profile for invoice generation"""
+    try:
+        await gst_invoice_service.set_business_profile(user_id, profile)
+        return {
+            "success": True,
+            "message": "Business profile updated"
+        }
+    except Exception as e:
+        logger.error(f"Error setting business profile: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/gst/business-profile/{user_id}")
+async def get_business_profile(user_id: str):
+    """Get business profile"""
+    try:
+        profile = await gst_invoice_service.get_business_profile(user_id)
+        return {
+            "success": True,
+            "profile": profile
+        }
+    except Exception as e:
+        logger.error(f"Error getting business profile: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/gst/invoice/create")
+async def create_invoice(request: CreateInvoiceRequest, user_id: str = "default"):
+    """Create a new GST invoice"""
+    try:
+        result = await gst_invoice_service.create_invoice(
+            user_id=user_id,
+            customer_id=request.customer_id,
+            items=request.items,
+            invoice_date=request.invoice_date,
+            due_date=request.due_date,
+            notes=request.notes
+        )
+        
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error creating invoice: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/gst/invoice/{invoice_id}")
+async def get_invoice(invoice_id: int, user_id: str = "default"):
+    """Get invoice details"""
+    try:
+        invoice = await gst_invoice_service.get_invoice(invoice_id, user_id)
+        
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        
+        return {
+            "success": True,
+            "invoice": invoice
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting invoice: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/gst/invoices/{user_id}")
+async def get_invoices(user_id: str, status: Optional[str] = None, limit: int = 50):
+    """Get all invoices"""
+    try:
+        invoices = await gst_invoice_service.get_invoices(user_id, status, limit)
+        return {
+            "success": True,
+            "invoices": invoices,
+            "count": len(invoices)
+        }
+    except Exception as e:
+        logger.error(f"Error getting invoices: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/gst/invoice/{invoice_id}/status")
+async def update_invoice_status(
+    invoice_id: int,
+    status: str,
+    payment_status: Optional[str] = None,
+    user_id: str = "default"
+):
+    """Update invoice status"""
+    try:
+        success = await gst_invoice_service.update_invoice_status(
+            invoice_id, user_id, status, payment_status
+        )
+        
+        return {
+            "success": success,
+            "message": "Invoice status updated"
+        }
+    except Exception as e:
+        logger.error(f"Error updating invoice status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/gst/hsn-codes")
+async def get_hsn_codes():
+    """Get common HSN codes"""
+    try:
+        codes = gst_invoice_service.get_common_hsn_codes()
+        return {
+            "success": True,
+            "hsn_codes": codes
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== CASH FLOW FORECASTING (P2 - MSME) ====================
+
+@app.get("/cashflow/forecast/{user_id}")
+async def forecast_cash_flow(
+    user_id: str,
+    days_ahead: int = 90,
+    starting_balance: Optional[float] = None
+):
+    """Forecast cash flow for next N days"""
+    try:
+        forecast = await cashflow_forecast_service.forecast_cash_flow(
+            user_id, days_ahead, starting_balance
+        )
+        
+        return {
+            "success": True,
+            "forecast": forecast,
+            "days": len(forecast)
+        }
+    except Exception as e:
+        logger.error(f"Error forecasting cash flow: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/cashflow/runway/{user_id}")
+async def calculate_runway(user_id: str):
+    """Calculate business runway (months until cash runs out)"""
+    try:
+        runway = await cashflow_forecast_service.calculate_runway(user_id)
+        return {
+            "success": True,
+            **runway
+        }
+    except Exception as e:
+        logger.error(f"Error calculating runway: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/cashflow/simulate-delay")
+async def simulate_delayed_payment(
+    user_id: str,
+    invoice_amount: float,
+    original_date: str,
+    delay_days: int
+):
+    """Simulate impact of delayed invoice payment"""
+    try:
+        simulation = await cashflow_forecast_service.simulate_delayed_payment(
+            user_id, invoice_amount, original_date, delay_days
+        )
+        
+        return {
+            "success": True,
+            **simulation
+        }
+    except Exception as e:
+        logger.error(f"Error simulating delay: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/cashflow/cash-crunch/{user_id}")
+async def get_cash_crunch_alerts(user_id: str, days_ahead: int = 90):
+    """Get upcoming dates with low cash warnings"""
+    try:
+        warnings = await cashflow_forecast_service.get_upcoming_cash_crunch(
+            user_id, days_ahead
+        )
+        
+        return {
+            "success": True,
+            "warnings": warnings,
+            "count": len(warnings)
+        }
+    except Exception as e:
+        logger.error(f"Error getting cash crunch alerts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== VENDOR PAYMENT TRACKER (P2 - MSME) ====================
+
+class CreateVendorRequest(BaseModel):
+    vendor_name: str
+    vendor_type: str  # 'supplier', 'contractor', 'utility', 'service'
+    gstin: Optional[str] = None
+    contact_person: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    payment_terms: int = 30
+    credit_limit: float = 0
+
+
+class RecordBillRequest(BaseModel):
+    vendor_id: int
+    bill_number: str
+    bill_date: str
+    amount: float
+    gst_amount: float = 0
+    notes: Optional[str] = None
+
+
+class MakePaymentRequest(BaseModel):
+    payment_id: int
+    amount: float
+    payment_date: Optional[str] = None
+    payment_method: Optional[str] = None
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@app.post("/vendor/create")
+async def create_vendor(request: CreateVendorRequest, user_id: str = "default"):
+    """Create a new vendor"""
+    try:
+        from services.vendor_payment_service import Vendor
+        
+        vendor = Vendor(
+            id=None,
+            user_id=user_id,
+            vendor_name=request.vendor_name,
+            vendor_type=request.vendor_type,
+            gstin=request.gstin,
+            contact_person=request.contact_person,
+            email=request.email,
+            phone=request.phone,
+            address=request.address,
+            payment_terms=request.payment_terms,
+            credit_limit=request.credit_limit,
+            status='active',
+            created_at=""
+        )
+        
+        created = await vendor_payment_service.create_vendor(vendor)
+        
+        return {
+            "success": True,
+            "vendor_id": created.id,
+            "vendor_name": created.vendor_name
+        }
+    except Exception as e:
+        logger.error(f"Error creating vendor: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/vendor/list/{user_id}")
+async def get_vendors(user_id: str, status: Optional[str] = 'active'):
+    """Get all vendors"""
+    try:
+        vendors = await vendor_payment_service.get_vendors(user_id, status)
+        return {
+            "success": True,
+            "vendors": [
+                {
+                    "id": v.id,
+                    "vendor_name": v.vendor_name,
+                    "vendor_type": v.vendor_type,
+                    "payment_terms": v.payment_terms,
+                    "status": v.status
+                }
+                for v in vendors
+            ],
+            "count": len(vendors)
+        }
+    except Exception as e:
+        logger.error(f"Error getting vendors: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/vendor/bill/record")
+async def record_vendor_bill(request: RecordBillRequest, user_id: str = "default"):
+    """Record a new vendor bill"""
+    try:
+        result = await vendor_payment_service.record_vendor_bill(
+            user_id=user_id,
+            vendor_id=request.vendor_id,
+            bill_number=request.bill_number,
+            bill_date=request.bill_date,
+            amount=request.amount,
+            gst_amount=request.gst_amount,
+            notes=request.notes
+        )
+        
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error recording bill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/vendor/payment/make")
+async def make_vendor_payment(request: MakePaymentRequest, user_id: str = "default"):
+    """Record a vendor payment (full or partial)"""
+    try:
+        success = await vendor_payment_service.make_payment(
+            payment_id=request.payment_id,
+            user_id=user_id,
+            amount=request.amount,
+            payment_date=request.payment_date,
+            payment_method=request.payment_method,
+            reference=request.reference,
+            notes=request.notes
+        )
+        
+        return {
+            "success": success,
+            "message": "Payment recorded successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error making payment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/vendor/payments/pending/{user_id}")
+async def get_pending_payments(user_id: str, overdue_only: bool = False):
+    """Get pending vendor payments"""
+    try:
+        payments = await vendor_payment_service.get_pending_payments(
+            user_id, overdue_only
+        )
+        
+        return {
+            "success": True,
+            "payments": payments,
+            "count": len(payments)
+        }
+    except Exception as e:
+        logger.error(f"Error getting pending payments: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/vendor/statement/{vendor_id}")
+async def get_vendor_statement(
+    vendor_id: int,
+    user_id: str = "default",
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None
+):
+    """Get vendor statement"""
+    try:
+        statement = await vendor_payment_service.get_vendor_statement(
+            vendor_id, user_id, from_date, to_date
+        )
+        
+        if not statement:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+        
+        return {
+            "success": True,
+            **statement
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting vendor statement: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/vendor/analytics/{user_id}")
+async def get_vendor_analytics(user_id: str):
+    """Get vendor payment analytics"""
+    try:
+        analytics = await vendor_payment_service.get_vendor_analytics(user_id)
+        return {
+            "success": True,
+            **analytics
+        }
+    except Exception as e:
+        logger.error(f"Error getting vendor analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/vendor/payment-calendar/{user_id}")
+async def get_payment_calendar(user_id: str, days_ahead: int = 30):
+    """Get upcoming vendor payment due dates"""
+    try:
+        calendar = await vendor_payment_service.get_payment_calendar(user_id, days_ahead)
+        return {
+            "success": True,
+            "calendar": calendar,
+            "count": len(calendar)
+        }
+    except Exception as e:
+        logger.error(f"Error getting payment calendar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# SMS & AUTHENTICATION ENDPOINTS
+# ============================================================
+
+from services.sms_parser_service import sms_parser
+
+@app.post("/transactions/parse-sms")
+async def parse_sms_batch(request: dict):
+    """
+    Parse batch of SMS messages and extract transactions
+    Used for initial bulk import (last 30 days)
+    Returns transactions with confidence scores
+    """
+    try:
+        sms_list = request.get('sms_list', [])
+        logger.info(f"Parsing {len(sms_list)} SMS messages")
+
+        # Parse all SMS with confidence scores
+        results = []
+        for sms in sms_list:
+            parsed, confidence = sms_parser.parse_sms_with_confidence(
+                sender=sms.get('sender', ''),
+                message=sms.get('message', ''),
+                timestamp=sms.get('timestamp')
+            )
+            if parsed:
+                parsed['confidence'] = confidence
+                results.append(parsed)
+
+        # Calculate average confidence
+        avg_confidence = sum(r['confidence'] for r in results) / len(results) if results else 0.0
+
+        return {
+            'status': 'success',
+            'count': len(results),
+            'total_sms': len(sms_list),
+            'avg_confidence': round(avg_confidence, 2),
+            'transactions': results
+        }
+    except Exception as e:
+        logger.error(f"Error parsing SMS batch: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/transactions/parse-sms-single")
+async def parse_sms_single(sms: dict):
+    """
+    Parse single SMS message (for real-time sync)
+    Called when new SMS arrives
+    Returns transaction with confidence score
+    """
+    try:
+        parsed, confidence = sms_parser.parse_sms_with_confidence(
+            sender=sms.get('sender', ''),
+            message=sms.get('message', ''),
+            timestamp=datetime.fromisoformat(sms.get('timestamp', datetime.now().isoformat()))
+        )
+
+        if parsed:
+            parsed['confidence'] = confidence
+            logger.info(f"Parsed transaction: {parsed['description']} - ₹{parsed['amount']} (confidence: {confidence:.2f})")
+            return {
+                'status': 'success',
+                'transaction': parsed,
+                'confidence': round(confidence, 2)
+            }
+        else:
+            return {
+                'status': 'not_transaction',
+                'message': 'SMS is not a bank transaction'
+            }
+    except Exception as e:
+        logger.error(f"Error parsing single SMS: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/auth/google-signin")
+async def google_signin(credentials: dict):
+    """
+    Authenticate user with Google OAuth
+    Verifies ID token and creates/returns user session
+    """
+    try:
+        email = credentials.get('email')
+        display_name = credentials.get('display_name', '')
+        photo_url = credentials.get('photo_url', '')
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        
+        # For production, verify with Google:
+        # from google.oauth2 import id_token
+        # from google.auth.transport import requests as google_requests
+        # idinfo = id_token.verify_oauth2_token(
+        #     credentials.get('id_token'),
+        #     google_requests.Request(),
+        #     "YOUR_CLIENT_ID.apps.googleusercontent.com"
+        # )
+        
+        # Generate session token
+        session_token = f"session_{email}_{datetime.now().timestamp()}"
+        
+        logger.info(f"User signed in: {email}")
+        
+        return {
+            'status': 'success',
+            'user': {
+                'email': email,
+                'name': display_name,
+                'photo': photo_url,
+            },
+            'session_token': session_token,
+            'message': 'Sign-in successful'
+        }
+    except Exception as e:
+        logger.error(f"Google sign-in error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

@@ -17,3 +17,8 @@ venv/
 # Build artifacts are usually handled by internal gitignores, but adding root ones just in case
 build/
 .dart_tool/
+
+# Gradle
+.gradle/
+**/gradle-wrapper.jar
+**/.gradle/

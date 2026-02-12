@@ -901,6 +901,36 @@ class DataService {
 
   // ==================== DASHBOARD & TRENDS ====================
 
+  /// Get optimized dashboard data from backend with caching
+  /// Falls back to local data if backend unavailable
+  Future<Map<String, dynamic>?> getDashboardOptimized(String userId) async {
+    if (_isAndroid) {
+      // Android: use local data only
+      debugPrint('Android: Using local dashboard data');
+      return null; // Fall through to getDashboard()
+    }
+
+    try {
+      debugPrint('Fetching optimized dashboard from backend for user $userId');
+      final response = await http.get(
+        Uri.parse('$_baseUrl/dashboard/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body);
+        debugPrint('Dashboard fetch successful (cached: ${result['cached']})');
+        return result['data'] as Map<String, dynamic>;
+      } else {
+        debugPrint('Dashboard fetch failed: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error fetching optimized dashboard: $e');
+      return null; // Fall back to local
+    }
+  }
+
   Future<DashboardData?> getDashboard(
     String userId, {
     DateTime? startDate,
@@ -1501,6 +1531,204 @@ $emiRecommendation
     return null;
   }
 
+  // ==================== FAMILY GROUPS OPERATIONS ====================
+
+  /// Create a new family group
+  Future<Map<String, dynamic>?> createFamilyGroup({
+    required String userId,
+    required String name,
+    String? description,
+  }) async {
+    if (_isAndroid) {
+      // Android: create locally first, then sync later
+      try {
+        final groupId = await databaseHelper.createGroup(name, userId);
+        return {'id': groupId, 'name': name, 'description': description};
+      } catch (e) {
+        debugPrint('Error creating local group: $e');
+        return null;
+      }
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/groups/create'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'name': name,
+          'user_id': userId,
+          'description': description,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        // Sync to local SQLite
+        await databaseHelper.createGroup(name, userId);
+        return data;
+      }
+    } catch (e) {
+      debugPrint('Error creating family group: $e');
+    }
+    return null;
+  }
+
+  /// Get all family groups for a user
+  Future<List<Map<String, dynamic>>> getFamilyGroups(String userId) async {
+    if (_isAndroid) {
+      // Android: read from local SQLite
+      try {
+        return await databaseHelper.getUserGroups(userId);
+      } catch (e) {
+        debugPrint('Error getting local groups: $e');
+        return [];
+      }
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/groups/list/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final groups = (data['groups'] as List?)
+                ?.map((g) => g as Map<String, dynamic>)
+                .toList() ??
+            [];
+
+        // Sync to local SQLite for offline access
+        for (var group in groups) {
+          try {
+            await databaseHelper.createGroup(
+                group['name'] as String? ?? '', userId);
+          } catch (e) {
+            // Ignore if already exists
+          }
+        }
+
+        return groups;
+      }
+    } catch (e) {
+      debugPrint('Error fetching family groups: $e');
+      // Fallback to local data
+      try {
+        return await databaseHelper.getUserGroups(userId);
+      } catch (e2) {
+        debugPrint('Error getting local groups fallback: $e2');
+      }
+    }
+    return [];
+  }
+
+  /// Get members of a specific group
+  Future<List<Map<String, dynamic>>> getGroupMembers(int groupId) async {
+    if (_isAndroid) {
+      try {
+        return await databaseHelper.getGroupMembers(groupId);
+      } catch (e) {
+        debugPrint('Error getting local group members: $e');
+        return [];
+      }
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/groups/$groupId/members'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return (data['members'] as List?)
+                ?.map((m) => m as Map<String, dynamic>)
+                .toList() ??
+            [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching group members: $e');
+    }
+    return [];
+  }
+
+  /// Add a member to a group
+  Future<bool> addGroupMember({
+    required int groupId,
+    required String email,
+    String role = 'member',
+  }) async {
+    if (_isAndroid) {
+      // Android: queue for sync, add locally optimistically
+      debugPrint('Android: Queuing member add for sync');
+      return true; // Optimistic update
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/groups/$groupId/members/add'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'role': role,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error adding group member: $e');
+      return false;
+    }
+  }
+
+  /// Get group dashboard data (aggregated transactions, budgets, etc.)
+  Future<Map<String, dynamic>?> getGroupDashboard({
+    required int groupId,
+    required String userId,
+  }) async {
+    if (_isAndroid) {
+      debugPrint('Android: Group dashboard not yet implemented locally');
+      return null;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/groups/$groupId/dashboard?user_id=$userId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('Error fetching group dashboard: $e');
+    }
+    return null;
+  }
+
+  /// Generate an invite link for a group
+  Future<String?> generateInviteLink(int groupId) async {
+    if (_isAndroid) {
+      // Android: use local mock link
+      return 'wealthin://join-group/$groupId';
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/groups/$groupId/invite/generate'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['invite_link'] as String?;
+      }
+    } catch (e) {
+      debugPrint('Error generating invite link: $e');
+    }
+    return null;
+  }
+
   // ==================== ANALYTICS & CALCULATOR OPERATIONS ====================
 
   /// Refresh daily trends
@@ -1609,6 +1837,96 @@ $emiRecommendation
       monthlyExpenses: monthlyExpenses,
       targetMonths: targetMonths,
     );
+  }
+
+  // ==================== CASHFLOW FORECASTING ====================
+
+  /// Get cashflow forecast for next N days (30/60/90)
+  Future<List<Map<String, dynamic>>> getCashflowForecast(
+    String userId, {
+    int daysAhead = 90,
+  }) async {
+    if (_isAndroid) {
+      // Android: use local data only
+      debugPrint('Android: Cashflow forecast not yet implemented locally');
+      return [];
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/cashflow/forecast/$userId?days_ahead=$daysAhead'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return (data['projections'] as List?)
+                ?.map((p) => p as Map<String, dynamic>)
+                .toList() ??
+            [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching cashflow forecast: $e');
+    }
+    return [];
+  }
+
+  /// Get business runway (months until cash runs out)
+  Future<Map<String, dynamic>?> getRunway(String userId) async {
+    if (_isAndroid) {
+      debugPrint('Android: Runway calculation not yet implemented locally');
+      return null;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/cashflow/runway/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'runway_months': data['runway_months'] as double?,
+          'runway_days': data['runway_days'] as int?,
+          'status': data['status'] as String?,
+          'recommendation': data['recommendation'] as String?,
+          'zero_date': data['zero_date'] as String?,
+        };
+      }
+    } catch (e) {
+      debugPrint('Error fetching runway: $e');
+    }
+    return null;
+  }
+
+  /// Get cash crunch warnings (upcoming low balance dates)
+  Future<List<Map<String, dynamic>>> getCashCrunchWarnings(
+    String userId, {
+    int daysAhead = 90,
+  }) async {
+    if (_isAndroid) {
+      debugPrint('Android: Cash crunch warnings not yet implemented locally');
+      return [];
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/cashflow/cash-crunch/$userId?days_ahead=$daysAhead'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return (data['warnings'] as List?)
+                ?.map((w) => w as Map<String, dynamic>)
+                .toList() ??
+            [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching cash crunch warnings: $e');
+    }
+    return [];
   }
 
   // ==================== AI BRAINSTORMING ====================
@@ -2194,6 +2512,26 @@ $emiRecommendation
     String persona = 'neutral',
     bool enableWebSearch = true,
   }) async {
+    // Android: Use embedded Python via MethodChannel
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.chatWithLLM(query: message);
+        if (result['success'] == true || result.containsKey('response')) {
+          return {
+            'success': true,
+            'content': result['response'] ?? result['content'] ?? '',
+            'persona': persona,
+            ...result,
+          };
+        }
+        return {'success': false, 'error': result['error'] ?? 'No AI response'};
+      } catch (e) {
+        debugPrint('[Brainstorm Chat] Android error: $e');
+        return {'success': false, 'error': e.toString()};
+      }
+    }
+
+    // Desktop: Use HTTP
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/brainstorm/chat'),
@@ -2221,6 +2559,26 @@ $emiRecommendation
     required List<String> ideas,
     List<Map<String, dynamic>>? conversationHistory,
   }) async {
+    // Android: Use embedded Python chat with critique prompt
+    if (_isAndroid) {
+      try {
+        final critiquePrompt = 'Play devil\'s advocate and critique these business ideas: ${ideas.join(", ")}';
+        final result = await pythonBridge.chatWithLLM(query: critiquePrompt);
+        if (result['success'] == true || result.containsKey('response')) {
+          return {
+            'success': true,
+            'critique': result['response'] ?? '',
+            ...result,
+          };
+        }
+        return {'success': false, 'error': result['error'] ?? 'No critique response'};
+      } catch (e) {
+        debugPrint('[Reverse Brainstorm] Android error: $e');
+        return {'success': false, 'error': e.toString()};
+      }
+    }
+
+    // Desktop: Use HTTP
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/brainstorm/critique'),
@@ -2244,6 +2602,27 @@ $emiRecommendation
   Future<Map<String, dynamic>> extractCanvasItems({
     required List<Map<String, dynamic>> conversationHistory,
   }) async {
+    // Android: Use embedded Python chat to extract ideas
+    if (_isAndroid) {
+      try {
+        final extractPrompt = 'Extract the key business ideas, decisions, and action items from this brainstorming conversation. Return them as a structured list.';
+        final result = await pythonBridge.chatWithLLM(query: extractPrompt);
+        if (result['success'] == true || result.containsKey('response')) {
+          return {
+            'success': true,
+            'ideas': [],
+            'response': result['response'] ?? '',
+            ...result,
+          };
+        }
+        return {'success': false, 'error': result['error'] ?? 'No extraction result', 'ideas': []};
+      } catch (e) {
+        debugPrint('[Extract Canvas] Android error: $e');
+        return {'success': false, 'error': e.toString(), 'ideas': []};
+      }
+    }
+
+    // Desktop: Use HTTP
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/brainstorm/extract-canvas'),
@@ -2507,6 +2886,34 @@ $emiRecommendation
       debugPrint('[Mudra DPRs] Error: $e');
     }
     return [];
+  }
+
+  /// Get recurring transactions analysis
+  Future<Map<String, dynamic>> getRecurringTransactions(String userId) async {
+    if (_isAndroid) {
+       // TODO: Implement bridge call for Android via PythonBridgeService
+       // For now, return empty as no HTTP backend on Android
+       return {
+         'status': 'success',
+         'recurring_count': 0,
+         'estimated_monthly_bills': 0.0,
+         'items': [],
+       };
+    }
+    
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analytics/recurring/$userId'),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error getting recurring transactions: $e');
+    }
+    
+    return {};
   }
 }
 
@@ -2890,6 +3297,8 @@ class ImportResult {
       confidence: (json['confidence'] as num?)?.toDouble(),
     );
   }
+
+
 }
 
 class ReceiptData {

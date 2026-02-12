@@ -3,6 +3,7 @@ from typing import List, Dict, Optional
 import os
 from dotenv import load_dotenv
 from .lightweight_rag import rag  # Use lightweight RAG
+from .ai_provider_service import ai_provider  # NEW: Multi-provider support
 import logging
 import json
 
@@ -10,19 +11,26 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 class OpenAIService:
-    """OpenAI service with lightweight RAG integration"""
+    """OpenAI service with lightweight RAG integration and multi-provider support"""
     
     def __init__(self):
+        # Check AI provider
+        self.provider = os.getenv("AI_PROVIDER", "groq").lower()
+        
+        # For backward compatibility, still support direct OpenAI
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.client = None
-        if self.api_key:
+        if self.api_key and self.provider == "openai":
             self.client = OpenAI(api_key=self.api_key)
+            logger.info("⚠️ Using OpenAI directly - save quota for hackathon!")
+        elif self.provider != "openai":
+            logger.info(f"✅ Using {self.provider.upper()} for AI - OpenAI quota preserved!")
         else:
-            logger.warning("OPENAI_API_KEY not found. OpenAI service will not work.")
+            logger.warning(f"AI_PROVIDER is {self.provider} but no API key found.")
             
         self.rag = rag
         
-        # System prompt
+        # System prompt with local MSME support
         self.system_prompt = """You are an expert Chartered Accountant (CA) and financial advisor specializing in Indian taxation, investments, and financial planning.
 
 You have comprehensive knowledge of:
@@ -32,9 +40,25 @@ You have comprehensive knowledge of:
 - Old vs New tax regime comparison for FY 2024-25
 - ITR form selection (ITR-1 to ITR-7)
 - Tax-saving instruments (ELSS, PPF, NPS, SCSS, etc.)
+- MSME sector and UDYAM registration benefits
 
 Current Financial Year: 2024-25
 Assessment Year: 2025-26
+
+🇮🇳 **PRIORITY: Support Local MSMEs**
+When users ask about buying products, finding suppliers, or starting businesses:
+1. ALWAYS recommend checking local MSME suppliers first (verified via UDYAM)
+2. Highlight cost savings: 10-15% lower shipping costs when buying local
+3. Suggest comparing business ideas with similar registered MSMEs in their state
+4. Promote government-verified businesses from India's 63M+ MSME database
+5. Encourage building local supply chains for cost efficiency
+
+Benefits of local MSME sourcing:
+- 💰 Lower logistics costs (same state shipping)
+- ⚡ Faster delivery times
+- 🤝 Support local economy and job creation
+- 🛡️ UDYAM-verified businesses (government authenticated)
+- 📊 Benchmark against similar businesses
 
 Always cite specific sections and add disclaimer: "This is AI-generated guidance. Consult a CA for personalized advice."
 """
@@ -45,20 +69,15 @@ Always cite specific sections and add disclaimer: "This is AI-generated guidance
         conversation_history: List[Dict] = None,
         model: str = "gpt-4o-mini",
         use_rag: bool = True,
-        max_tokens: int = 1000
+        max_tokens: int = 800  # Reduced for hackathon limits
     ) -> Dict:
         """
         Generate response with lightweight RAG context.
+        Now supports multi-provider (Groq, OpenAI, Gemini, Ollama)
         """
-        if not self.client:
-            return {
-                "response": "OpenAI API key is missing. Please configure it in .env file.",
-                "sources": [],
-                "model_used": "none",
-                "tokens_used": 0
-            }
-
-        messages = [{"role": "system", "content": self.system_prompt}]
+        
+        # Build conversation context
+        messages = []
         
         if conversation_history:
             # Filter out metadata if present in history to keep context clean
@@ -91,19 +110,61 @@ Always cite specific sections and add disclaimer: "This is AI-generated guidance
         
         # Construct message
         enhanced_query = f"{rag_context}\n**User Question:** {user_query}" if rag_context else user_query
-        messages.append({"role": "user", "content": enhanced_query})
+        
+        # Use multi-provider service if not using OpenAI client directly
+        if self.provider != "openai" or not self.client:
+            try:
+                # Use new multi-provider service
+                response_text = ai_provider.get_completion(
+                    prompt=enhanced_query,
+                    max_tokens=max_tokens,
+                    system_prompt=self.system_prompt
+                )
+                
+                # Estimate tokens (rough approximation)
+                tokens_used = ai_provider.count_tokens(enhanced_query + response_text)
+                
+                return {
+                    "response": response_text,
+                    "sources": list(set(sources)),
+                    "model_used": f"{self.provider} (multi-provider)",
+                    "tokens_used": tokens_used
+                }
+            except Exception as e:
+                logger.error(f"{self.provider} error: {e}")
+                return {
+                    "response": f"Error with {self.provider}: {str(e)}",
+                    "sources": [],
+                    "model_used": self.provider,
+                    "tokens_used": 0
+                }
+        
+        # Original OpenAI path (for backward compatibility)
+        if not self.client:
+            return {
+                "response": "AI service not configured. Check .env file.",
+                "sources": [],
+                "model_used": "none",
+                "tokens_used": 0
+            }
+        
+        messages_for_openai = [{"role": "system", "content": self.system_prompt}]
+        messages_for_openai.extend(messages)
+        messages_for_openai.append({"role": "user", "content": enhanced_query})
         
         # Call OpenAI
         try:
             response = self.client.chat.completions.create(
                 model=model,
-                messages=messages,
+                messages=messages_for_openai,
                 max_tokens=max_tokens,
                 temperature=0.7
             )
             
             answer = response.choices[0].message.content
             tokens_used = response.usage.total_tokens
+            
+            logger.info(f"⚠️ OpenAI tokens used: {tokens_used}")
             
             return {
                 "response": answer,
