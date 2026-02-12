@@ -122,5 +122,112 @@ class AnalyticsService:
         avg = total_expenses / len(trends)
         return round(avg, 2)
 
+    async def analyze_spending_patterns(self, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Analyze raw transaction payloads from mobile/desktop clients.
+        Used by `/analyze/spending` for local-first analytics and subscription heuristics.
+        """
+        if not transactions:
+            return {
+                "total_income": 0.0,
+                "total_expenses": 0.0,
+                "net_savings": 0.0,
+                "savings_rate": 0.0,
+                "category_breakdown": {},
+                "top_category": None,
+                "monthly_data": {},
+                "total_transactions": 0,
+                "insights": ["Add transactions to unlock personalized insights."],
+            }
+
+        income_types = {"income", "credit", "deposit"}
+        expense_types = {"expense", "debit"}
+
+        total_income = 0.0
+        total_expenses = 0.0
+        category_totals = defaultdict(float)
+        monthly_totals = defaultdict(lambda: {"income": 0.0, "expenses": 0.0, "savings": 0.0})
+
+        for tx in transactions:
+            try:
+                amount = float(tx.get("amount", 0) or 0)
+            except (TypeError, ValueError):
+                amount = 0.0
+
+            tx_type = str(tx.get("type", "expense") or "expense").strip().lower()
+            category = str(tx.get("category", "Other") or "Other").strip() or "Other"
+
+            date_raw = str(tx.get("date", "") or "").strip()
+            month_key = None
+            if date_raw:
+                try:
+                    parsed_date = datetime.fromisoformat(date_raw.replace("Z", "+00:00"))
+                    month_key = parsed_date.strftime("%Y-%m")
+                except ValueError:
+                    # Keep analytics resilient even with loosely formatted dates.
+                    month_key = date_raw[:7] if len(date_raw) >= 7 else None
+
+            normalized_amount = abs(amount)
+
+            if tx_type not in income_types and tx_type not in expense_types:
+                tx_type = "income" if amount < 0 else "expense"
+
+            if tx_type in income_types:
+                total_income += normalized_amount
+                if month_key:
+                    monthly_totals[month_key]["income"] += normalized_amount
+            else:
+                total_expenses += normalized_amount
+                category_totals[category] += normalized_amount
+                if month_key:
+                    monthly_totals[month_key]["expenses"] += normalized_amount
+
+        net_savings = total_income - total_expenses
+        savings_rate = (net_savings / total_income * 100) if total_income > 0 else 0.0
+
+        for month, values in monthly_totals.items():
+            values["savings"] = values["income"] - values["expenses"]
+            values["income"] = round(values["income"], 2)
+            values["expenses"] = round(values["expenses"], 2)
+            values["savings"] = round(values["savings"], 2)
+
+        category_breakdown = {
+            category: round(total, 2)
+            for category, total in sorted(category_totals.items(), key=lambda item: item[1], reverse=True)
+        }
+
+        top_category = None
+        if category_breakdown and total_expenses > 0:
+            top_name, top_amount = next(iter(category_breakdown.items()))
+            top_category = {
+                "category": top_name,
+                "amount": top_amount,
+                "percentage": round((top_amount / total_expenses) * 100, 2),
+            }
+
+        insights: List[str] = []
+        if total_income <= 0 and total_expenses > 0:
+            insights.append("No income transactions detected in this dataset.")
+        if savings_rate < 10 and total_income > 0:
+            insights.append("Savings rate is below 10%; review top spending categories.")
+        if top_category:
+            insights.append(
+                f"Highest spending is in {top_category['category']} ({top_category['percentage']}%)."
+            )
+        if not insights:
+            insights.append("Spending pattern looks balanced.")
+
+        return {
+            "total_income": round(total_income, 2),
+            "total_expenses": round(total_expenses, 2),
+            "net_savings": round(net_savings, 2),
+            "savings_rate": round(savings_rate, 2),
+            "category_breakdown": category_breakdown,
+            "top_category": top_category,
+            "monthly_data": dict(sorted(monthly_totals.items())),
+            "total_transactions": len(transactions),
+            "insights": insights,
+        }
+
 # Singleton
 analytics_service = AnalyticsService()

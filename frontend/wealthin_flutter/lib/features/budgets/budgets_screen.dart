@@ -190,17 +190,19 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  top: 24,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Center(
                     child: Container(
                       width: 40,
@@ -309,8 +311,9 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                       },
                       child: const Text('Create Budget'),
                     ),
-                  ),
-                ],
+                 ),
+                 ],
+               ),
               ),
             );
           },
@@ -335,17 +338,19 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            return SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  top: 24,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Center(
                     child: Container(
                       width: 40,
@@ -432,8 +437,9 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                       },
                       child: const Text('Save Changes'),
                     ),
-                  ),
-                ],
+                 ),
+                 ],
+               ),
               ),
             );
           },

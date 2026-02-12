@@ -119,17 +119,20 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
   }
 
   void _addWelcomeChatMessage() {
-    _chatMessages.add(_ChatMessage(
-      text: "Hey! I'm your brainstorming buddy.\n\n"
-          "Tell me your business idea and I'll help you:\n"
-          "- Analyze market potential\n"
-          "- Find competitors\n"
-          "- Discover government schemes\n"
-          "- Evaluate financial viability\n\n"
-          "What idea would you like to explore?",
-      isUser: false,
-      timestamp: DateTime.now(),
-    ));
+    _chatMessages.add(
+      _ChatMessage(
+        text:
+            "Hey! I'm your brainstorming buddy.\n\n"
+            "Tell me your business idea and I'll help you:\n"
+            "- Analyze market potential\n"
+            "- Find competitors\n"
+            "- Discover government schemes\n"
+            "- Evaluate financial viability\n\n"
+            "What idea would you like to explore?",
+        isUser: false,
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   /// Load saved ideas from database
@@ -179,11 +182,13 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
     if (text.isEmpty || _isChatLoading) return;
 
     setState(() {
-      _chatMessages.add(_ChatMessage(
-        text: text,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _chatMessages.add(
+        _ChatMessage(
+          text: text,
+          isUser: true,
+          timestamp: DateTime.now(),
+        ),
+      );
       _isChatLoading = true;
     });
     _chatController.clear();
@@ -200,9 +205,12 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
 
       if (mounted && evaluation != null) {
         final score = (evaluation['score'] as num?)?.toInt() ?? 70;
-        final summary = evaluation['summary']?.toString() ?? 'Analysis complete.';
+        final summary =
+            evaluation['summary']?.toString() ?? 'Analysis complete.';
         final swot = evaluation['swot'] as Map<String, dynamic>?;
-        final recommendations = List<String>.from(evaluation['recommendations'] ?? []);
+        final recommendations = List<String>.from(
+          evaluation['recommendations'] ?? [],
+        );
 
         // Build response message
         String responseText = "**Viability Score: $score/100**\n\n";
@@ -212,56 +220,69 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
           final strengths = List<String>.from(swot['strengths'] ?? []);
           final weaknesses = List<String>.from(swot['weaknesses'] ?? []);
           if (strengths.isNotEmpty) {
-            responseText += "**Strengths:**\n${strengths.map((s) => '- $s').join('\n')}\n\n";
+            responseText +=
+                "**Strengths:**\n${strengths.map((s) => '- $s').join('\n')}\n\n";
           }
           if (weaknesses.isNotEmpty) {
-            responseText += "**Challenges:**\n${weaknesses.map((w) => '- $w').join('\n')}\n\n";
+            responseText +=
+                "**Challenges:**\n${weaknesses.map((w) => '- $w').join('\n')}\n\n";
           }
         }
 
         if (recommendations.isNotEmpty) {
-          responseText += "**Recommendations:**\n${recommendations.take(3).map((r) => '- $r').join('\n')}";
+          responseText +=
+              "**Recommendations:**\n${recommendations.take(3).map((r) => '- $r').join('\n')}";
         }
 
         setState(() {
-          _chatMessages.add(_ChatMessage(
-            text: responseText,
-            isUser: false,
-            timestamp: DateTime.now(),
-            score: score,
-          ));
+          _chatMessages.add(
+            _ChatMessage(
+              text: responseText,
+              isUser: false,
+              timestamp: DateTime.now(),
+              score: score,
+            ),
+          );
           _isChatLoading = false;
 
           // Add to canvas if score is good
           if (score >= 60) {
-            _canvasItems.add(_CanvasItem(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              title: text.length > 50 ? '${text.substring(0, 47)}...' : text,
-              score: score,
-              summary: summary,
-            ));
+            _canvasItems.add(
+              _CanvasItem(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                title: text.length > 50 ? '${text.substring(0, 47)}...' : text,
+                score: score,
+                summary: summary,
+              ),
+            );
           }
         });
         _loadSavedIdeas(); // Refresh saved ideas
       } else {
         // Fallback response
         setState(() {
-          _chatMessages.add(_ChatMessage(
-            text: "I've noted your idea! Let me analyze it further. Try asking about specific aspects like market size, competition, or funding options.",
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
+          _chatMessages.add(
+            _ChatMessage(
+              text:
+                  "I've noted your idea! Let me analyze it further. Try asking about specific aspects like market size, competition, or funding options.",
+              isUser: false,
+              timestamp: DateTime.now(),
+            ),
+          );
           _isChatLoading = false;
         });
       }
     } catch (e) {
       debugPrint('[Brainstorm] Chat error: $e');
       setState(() {
-        _chatMessages.add(_ChatMessage(
-          text: "I had trouble analyzing that. Could you try rephrasing your idea?",
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _chatMessages.add(
+          _ChatMessage(
+            text:
+                "I had trouble analyzing that. Could you try rephrasing your idea?",
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
         _isChatLoading = false;
       });
     }
@@ -304,10 +325,14 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
       );
 
       if (mounted && evaluation != null) {
-        final marketAnalysis = evaluation['market_analysis'] as Map<String, dynamic>?;
-        final financialProjection = evaluation['financial_projection'] as Map<String, dynamic>?;
+        final marketAnalysis =
+            evaluation['market_analysis'] as Map<String, dynamic>?;
+        final financialProjection =
+            evaluation['financial_projection'] as Map<String, dynamic>?;
         final swot = evaluation['swot'] as Map<String, dynamic>?;
-        final recommendations = List<String>.from(evaluation['recommendations'] ?? []);
+        final recommendations = List<String>.from(
+          evaluation['recommendations'] ?? [],
+        );
         final score = (evaluation['score'] as num?)?.toInt() ?? 70;
 
         setState(() {
@@ -315,26 +340,42 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
             idea: idea,
             title: idea.length > 60 ? '${idea.substring(0, 57)}...' : idea,
             score: score,
-            estimatedInvestment: financialProjection?['initial_investment']?.toString() ?? '₹5-10 Lakhs',
-            timeToBreakeven: financialProjection?['break_even_timeline']?.toString() ?? '12-18 months',
-            marketAnalysis: marketAnalysis?['market_size']?.toString() ?? 'Growing market in India',
-            targetAudience: marketAnalysis?['target_audience']?.toString() ?? 'Indian entrepreneurs and SMBs',
-            revenueModel: (List<String>.from(evaluation['revenue_models'] ?? [])).join(', '),
+            estimatedInvestment:
+                financialProjection?['initial_investment']?.toString() ??
+                '₹5-10 Lakhs',
+            timeToBreakeven:
+                financialProjection?['break_even_timeline']?.toString() ??
+                '12-18 months',
+            marketAnalysis:
+                marketAnalysis?['market_size']?.toString() ??
+                'Growing market in India',
+            targetAudience:
+                marketAnalysis?['target_audience']?.toString() ??
+                'Indian entrepreneurs and SMBs',
+            revenueModel: (List<String>.from(
+              evaluation['revenue_models'] ?? [],
+            )).join(', '),
             strengths: List<String>.from(swot?['strengths'] ?? []),
             weaknesses: List<String>.from(swot?['weaknesses'] ?? []),
             suggestions: recommendations.take(5).toList(),
             nextSteps: [
-              if (recommendations.length > 5) ...recommendations.skip(5).take(4),
+              if (recommendations.length > 5)
+                ...recommendations.skip(5).take(4),
               'Conduct detailed market research',
               'Create a minimum viable product (MVP)',
               'Identify potential early adopters',
               'Develop a go-to-market strategy',
             ].take(4).toList(),
-            summary: evaluation['summary']?.toString() ?? 'Analysis complete. Score: $score/100.',
+            summary:
+                evaluation['summary']?.toString() ??
+                'Analysis complete. Score: $score/100.',
           );
           _isAnalyzing = false;
         });
-        _addResearchLog('OpenAI analysis complete! Score: $score/100', isHighlight: true);
+        _addResearchLog(
+          'OpenAI analysis complete! Score: $score/100',
+          isHighlight: true,
+        );
         _loadSavedIdeas();
         return;
       }
@@ -387,13 +428,34 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
           score: 75,
           estimatedInvestment: "₹5-10 Lakhs",
           timeToBreakeven: "12-18 months",
-          marketAnalysis: 'This idea shows good market potential in the current economic climate.',
-          targetAudience: 'Urban professionals aged 25-45, tech-savvy individuals.',
+          marketAnalysis:
+              'This idea shows good market potential in the current economic climate.',
+          targetAudience:
+              'Urban professionals aged 25-45, tech-savvy individuals.',
           revenueModel: 'Subscription-based model with tiered pricing.',
-          strengths: ['Growing market demand', 'Low initial capital', 'Scalable model', 'Clear value proposition'],
-          weaknesses: ['Competitive landscape', 'Customer acquisition costs', 'Building trust', 'Operational complexity'],
-          suggestions: ["Add premium features", "Consider B2B model", "Build community"],
-          nextSteps: ['Conduct market research', 'Create MVP', 'Identify early adopters', 'Go-to-market strategy'],
+          strengths: [
+            'Growing market demand',
+            'Low initial capital',
+            'Scalable model',
+            'Clear value proposition',
+          ],
+          weaknesses: [
+            'Competitive landscape',
+            'Customer acquisition costs',
+            'Building trust',
+            'Operational complexity',
+          ],
+          suggestions: [
+            "Add premium features",
+            "Consider B2B model",
+            "Build community",
+          ],
+          nextSteps: [
+            'Conduct market research',
+            'Create MVP',
+            'Identify early adopters',
+            'Go-to-market strategy',
+          ],
           summary: 'A promising idea with solid fundamentals.',
         );
         _isAnalyzing = false;
@@ -434,8 +496,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
             _buildHeader(isDark, isSmallScreen),
 
             // Saved ideas badge
-            if (_savedIdeas.isNotEmpty)
-              _buildSavedIdeasBadge(),
+            if (_savedIdeas.isNotEmpty) _buildSavedIdeasBadge(),
 
             // Main content based on view mode
             Expanded(
@@ -482,7 +543,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                   style: TextStyle(
                     fontSize: isSmallScreen ? 20 : 24,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                    color: isDark
+                        ? WealthInColors.textPrimaryDark
+                        : WealthInColors.textPrimary,
                   ),
                 ),
               ],
@@ -505,7 +568,8 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                   icon: Icons.chat_bubble_outline,
                   label: isSmallScreen ? null : 'Chat',
                   isSelected: _viewMode == BrainstormViewMode.chat,
-                  onTap: () => setState(() => _viewMode = BrainstormViewMode.chat),
+                  onTap: () =>
+                      setState(() => _viewMode = BrainstormViewMode.chat),
                   isDark: isDark,
                 ),
                 const SizedBox(width: 4),
@@ -513,7 +577,8 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                   icon: Icons.dashboard_outlined,
                   label: isSmallScreen ? null : 'Canvas',
                   isSelected: _viewMode == BrainstormViewMode.canvas,
-                  onTap: () => setState(() => _viewMode = BrainstormViewMode.canvas),
+                  onTap: () =>
+                      setState(() => _viewMode = BrainstormViewMode.canvas),
                   isDark: isDark,
                 ),
               ],
@@ -540,9 +605,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected
-              ? WealthInColors.primary
-              : Colors.transparent,
+          color: isSelected ? WealthInColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -621,124 +684,135 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
     final isUser = message.isUser;
 
     return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: EdgeInsets.only(
-          bottom: 12,
-          left: isUser ? 50 : 0,
-          right: isUser ? 0 : 50,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isUser
-              ? WealthInColors.primary
-              : (isDark ? WealthInColors.blackCard : Colors.white),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            if (!isDark)
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (message.score != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getScoreColor(message.score!).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Score: ${message.score}/100',
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: EdgeInsets.only(
+              bottom: 12,
+              left: isUser ? 50 : 0,
+              right: isUser ? 0 : 50,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isUser
+                  ? WealthInColors.primary
+                  : (isDark ? WealthInColors.blackCard : Colors.white),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                if (!isDark)
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (message.score != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getScoreColor(message.score!).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Score: ${message.score}/100',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _getScoreColor(message.score!),
+                      ),
+                    ),
+                  ),
+                Text(
+                  message.text,
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: _getScoreColor(message.score!),
+                    fontSize: 15,
+                    color: isUser
+                        ? Colors.white
+                        : (isDark
+                              ? WealthInColors.textPrimaryDark
+                              : WealthInColors.textPrimary),
+                    height: 1.4,
                   ),
                 ),
-              ),
-            Text(
-              message.text,
-              style: TextStyle(
-                fontSize: 15,
-                color: isUser
-                    ? Colors.white
-                    : (isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary),
-                height: 1.4,
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-    ).animate().fadeIn(duration: 200.ms).slideX(
-      begin: isUser ? 0.1 : -0.1,
-      end: 0,
-      curve: Curves.easeOut,
-    );
+          ),
+        )
+        .animate()
+        .fadeIn(duration: 200.ms)
+        .slideX(
+          begin: isUser ? 0.1 : -0.1,
+          end: 0,
+          curve: Curves.easeOut,
+        );
   }
 
   Widget _buildTypingIndicator(bool isDark) {
     return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12, right: 80),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          color: isDark ? WealthInColors.blackCard : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDot(0),
-            const SizedBox(width: 4),
-            _buildDot(1),
-            const SizedBox(width: 4),
-            _buildDot(2),
-            const SizedBox(width: 10),
-            Text(
-              'Analyzing...',
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
+          alignment: Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12, right: 80),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: isDark ? WealthInColors.blackCard : Colors.white,
+              borderRadius: BorderRadius.circular(20),
             ),
-          ],
-        ),
-      ),
-    ).animate(onPlay: (c) => c.repeat()).shimmer(
-      duration: 1200.ms,
-      color: WealthInColors.primary.withOpacity(0.3),
-    );
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDot(0),
+                const SizedBox(width: 4),
+                _buildDot(1),
+                const SizedBox(width: 4),
+                _buildDot(2),
+                const SizedBox(width: 10),
+                Text(
+                  'Analyzing...',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+        .animate(onPlay: (c) => c.repeat())
+        .shimmer(
+          duration: 1200.ms,
+          color: WealthInColors.primary.withOpacity(0.3),
+        );
   }
 
   Widget _buildDot(int index) {
     return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: WealthInColors.primary,
-        shape: BoxShape.circle,
-      ),
-    ).animate(onPlay: (c) => c.repeat())
-      .scale(
-        delay: Duration(milliseconds: index * 150),
-        duration: 400.ms,
-        begin: const Offset(0.6, 0.6),
-        end: const Offset(1.0, 1.0),
-      )
-      .then()
-      .scale(
-        duration: 400.ms,
-        begin: const Offset(1.0, 1.0),
-        end: const Offset(0.6, 0.6),
-      );
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: WealthInColors.primary,
+            shape: BoxShape.circle,
+          ),
+        )
+        .animate(onPlay: (c) => c.repeat())
+        .scale(
+          delay: Duration(milliseconds: index * 150),
+          duration: 400.ms,
+          begin: const Offset(0.6, 0.6),
+          end: const Offset(1.0, 1.0),
+        )
+        .then()
+        .scale(
+          duration: 400.ms,
+          begin: const Offset(1.0, 1.0),
+          end: const Offset(0.6, 0.6),
+        );
   }
 
   Widget _buildChatInput(bool isDark) {
@@ -759,7 +833,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isDark ? WealthInColors.deepObsidian : Colors.grey.shade100,
+                color: isDark
+                    ? WealthInColors.deepObsidian
+                    : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: TextField(
@@ -780,7 +856,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                 ),
                 style: TextStyle(
                   fontSize: 15,
-                  color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                  color: isDark
+                      ? WealthInColors.textPrimaryDark
+                      : WealthInColors.textPrimary,
                 ),
                 onSubmitted: (_) => _sendChatMessage(),
               ),
@@ -881,7 +959,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+              color: isDark
+                  ? WealthInColors.textPrimaryDark
+                  : WealthInColors.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -889,12 +969,15 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
             controller: _ideaController,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'e.g., A subscription service for homemade healthy tiffins...',
+              hintText:
+                  'e.g., A subscription service for homemade healthy tiffins...',
               hintStyle: TextStyle(
                 color: isDark ? Colors.white38 : Colors.black38,
               ),
               filled: true,
-              fillColor: isDark ? WealthInColors.deepObsidian : Colors.grey.shade50,
+              fillColor: isDark
+                  ? WealthInColors.deepObsidian
+                  : Colors.grey.shade50,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -902,7 +985,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
               contentPadding: const EdgeInsets.all(16),
             ),
             style: TextStyle(
-              color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+              color: isDark
+                  ? WealthInColors.textPrimaryDark
+                  : WealthInColors.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
@@ -940,7 +1025,13 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                       children: [
                         Icon(Icons.auto_awesome, size: 20),
                         SizedBox(width: 8),
-                        Text('Analyze', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text(
+                          'Analyze',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
             ),
@@ -1000,46 +1091,55 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
 
   Widget _buildCanvasCard(_CanvasItem item, bool isDark, int index) {
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? WealthInColors.blackCard : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _getScoreColor(item.score).withOpacity(0.3),
-          width: 2,
-        ),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          decoration: BoxDecoration(
+            color: isDark ? WealthInColors.blackCard : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _getScoreColor(item.score).withOpacity(0.3),
+              width: 2,
+            ),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ScoreCircle(score: item.score, size: 36),
-              IconButton(
-                icon: Icon(Icons.close, size: 18, color: Colors.grey),
-                onPressed: () => setState(() => _canvasItems.removeAt(index)),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _ScoreCircle(score: item.score, size: 36),
+                  IconButton(
+                    icon: Icon(Icons.close, size: 18, color: Colors.grey),
+                    onPressed: () =>
+                        setState(() => _canvasItems.removeAt(index)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 24,
+                      minHeight: 24,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Text(
+                  item.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? WealthInColors.textPrimaryDark
+                        : WealthInColors.textPrimary,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: Text(
-              item.title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    ).animate(delay: (index * 100).ms).fadeIn().scale(begin: const Offset(0.9, 0.9));
+        )
+        .animate(delay: (index * 100).ms)
+        .fadeIn()
+        .scale(begin: const Offset(0.9, 0.9));
   }
 
   Color _getScoreColor(int score) {
@@ -1063,7 +1163,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
             return Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -1084,9 +1186,16 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Saved Ideas (${_savedIdeas.length})', style: Theme.of(context).textTheme.headlineSmall),
+                        Text(
+                          'Saved Ideas (${_savedIdeas.length})',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
                         if (_isLoadingSavedIdeas)
-                          const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -1096,11 +1205,25 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.lightbulb_outline, size: 64, color: Colors.grey.shade400),
+                                  Icon(
+                                    Icons.lightbulb_outline,
+                                    size: 64,
+                                    color: Colors.grey.shade400,
+                                  ),
                                   const SizedBox(height: 16),
-                                  Text('No saved ideas yet', style: Theme.of(context).textTheme.titleMedium),
+                                  Text(
+                                    'No saved ideas yet',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
                                   const SizedBox(height: 8),
-                                  Text('Evaluate an idea to get started!', style: Theme.of(context).textTheme.bodyMedium),
+                                  Text(
+                                    'Evaluate an idea to get started!',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
                                 ],
                               ),
                             )
@@ -1109,23 +1232,35 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                               itemCount: _savedIdeas.length,
                               itemBuilder: (context, index) {
                                 final ideaData = _savedIdeas[index];
-                                final score = (ideaData['score'] as num?)?.toInt() ?? 0;
-                                final ideaText = ideaData['idea_text'] as String? ?? 'Idea';
-                                final viability = ideaData['viability'] as String? ?? 'Unknown';
+                                final score =
+                                    (ideaData['score'] as num?)?.toInt() ?? 0;
+                                final ideaText =
+                                    ideaData['idea_text'] as String? ?? 'Idea';
+                                final viability =
+                                    ideaData['viability'] as String? ??
+                                    'Unknown';
 
                                 return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  child: ListTile(
-                                    leading: _ScoreCircle(score: score),
-                                    title: Text(
-                                      ideaText.length > 60 ? '${ideaText.substring(0, 57)}...' : ideaText,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    subtitle: Text('Viability: $viability'),
-                                    trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
-                                  ),
-                                ).animate().fadeIn(delay: (index * 100).ms).moveX();
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      child: ListTile(
+                                        leading: _ScoreCircle(score: score),
+                                        title: Text(
+                                          ideaText.length > 60
+                                              ? '${ideaText.substring(0, 57)}...'
+                                              : ideaText,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: Text('Viability: $viability'),
+                                        trailing: Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.grey.shade400,
+                                        ),
+                                      ),
+                                    )
+                                    .animate()
+                                    .fadeIn(delay: (index * 100).ms)
+                                    .moveX();
                               },
                             ),
                     ),
@@ -1184,9 +1319,8 @@ class _ResearchLogEntry {
 
 class _GlassContainer extends StatelessWidget {
   final Widget child;
-  final double opacity;
 
-  const _GlassContainer({required this.child, this.opacity = 0.7});
+  const _GlassContainer({required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -1195,7 +1329,7 @@ class _GlassContainer extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          decoration: AppTheme.glassDecoration(opacity: opacity),
+          decoration: AppTheme.glassDecoration(opacity: 0.12),
           child: child,
         ),
       ),
@@ -1227,8 +1361,19 @@ class _IdeaAnalysisCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Viability Score', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6))),
-                      Text(_getScoreLabel(idea.score), style: theme.textTheme.headlineMedium?.copyWith(color: _getScoreColor(idea.score), fontWeight: FontWeight.bold)),
+                      Text(
+                        'Viability Score',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                      Text(
+                        _getScoreLabel(idea.score),
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          color: _getScoreColor(idea.score),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1236,23 +1381,53 @@ class _IdeaAnalysisCard extends StatelessWidget {
                   onPressed: onSave,
                   icon: const Icon(Icons.bookmark_add),
                   tooltip: 'Save idea',
-                  style: IconButton.styleFrom(backgroundColor: theme.colorScheme.primary, foregroundColor: Colors.white),
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             ),
             const Divider(height: 40),
             Row(
               children: [
-                Expanded(child: _InfoTile(icon: Icons.currency_rupee, label: 'Investment', value: idea.estimatedInvestment)),
-                Expanded(child: _InfoTile(icon: Icons.timer, label: 'Breakeven', value: idea.timeToBreakeven)),
+                Expanded(
+                  child: _InfoTile(
+                    icon: Icons.currency_rupee,
+                    label: 'Investment',
+                    value: idea.estimatedInvestment,
+                  ),
+                ),
+                Expanded(
+                  child: _InfoTile(
+                    icon: Icons.timer,
+                    label: 'Breakeven',
+                    value: idea.timeToBreakeven,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 30),
-            _AnalysisSection(title: 'Strengths', icon: Icons.check_circle, color: AppTheme.success, items: idea.strengths),
+            _AnalysisSection(
+              title: 'Strengths',
+              icon: Icons.check_circle,
+              color: AppTheme.success,
+              items: idea.strengths,
+            ),
             const SizedBox(height: 20),
-            _AnalysisSection(title: 'Challenges', icon: Icons.warning, color: WealthInTheme.warning, items: idea.weaknesses),
+            _AnalysisSection(
+              title: 'Challenges',
+              icon: Icons.warning,
+              color: WealthInTheme.warning,
+              items: idea.weaknesses,
+            ),
             const SizedBox(height: 20),
-            _AnalysisSection(title: 'Recommendations', icon: Icons.lightbulb, color: WealthInTheme.purple, items: idea.suggestions),
+            _AnalysisSection(
+              title: 'Recommendations',
+              icon: Icons.lightbulb,
+              color: WealthInTheme.purple,
+              items: idea.suggestions,
+            ),
           ],
         ),
       ),
@@ -1298,14 +1473,44 @@ class _ScoreCircle extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 12, spreadRadius: 2)],
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.4),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          SizedBox(width: size, height: size, child: CircularProgressIndicator(value: 1.0, strokeWidth: 6, color: color.withOpacity(0.15))),
-          SizedBox(width: size, height: size, child: CircularProgressIndicator(value: score / 100, strokeWidth: 6, strokeCap: StrokeCap.round, valueColor: AlwaysStoppedAnimation(color))),
-          Text('$score', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: color, fontSize: size * 0.35)),
+          SizedBox(
+            width: size,
+            height: size,
+            child: CircularProgressIndicator(
+              value: 1.0,
+              strokeWidth: 6,
+              color: color.withOpacity(0.15),
+            ),
+          ),
+          SizedBox(
+            width: size,
+            height: size,
+            child: CircularProgressIndicator(
+              value: score / 100,
+              strokeWidth: 6,
+              strokeCap: StrokeCap.round,
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+          Text(
+            '$score',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: size * 0.35,
+            ),
+          ),
         ],
       ),
     );
@@ -1317,7 +1522,11 @@ class _InfoTile extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoTile({required this.icon, required this.label, required this.value});
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1326,23 +1535,47 @@ class _InfoTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.1)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 24,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1358,7 +1591,12 @@ class _AnalysisSection extends StatelessWidget {
   final Color color;
   final List<String> items;
 
-  const _AnalysisSection({required this.title, required this.icon, required this.color, required this.items});
+  const _AnalysisSection({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1367,23 +1605,55 @@ class _AnalysisSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 18, color: color)),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: color),
+            ),
             const SizedBox(width: 12),
-            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           runSpacing: 10,
-          children: items.map((item) => ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 280),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.2))),
-              child: Text(item, style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.9) : Colors.black87, fontSize: 13, fontWeight: FontWeight.w500)),
-            ),
-          ).animate().scale(duration: 200.ms, curve: Curves.easeOutBack)).toList(),
+          children: items
+              .map(
+                (item) => ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 280),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: color.withOpacity(0.2)),
+                    ),
+                    child: Text(
+                      item,
+                      style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withOpacity(0.9)
+                            : Colors.black87,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ).animate().scale(duration: 200.ms, curve: Curves.easeOutBack),
+              )
+              .toList(),
         ),
       ],
     );
@@ -1404,7 +1674,9 @@ class _ResearchLogPanel extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(maxHeight: 180),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black.withOpacity(0.6) : Colors.grey.shade900.withOpacity(0.9),
+        color: isDark
+            ? Colors.black.withOpacity(0.6)
+            : Colors.grey.shade900.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: WealthInColors.primary.withOpacity(0.3)),
       ),
@@ -1415,14 +1687,46 @@ class _ResearchLogPanel extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), border: Border(bottom: BorderSide(color: WealthInColors.primary.withOpacity(0.2)))),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                border: Border(
+                  bottom: BorderSide(
+                    color: WealthInColors.primary.withOpacity(0.2),
+                  ),
+                ),
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.terminal, size: 14, color: WealthInColors.primary.withOpacity(0.8)),
+                  Icon(
+                    Icons.terminal,
+                    size: 14,
+                    color: WealthInColors.primary.withOpacity(0.8),
+                  ),
                   const SizedBox(width: 8),
-                  Text('Deep Research Agent', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.9), fontFamily: 'monospace')),
+                  Text(
+                    'Deep Research Agent',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withOpacity(0.9),
+                      fontFamily: 'monospace',
+                    ),
+                  ),
                   const Spacer(),
-                  Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: WealthInColors.success, boxShadow: [BoxShadow(color: WealthInColors.success.withOpacity(0.5), blurRadius: 4)])),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: WealthInColors.success,
+                      boxShadow: [
+                        BoxShadow(
+                          color: WealthInColors.success.withOpacity(0.5),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1433,17 +1737,42 @@ class _ResearchLogPanel extends StatelessWidget {
                 itemCount: logs.length,
                 itemBuilder: (context, index) {
                   final log = logs[index];
-                  final timeStr = '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}:${log.timestamp.second.toString().padLeft(2, '0')}';
+                  final timeStr =
+                      '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}:${log.timestamp.second.toString().padLeft(2, '0')}';
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('[$timeStr] ', style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.grey.shade500)),
-                        Expanded(child: Text(log.message, style: TextStyle(fontSize: 12, fontFamily: 'monospace', fontWeight: log.isHighlight ? FontWeight.bold : FontWeight.normal, color: log.isHighlight ? WealthInColors.primary : Colors.white.withOpacity(0.85)))),
-                      ],
-                    ),
-                  ).animate().fadeIn(duration: 300.ms).moveX(begin: -10, end: 0);
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '[$timeStr] ',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                log.message,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                  fontWeight: log.isHighlight
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: log.isHighlight
+                                      ? WealthInColors.primary
+                                      : Colors.white.withOpacity(0.85),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      .animate()
+                      .fadeIn(duration: 300.ms)
+                      .moveX(begin: -10, end: 0);
                 },
               ),
             ),

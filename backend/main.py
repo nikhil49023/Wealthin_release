@@ -8,7 +8,7 @@ PERCEPTION LAYER (Sensing):
 
 COGNITION LAYER (Thinking):  
 - Sarvam Indic Expert for regional language support
-- Zoho Catalyst QuickML for general chat
+- Groq OpenAI GPT-OSS for ideas/analysis reasoning
 - Lightweight RAG (TF-IDF + SQLite) for Knowledge Retrieval
 
 ACTION LAYER (Doing):
@@ -46,6 +46,13 @@ from services.merchant_service import merchant_service
 from services.ncm_service import ncm_service
 from services.financial_health_service import financial_health_service
 from services.openai_brainstorm_service import openai_brainstorm_service
+from services.groq_openai_service import groq_openai_service
+from services.ideas_mode_service import (
+    get_system_prompt as get_ideas_system_prompt,
+    list_modes as list_ideas_modes,
+    normalize_mode,
+    normalize_workflow_mode,
+)
 from services.recurring_transaction_service import recurring_transaction_service
 from services.bill_split_service import bill_split_service
 from services.forecast_service import forecast_service
@@ -68,6 +75,7 @@ from services.mongo_service import mongo_service
 from services.idea_evaluator_service import idea_evaluator
 from services.mudra_dpr_service import mudra_engine, MudraDPRInput
 from services.email_service import email_service
+from services.dpr_generator import dpr_generator, get_dpr_template
 
 load_dotenv()
 
@@ -88,6 +96,7 @@ async def lifespan(app: FastAPI):
     await merchant_service.initialize()
     await ncm_service.initialize()
     await openai_brainstorm_service.initialize()
+    await groq_openai_service.initialize()
     await mongo_service.initialize()  # Initialize MongoDB/NoSQL
     await bill_split_service.initialize()  # Initialize bill splitting tables
     await gst_invoice_service.initialize()  # Initialize GST invoicing
@@ -150,6 +159,8 @@ class DPRRequest(BaseModel):
     business_idea: str
     user_data: Dict
     include_market_research: bool = False
+    canvas_items: Optional[List[Dict[str, Any]]] = None
+    mode: str = "market_research"
 
 class DeepResearchRequest(BaseModel):
     query: str
@@ -299,8 +310,20 @@ async def refresh_analytics(user_id: str):
 async def get_monthly_trends(user_id: str):
     trends = await analytics_service.get_monthly_trends(user_id)
     prediction = await analytics_service.predict_next_month_expenses(user_id)
+
+    # Keep backwards compatibility for clients expecting a month-keyed map.
+    monthly_data = {
+        t["month"]: {
+            "income": t.get("income", 0.0),
+            "expenses": t.get("expense", 0.0),
+            "savings": t.get("savings", 0.0),
+        }
+        for t in trends
+        if t.get("month")
+    }
     return {
-        "monthly_data": trends,
+        "monthly_data": monthly_data,
+        "monthly_trends": trends,
         "next_month_prediction": prediction
     }
 
@@ -429,6 +452,32 @@ async def get_dashboard_data(user_id: str, use_cache: bool = True):
 @app.get("/insights/daily/{user_id}")
 async def get_daily_insight(user_id: str):
     return await ai_tools_service.generate_daily_insight(user_id)
+
+@app.get("/fin-bites")
+async def get_fin_bites(query: str = "Indian financial market news today"):
+    """
+    Fin-Bite endpoint expected by the Flutter client.
+    Returns a concise market insight for dashboard cards.
+    """
+    try:
+        summary = await sarvam_service.get_financial_news_summary(query)
+        return {
+            "success": True,
+            "headline": summary.get("headline", "Market Update"),
+            "insight": summary.get("insight", "No major market updates available."),
+            "recommendation": summary.get("recommendation", "Review your portfolio allocation."),
+            "trend": summary.get("trend", "stable"),
+        }
+    except Exception as e:
+        logger.error(f"Fin-Bites error: {e}")
+        return {
+            "success": False,
+            "headline": "Market Update",
+            "insight": "Unable to fetch market summary right now.",
+            "recommendation": "Try again shortly.",
+            "trend": "stable",
+            "error": str(e),
+        }
 
 
 # --- Group Accounts & Sharing ---
@@ -997,174 +1046,97 @@ class BrainstormRequest(BaseModel):
     conversation_history: Optional[List[Dict]] = []
     enable_web_search: bool = True
     search_category: str = "general"
-    persona: str = "neutral"  # Thinking hat persona
+    persona: str = "neutral"  # backward compatibility
+    mode: str = "market_research"
+    workflow_mode: str = "input"
 
 @app.post("/brainstorm/chat")
 async def brainstorm_chat(request: BrainstormRequest):
     """
-    Smart-routed brainstorm chat with cost optimization.
-    Routes 60% of queries to templates/local processing, 40% to GPT-4o.
+    Mode-driven ideas chat.
+    Uses Groq OpenAI GPT-OSS models only for ideas/analysis reasoning.
     """
     try:
-        # Classify intent
-        intent, config = brainstorm_router.classify_intent(request.message)
-        logger.info(f"Brainstorm intent: {intent.value}, confidence: {config.get('confidence', 0):.2f}")
-
-        # Extract entities for templates
-        entities = brainstorm_router.extract_entities(request.message, intent)
-
-        # Route based on intent
-        if intent == BrainstormIntent.CREATE_PLAN:
-            # Use template (free, <100ms)
-            template_data = business_plan_templates.generate_outline(
-                business_name=entities.get('business_name'),
-                business_type=entities.get('business_type'),
-                location=entities.get('location')
-            )
+        if not groq_openai_service.is_available:
             return {
-                "success": True,
-                "content": _format_template_response(template_data),
-                "sources": [],
-                "routing": {
-                    "handler": "template",
-                    "intent": intent.value,
-                    "confidence": config['confidence'],
-                    "cost_saved": True
-                }
+                "success": False,
+                "error": "Groq OpenAI service unavailable. Configure GROQ_API_KEY.",
             }
 
-        elif intent == BrainstormIntent.FIND_FUNDING:
-            # Use static knowledge base (free, <50ms)
-            capital = None
-            if 'capital' in entities:
-                try:
-                    capital = float(entities['capital'].replace(',', ''))
-                except:
-                    pass
+        mode = normalize_mode(request.mode or request.persona)
+        workflow_mode = normalize_workflow_mode(request.workflow_mode)
+        system_prompt = get_ideas_system_prompt(mode, workflow_mode)
 
-            funding_data = business_plan_templates.get_funding_guide(
-                business_type=entities.get('business_type'),
-                capital_needed=capital,
-                location=entities.get('location')
-            )
-            return {
-                "success": True,
-                "content": _format_funding_response(funding_data),
-                "sources": [],
-                "routing": {
-                    "handler": "template",
-                    "intent": intent.value,
-                    "confidence": config['confidence'],
-                    "cost_saved": True
-                }
-            }
+        messages = [{"role": "system", "content": system_prompt}]
+        for msg in (request.conversation_history or [])[-8:]:
+            role = msg.get("role", "user")
+            content = (msg.get("content") or "").strip()
+            if content:
+                messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": request.message})
 
-        elif intent == BrainstormIntent.DRAFT_DOCUMENT:
-            # Use DPR template (free, <50ms)
-            dpr_data = business_plan_templates.get_dpr_template()
-            return {
-                "success": True,
-                "content": _format_dpr_response(dpr_data),
-                "sources": [],
-                "routing": {
-                    "handler": "template",
-                    "intent": intent.value,
-                    "confidence": config['confidence'],
-                    "cost_saved": True
-                }
-            }
+        llm_result = await groq_openai_service.chat(
+            messages,
+            temperature=0.5,
+            max_tokens=1800,
+        )
+        content = llm_result.get("content", "")
 
-        elif intent == BrainstormIntent.FIND_LOCAL_MSME:
-            # Use Government API (free, ~500ms)
-            # TODO: Integrate with msme_government_service
-            return {
-                "success": True,
-                "content": "🏭 MSME Directory Search\n\nTo find registered MSMEs, I'll need:\n• State/District\n• Business sector\n\nNote: This feature requires Government API integration. For now, visit https://udyamregistration.gov.in to search the MSME directory.",
-                "sources": [],
-                "routing": {
-                    "handler": "gov_api",
-                    "intent": intent.value,
-                    "confidence": config['confidence'],
-                    "cost_saved": True
-                }
-            }
-
-        else:
-            # Use Groq (or configured AI provider) for complex reasoning
-            # (EVALUATE_IDEA, GENERAL_QUESTION, CALCULATE_METRICS)
-            try:
-                ai_provider = AIProviderService()
-
-                # Build system prompt based on persona
-                persona_prompts = {
-                    'neutral': 'You are a balanced business advisor.',
-                    'cynical_vc': 'You are a skeptical VC who asks tough questions.',
-                    'enthusiastic_entrepreneur': 'You are an optimistic entrepreneur.',
-                    'risk_manager': 'You focus on identifying and managing risks.',
-                    'customer_advocate': 'You prioritize customer needs and experience.',
-                    'financial_analyst': 'You focus on financial viability and metrics.',
-                    'systems_thinker': 'You analyze interconnections and systems.',
-                }
-
-                system_prompt = persona_prompts.get(request.persona, persona_prompts['neutral'])
-                system_prompt += "\n\nProvide practical, actionable advice for MSME (Micro, Small, Medium Enterprises) in India."
-
-                # Build conversation context
-                context = ""
-                if request.conversation_history:
-                    for msg in request.conversation_history[-5:]:  # Last 5 messages
-                        role = msg.get('role', 'user')
-                        content = msg.get('content', '')
-                        context += f"{role}: {content}\n"
-
-                full_prompt = f"{context}\nuser: {request.message}"
-
-                # Get completion from Groq
-                response = await ai_provider.get_completion(
-                    prompt=full_prompt,
-                    system_prompt=system_prompt,
-                    temperature=0.7,
-                    max_tokens=1000
-                )
-
-                return {
-                    "success": True,
-                    "content": response,
-                    "sources": [],  # Web search not implemented for Groq yet
-                    "routing": {
-                        "handler": f"groq_{ai_provider.provider}",
-                        "intent": intent.value,
-                        "confidence": config['confidence'],
-                        "cost_saved": False,
-                        "model": "groq/openai-gpt-oss-20b"
-                    }
-                }
-            except Exception as e:
-                logger.error(f"Groq completion error: {e}")
-                # Fallback to OpenAI if Groq fails
-                logger.info("Falling back to OpenAI brainstorm service")
-                result = await openai_brainstorm_service.brainstorm(
-                    user_message=request.message,
-                    conversation_history=request.conversation_history,
-                    enable_web_search=request.enable_web_search,
-                    search_category=request.search_category,
-                    persona=request.persona
-                )
-                return {
-                    "success": True,
-                    "content": result.content,
-                    "sources": result.sources,
-                    "routing": {
-                        "handler": "openai_fallback",
-                        "intent": intent.value,
-                        "confidence": config['confidence'],
-                        "cost_saved": False
-                    }
-                }
+        return {
+            "success": True,
+            "content": content,
+            "sources": [],
+            "mode": mode,
+            "workflow_mode": workflow_mode,
+            "routing": {
+                "handler": "groq_openai_ideas",
+                "model": llm_result.get("model"),
+                "cost_saved": False,
+            },
+            "visualization": _build_mode_visualization_payload(mode, content),
+        }
 
     except Exception as e:
         logger.error(f"Brainstorm error: {e}")
         return {"success": False, "error": str(e)}
+
+
+@app.get("/brainstorm/modes")
+async def brainstorm_modes():
+    return {"success": True, "modes": list_ideas_modes()}
+
+
+def _build_mode_visualization_payload(mode: str, content: str) -> Dict[str, Any]:
+    baseline = {
+        "financial_planner": {
+            "score_label": "Financial Readiness",
+            "chart_type": "allocation",
+            "metrics": ["cashflow", "tax_efficiency", "goal_coverage"],
+        },
+        "market_research": {
+            "score_label": "Market Viability",
+            "chart_type": "market_radar",
+            "metrics": ["tam_sam_som", "competition", "execution_risk"],
+        },
+        "career_advisor": {
+            "score_label": "Career Fit",
+            "chart_type": "skill_radar",
+            "metrics": ["cv_impact", "skill_gap", "role_fit"],
+        },
+        "investment_analyst": {
+            "score_label": "Portfolio Strength",
+            "chart_type": "risk_return",
+            "metrics": ["risk_score", "diversification", "expected_return"],
+        },
+        "life_planning": {
+            "score_label": "Goal Progress",
+            "chart_type": "timeline",
+            "metrics": ["milestone_clarity", "affordability", "contingency"],
+        },
+    }
+    payload = baseline.get(mode, baseline["market_research"]).copy()
+    payload["content_length"] = len(content or "")
+    return payload
 
 
 def _format_template_response(data: Dict[str, Any]) -> str:
@@ -1250,49 +1222,183 @@ def _format_dpr_response(data: Dict[str, Any]) -> str:
 @app.post("/brainstorm/generate-dpr")
 async def generate_dpr(request: DPRRequest):
     try:
-        market_research = None
-        # Future: Integrate web search here
-        
-        dpr_content = openai_service.generate_dpr(
+        project_data = await _build_project_data_with_llm(
             business_idea=request.business_idea,
             user_data=request.user_data,
-            market_research=market_research
+            canvas_items=request.canvas_items or [],
+            mode=request.mode,
         )
+        compiled = dpr_generator.compile_dpr(project_data)
         return {
-            "dpr": dpr_content,
+            "dpr": compiled,
+            "project_data": project_data,
             "status": "success",
-            "model_used": "gpt-4o"
+            "model_used": groq_openai_service.last_model_used or "template_only",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class CanvasDPRRequest(BaseModel):
+    user_id: str
+    canvas_items: List[Dict[str, Any]]
+    user_data: Dict[str, Any] = {}
+    mode: str = "market_research"
+    business_idea: Optional[str] = None
+
+
+@app.post("/brainstorm/generate-dpr-from-canvas")
+async def generate_dpr_from_canvas(request: CanvasDPRRequest):
+    try:
+        seed_idea = request.business_idea
+        if not seed_idea and request.canvas_items:
+            seed_idea = request.canvas_items[0].get("title") or "Business idea"
+        project_data = await _build_project_data_with_llm(
+            business_idea=seed_idea or "Business idea",
+            user_data=request.user_data,
+            canvas_items=request.canvas_items,
+            mode=request.mode,
+        )
+        compiled = dpr_generator.compile_dpr(project_data)
+        return {
+            "success": True,
+            "status": "success",
+            "dpr": compiled,
+            "project_data": project_data,
+            "model_used": groq_openai_service.last_model_used or "template_only",
+        }
+    except Exception as e:
+        logger.error(f"Canvas DPR error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def _template_with_defaults() -> Dict[str, Any]:
+    template_response = json.loads(get_dpr_template())
+    return template_response.get("template", {})
+
+
+def _merge_with_template(template: Any, generated: Any) -> Any:
+    if isinstance(template, dict) and isinstance(generated, dict):
+        merged = {}
+        for key, value in template.items():
+            merged[key] = _merge_with_template(value, generated.get(key))
+        for key, value in generated.items():
+            if key not in merged:
+                merged[key] = value
+        return merged
+    if isinstance(template, list):
+        return generated if isinstance(generated, list) else template
+    return generated if generated not in (None, "", []) else template
+
+
+def _canvas_summary(canvas_items: List[Dict[str, Any]]) -> str:
+    lines = []
+    for idx, item in enumerate(canvas_items[:20], 1):
+        title = (item.get("title") or "").strip()
+        content = (item.get("content") or "").strip()
+        category = (item.get("category") or "insight").strip()
+        if not title and not content:
+            continue
+        lines.append(f"{idx}. [{category}] {title} - {content}")
+    return "\n".join(lines) if lines else "No canvas items provided."
+
+
+async def _build_project_data_with_llm(
+    business_idea: str,
+    user_data: Dict[str, Any],
+    canvas_items: List[Dict[str, Any]],
+    mode: str,
+) -> Dict[str, Any]:
+    template = _template_with_defaults()
+    if not groq_openai_service.is_available:
+        logger.warning("Groq unavailable for DPR synthesis, using template fallback")
+        return template
+
+    normalized_mode = normalize_mode(mode)
+    canvas_text = _canvas_summary(canvas_items)
+    system_prompt = (
+        "You are a DPR drafting specialist for Indian MSME scheme applications. "
+        "Return strict JSON matching the provided template fields only. "
+        "Use realistic Indian business assumptions and keep values bank-ready."
+    )
+    user_prompt = f"""
+Mode: {normalized_mode}
+Business Idea: {business_idea}
+User Data: {json.dumps(user_data, ensure_ascii=False)}
+Canvas Insights:
+{canvas_text}
+
+DPR TEMPLATE (use exact keys, preserve nested structure):
+{json.dumps(template, ensure_ascii=False)}
+"""
+    generated = await groq_openai_service.chat_json(
+        [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        max_tokens=2600,
+    )
+    return _merge_with_template(template, generated)
+
 @app.get("/brainstorm/status")
 async def brainstorm_status():
     return {
-        "available": openai_brainstorm_service.is_available,
+        "available": groq_openai_service.is_available,
         "web_search_available": web_search_service.is_available,
-        "personas": list(openai_brainstorm_service.PERSONAS.keys())
+        "modes": list_ideas_modes(),
+        "models": os.getenv(
+            "GROQ_OPENAI_MODELS",
+            "openai/gpt-oss-120b,openai/gpt-oss-70b,openai/gpt-oss-20b",
+        ).split(","),
     }
 
 @app.post("/brainstorm/critique")
 async def reverse_brainstorm(request: dict):
     """
-    REFINERY STAGE: Critique ideas to find weaknesses.
-    Uses reverse brainstorming psychology.
+    REFINERY STAGE: Critique ideas to find weaknesses using Groq OpenAI GPT-OSS.
     """
     try:
+        if not groq_openai_service.is_available:
+            return {"success": False, "error": "Groq OpenAI service unavailable"}
+
         ideas = request.get("ideas", [])
         history = request.get("conversation_history", [])
+        mode = normalize_mode(request.get("mode", "market_research"))
+        ideas_text = "\n".join([f"- {i}" for i in ideas]) or "- No explicit ideas provided"
+        history_text = "\n".join(
+            [
+                f"{msg.get('role', 'user')}: {msg.get('content', '')}"
+                for msg in history[-10:]
+                if msg.get("content")
+            ]
+        ) or "No recent context."
+        prompt = f"""
+Ideas:
+{ideas_text}
 
-        result = await openai_brainstorm_service.reverse_brainstorm(
-            ideas=ideas,
-            conversation_history=history
+Conversation context:
+{history_text}
+
+Provide:
+1) Top 3 failure risks with severity
+2) Weak assumptions
+3) Concrete fixes
+4) Survivors worth anchoring
+"""
+        result = await groq_openai_service.chat(
+            [
+                {"role": "system", "content": get_ideas_system_prompt(mode, "refinery")},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.4,
+            max_tokens=1400,
         )
 
         return {
             "success": True,
-            "critique": result.content,
-            "sources": result.sources
+            "critique": result.get("content", ""),
+            "sources": [],
+            "model_used": result.get("model"),
         }
     except Exception as e:
         logger.error(f"Reverse brainstorm error: {e}")
@@ -1305,16 +1411,51 @@ async def extract_canvas_items(request: dict):
     Returns structured ideas ready for visual canvas.
     """
     try:
-        history = request.get("conversation_history", [])
+        if not groq_openai_service.is_available:
+            return {"success": False, "error": "Groq OpenAI service unavailable", "ideas": []}
 
-        result = await openai_brainstorm_service.extract_canvas_candidates(
-            conversation_history=history
+        history = request.get("conversation_history", [])
+        mode = normalize_mode(request.get("mode", "market_research"))
+        history_text = "\n".join(
+            [
+                f"{msg.get('role', 'user')}: {msg.get('content', '')}"
+                for msg in history[-16:]
+                if msg.get("content")
+            ]
+        ) or "No context."
+        prompt = f"""
+From this conversation, extract high-signal ideas to pin on canvas.
+
+Conversation:
+{history_text}
+
+Return strict JSON object:
+{{
+  "ideas": [
+    {{
+      "title": "short title",
+      "content": "actionable summary",
+      "category": "feature|risk|opportunity|insight",
+      "priority": "high|medium|low"
+    }}
+  ]
+}}
+"""
+        result = await groq_openai_service.chat_json(
+            [
+                {"role": "system", "content": get_ideas_system_prompt(mode, "anchor")},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=1800,
         )
+        ideas = result.get("ideas", [])
+        if not isinstance(ideas, list):
+            ideas = []
 
         return {
             "success": True,
-            "ideas": result["ideas"],
-            "message": result["message"]
+            "ideas": ideas,
+            "message": f"Extracted {len(ideas)} canvas candidates.",
         }
     except Exception as e:
         logger.error(f"Extract canvas error: {e}")

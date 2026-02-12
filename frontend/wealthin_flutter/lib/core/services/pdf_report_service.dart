@@ -72,7 +72,7 @@ class PdfReportService {
       bounds: Rect.fromLTWH(20, yOffset, 120, 60),
     );
     graphics.drawString(
-      '${healthScore.totalScore.toStringAsFixed(0)}',
+      healthScore.totalScore.toStringAsFixed(0),
       PdfStandardFont(PdfFontFamily.helvetica, 32, style: PdfFontStyle.bold),
       brush: PdfSolidBrush(_getScoreColor(healthScore.totalScore)),
       bounds: Rect.fromLTWH(40, yOffset + 10, 80, 40),

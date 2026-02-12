@@ -486,7 +486,7 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

@@ -1,28 +1,97 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
+
+class _UpiBusinessRule {
+  final String displayName;
+  final String category;
+
+  const _UpiBusinessRule({
+    required this.displayName,
+    required this.category,
+  });
+}
 
 /// SMS Transaction Service - Reads SMS and extracts financial transactions
 class SmsTransactionService {
-  static final SmsTransactionService _instance = SmsTransactionService._internal();
+  static final SmsTransactionService _instance =
+      SmsTransactionService._internal();
   factory SmsTransactionService() => _instance;
   SmsTransactionService._internal();
 
   final SmsQuery _smsQuery = SmsQuery();
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
   bool _isScanning = false;
-  
+  final Map<String, String> _phoneToContactName = {};
+  final Map<String, String> _normalizedContactNameToDisplayName = {};
+  final Map<String, int> _upiUsageCount = {};
+
+  static const Map<String, _UpiBusinessRule> _knownUpiBusinessRules = {
+    'amzn': _UpiBusinessRule(displayName: 'Amazon', category: 'Shopping'),
+    'amazon': _UpiBusinessRule(displayName: 'Amazon', category: 'Shopping'),
+    'flipkart': _UpiBusinessRule(displayName: 'Flipkart', category: 'Shopping'),
+    'zomato': _UpiBusinessRule(
+      displayName: 'Zomato',
+      category: 'Food & Dining',
+    ),
+    'swiggy': _UpiBusinessRule(
+      displayName: 'Swiggy',
+      category: 'Food & Dining',
+    ),
+    'paytm': _UpiBusinessRule(displayName: 'Paytm', category: 'Utilities'),
+    'irctc': _UpiBusinessRule(displayName: 'IRCTC', category: 'Transportation'),
+    'uber': _UpiBusinessRule(displayName: 'Uber', category: 'Transportation'),
+    'ola': _UpiBusinessRule(displayName: 'Ola', category: 'Transportation'),
+    'rapido': _UpiBusinessRule(
+      displayName: 'Rapido',
+      category: 'Transportation',
+    ),
+    'blinkit': _UpiBusinessRule(displayName: 'Blinkit', category: 'Groceries'),
+    'zepto': _UpiBusinessRule(displayName: 'Zepto', category: 'Groceries'),
+    'jiomart': _UpiBusinessRule(displayName: 'JioMart', category: 'Groceries'),
+    'bigbasket': _UpiBusinessRule(
+      displayName: 'BigBasket',
+      category: 'Groceries',
+    ),
+  };
+
   // Bank sender IDs to filter
   final List<String> _bankSenders = [
-    'SBI', 'SBIINB', 'SBIACCOUNT',
-    'HDFCBK', 'HDFCBANK',
-    'ICICIB', 'ICICIBANK',
-    'AXISBK', 'AXISBANK',
-    'KOTAKBK', 'KOTAK',
-    'PNBSMS', 'BOBCARD', 'CANBNK',
-    'UNIONBK', 'IDBIBK', 'YESBANK',
-    'AUBANK', 'INDBNK', 'SCBANK',
-    'PAYTM', 'PHONEPE', 'GPAY',
+    'SBI',
+    'SBIINB',
+    'SBIACCOUNT',
+    'SBIPSG',
+    'HDFCBK',
+    'HDFCBANK',
+    'ICICIB',
+    'ICICIBANK',
+    'AXISBK',
+    'AXISBANK',
+    'KOTAKBK',
+    'KOTAK',
+    'PNBSMS',
+    'BOBCARD',
+    'BOBSMS',
+    'CANBNK',
+    'UNIONBK',
+    'IDBIBK',
+    'YESBANK',
+    'AUBANK',
+    'INDBNK',
+    'SCBANK',
+    'FEDERALBK',
+    'ILOANBK',
+    'ABORIG',
+    'PAYTM',
+    'PHONEPE',
+    'GPAY',
+    'CRED',
+    'IDFCFIRST',
+    'BAJFINANCE',
+    'RBLBANK',
   ];
 
   /// Check if SMS permission is granted
@@ -55,21 +124,26 @@ class SmsTransactionService {
       }
 
       debugPrint('[SmsTransactionService] Starting SMS scan...');
-      
+
       // Get all SMS messages
       final messages = await _smsQuery.querySms(
         kinds: [SmsQueryKind.inbox, SmsQueryKind.sent],
         count: 5000, // Scan last 5000 SMS
       );
 
-      debugPrint('[SmsTransactionService] Found ${messages.length} SMS messages');
+      debugPrint(
+        '[SmsTransactionService] Found ${messages.length} SMS messages',
+      );
 
-      final db = await DatabaseHelper().database;
+      await _loadContactCache();
+
+      final db = await _databaseHelper.database;
+      await _warmUpiUsageCache(db);
       int processed = 0;
 
       for (final sms in messages) {
         processed++;
-        
+
         // Report progress
         if (onProgress != null && processed % 100 == 0) {
           onProgress(processed, messages.length);
@@ -85,23 +159,25 @@ class SmsTransactionService {
         final timestamp = sms.date ?? DateTime.now();
 
         // Parse the SMS
-        final transaction = _parseSms(sender, body, timestamp);
-        
+        final transaction = await _parseSms(sender, body, timestamp);
+
         if (transaction != null) {
           // Check if we already have this transaction (avoid duplicates)
           final existing = await db.query(
             'transactions',
-            where: 'description = ? AND amount = ? AND date = ?',
+            where:
+                'description = ? AND amount = ? AND date = ? AND COALESCE(merchant, "") = ?',
             whereArgs: [
               transaction['description'],
               transaction['amount'],
               transaction['date'],
+              transaction['merchant'] ?? '',
             ],
             limit: 1,
           );
 
           if (existing.isEmpty) {
-            // Insert new transaction
+            // Insert new transaction with balance/account/bank info
             await db.insert('transactions', {
               'amount': transaction['amount'],
               'description': transaction['description'],
@@ -110,18 +186,34 @@ class SmsTransactionService {
               'type': transaction['type'],
               'paymentMethod': transaction['paymentMethod'] ?? 'Bank Transfer',
               'merchant': transaction['merchant'] ?? transaction['description'],
+              'notes': transaction['notes'],
               'is_synced': 0,
+              'balance': transaction['balance'],
+              'account_last4': transaction['account_last4'],
+              'bank': transaction['bank'],
             });
-            
+
+            final insertedUpiId = transaction['upi_id']?.toString();
+            if (insertedUpiId != null && insertedUpiId.isNotEmpty) {
+              _upiUsageCount.update(
+                insertedUpiId,
+                (value) => value + 1,
+                ifAbsent: () => 1,
+              );
+            }
+
             transactionsFound++;
-            debugPrint('[SmsTransactionService] Added: ${transaction['description']} - ₹${transaction['amount']}');
+            debugPrint(
+              '[SmsTransactionService] Added: ${transaction['description']} - ₹${transaction['amount']} (bal: ${transaction['balance']})',
+            );
           }
         }
       }
 
-      debugPrint('[SmsTransactionService] Scan complete! Found $transactionsFound new transactions');
+      debugPrint(
+        '[SmsTransactionService] Scan complete! Found $transactionsFound new transactions',
+      );
       return transactionsFound;
-
     } catch (e) {
       debugPrint('[SmsTransactionService] Error scanning SMS: $e');
       return 0;
@@ -136,22 +228,309 @@ class SmsTransactionService {
     return _bankSenders.any((bank) => senderUpper.contains(bank));
   }
 
+  Future<void> _loadContactCache() async {
+    _phoneToContactName.clear();
+    _normalizedContactNameToDisplayName.clear();
+
+    try {
+      final contactsPermission = await Permission.contacts.status;
+      if (!contactsPermission.isGranted) {
+        debugPrint(
+          '[SmsTransactionService] Contacts permission not granted, skipping UPI contact matching',
+        );
+        return;
+      }
+
+      final contacts = await FlutterContacts.getContacts(
+        withProperties: true,
+      );
+
+      for (final contact in contacts) {
+        final name = contact.displayName.trim();
+        if (name.isEmpty) continue;
+
+        final normalizedName = _normalizeNameForMatch(name);
+        if (normalizedName.isNotEmpty) {
+          _normalizedContactNameToDisplayName.putIfAbsent(
+            normalizedName,
+            () => name,
+          );
+        }
+
+        for (final phone in contact.phones) {
+          final normalizedPhone = _normalizePhoneNumber(phone.number);
+          if (normalizedPhone == null) continue;
+          _phoneToContactName.putIfAbsent(normalizedPhone, () => name);
+        }
+      }
+
+      debugPrint(
+        '[SmsTransactionService] Loaded contacts for UPI matching: ${_phoneToContactName.length} numbers',
+      );
+    } catch (e) {
+      debugPrint(
+        '[SmsTransactionService] Failed to load contacts for UPI matching: $e',
+      );
+    }
+  }
+
+  String _normalizeNameForMatch(String input) {
+    return input
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String? _normalizePhoneNumber(String rawValue) {
+    final digits = rawValue.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return null;
+    if (digits.length < 10) return null;
+    return digits.substring(digits.length - 10);
+  }
+
+  bool _isLikelyUpiId(String value) {
+    final candidate = value.trim().toLowerCase();
+    if (!candidate.contains('@')) return false;
+    final parts = candidate.split('@');
+    if (parts.length != 2) return false;
+    if (parts[0].length < 2 || parts[1].length < 2) return false;
+    return RegExp(r'^[a-z0-9._-]+@[a-z0-9._-]+$').hasMatch(candidate);
+  }
+
+  String? _extractUpiId(String text) {
+    final patterns = [
+      RegExp(
+        r'vpa[:\s-]+([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'upi(?:[/\s:-])+([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)',
+        caseSensitive: false,
+      ),
+      RegExp(r'([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)'),
+    ];
+
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(text);
+      if (match == null) continue;
+      final candidate = match
+          .group(1)
+          ?.trim()
+          .replaceAll(RegExp(r'[.,;:]$'), '');
+      if (candidate == null || !_isLikelyUpiId(candidate)) continue;
+      return candidate.toLowerCase();
+    }
+    return null;
+  }
+
+  String? _findFuzzyNameMatch(String upiLocalPart) {
+    if (_normalizedContactNameToDisplayName.isEmpty) return null;
+
+    final upiNameToken = _normalizeNameForMatch(
+      upiLocalPart.replaceAll(RegExp(r'[._-]+'), ' '),
+    );
+    if (upiNameToken.length < 3) return null;
+
+    final exactMatch = _normalizedContactNameToDisplayName[upiNameToken];
+    if (exactMatch != null) return exactMatch;
+
+    for (final entry in _normalizedContactNameToDisplayName.entries) {
+      if (entry.key.length < 3) continue;
+      if (entry.key.contains(upiNameToken) ||
+          upiNameToken.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _resolveUpiDisplayName(String upiId) async {
+    final normalizedUpi = upiId.trim().toLowerCase();
+    if (normalizedUpi.isEmpty) return null;
+
+    final storedName = await _databaseHelper.getUpiContactMapping(
+      normalizedUpi,
+    );
+    if (storedName != null) return storedName;
+
+    final localPart = normalizedUpi.split('@').first;
+    final normalizedPhone = _normalizePhoneNumber(localPart);
+    if (normalizedPhone != null) {
+      final phoneMatch = _phoneToContactName[normalizedPhone];
+      if (phoneMatch != null && phoneMatch.trim().isNotEmpty) {
+        await _databaseHelper.upsertUpiContactMapping(
+          upiId: normalizedUpi,
+          contactName: phoneMatch.trim(),
+          source: 'contacts_phone',
+        );
+        return phoneMatch.trim();
+      }
+    }
+
+    final fuzzyMatch = _findFuzzyNameMatch(localPart);
+    if (fuzzyMatch != null && fuzzyMatch.trim().isNotEmpty) {
+      await _databaseHelper.upsertUpiContactMapping(
+        upiId: normalizedUpi,
+        contactName: fuzzyMatch.trim(),
+        source: 'contacts_fuzzy',
+      );
+      return fuzzyMatch.trim();
+    }
+
+    return null;
+  }
+
+  Future<void> saveManualUpiMapping({
+    required String upiId,
+    required String displayName,
+  }) async {
+    final normalizedUpi = upiId.trim().toLowerCase();
+    final normalizedName = displayName.trim();
+    if (!_isLikelyUpiId(normalizedUpi) || normalizedName.isEmpty) return;
+
+    await _databaseHelper.upsertUpiContactMapping(
+      upiId: normalizedUpi,
+      contactName: normalizedName,
+      source: 'manual',
+    );
+  }
+
+  Future<void> _warmUpiUsageCache(Database db) async {
+    _upiUsageCount.clear();
+
+    final cutoffDate = DateTime.now()
+        .subtract(const Duration(days: 90))
+        .toIso8601String()
+        .split('T')
+        .first;
+
+    final rows = await db.query(
+      'transactions',
+      columns: ['notes'],
+      where: 'paymentMethod = ? AND date >= ? AND notes LIKE ?',
+      whereArgs: ['Bank Transfer', cutoffDate, 'UPI ID:%'],
+    );
+
+    for (final row in rows) {
+      final upiFromNotes = _extractUpiFromNotes(row['notes']?.toString());
+      if (upiFromNotes == null) continue;
+      _upiUsageCount.update(
+        upiFromNotes,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+  }
+
+  String? _extractUpiFromNotes(String? notes) {
+    if (notes == null || notes.isEmpty) return null;
+    final match = RegExp(
+      r'UPI ID:\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)',
+      caseSensitive: false,
+    ).firstMatch(notes);
+    final candidate = match?.group(1)?.trim().toLowerCase();
+    if (candidate == null || !_isLikelyUpiId(candidate)) return null;
+    return candidate;
+  }
+
+  _UpiBusinessRule? _resolveBusinessRule(String? upiId) {
+    if (upiId == null || upiId.isEmpty) return null;
+    final localPart = upiId.split('@').first.toLowerCase();
+    final normalizedPrefix = localPart.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (normalizedPrefix.isEmpty) return null;
+
+    _UpiBusinessRule? bestMatch;
+    var bestMatchLength = 0;
+
+    for (final entry in _knownUpiBusinessRules.entries) {
+      final key = entry.key;
+      if (!(normalizedPrefix.startsWith(key) ||
+          normalizedPrefix.contains(key))) {
+        continue;
+      }
+
+      if (key.length > bestMatchLength) {
+        bestMatch = entry.value;
+        bestMatchLength = key.length;
+      }
+    }
+
+    return bestMatch;
+  }
+
   /// Parse SMS to extract transaction details
-  Map<String, dynamic>? _parseSms(String sender, String message, DateTime timestamp) {
+  Future<Map<String, dynamic>?> _parseSms(
+    String sender,
+    String message,
+    DateTime timestamp,
+  ) async {
     try {
       // Determine transaction type
       final type = _determineType(message);
       if (type == null) return null;
 
-      // Extract amount
-      final amount = _extractAmount(message);
+      // Extract balance FIRST so we can exclude it from amount extraction
+      final balance = _extractBalance(message);
+
+      // Extract amount (context-aware, avoids balance)
+      final amount = _extractAmount(message, balance: balance);
       if (amount == null || amount <= 0) return null;
 
-      // Extract description/merchant
-      final description = _extractDescription(message);
+      final upiId = _extractUpiId(message);
+      final matchedUpiName = upiId == null
+          ? null
+          : await _resolveUpiDisplayName(upiId);
+      final businessRule = _resolveBusinessRule(upiId);
+      final upiFrequencyCount = upiId == null
+          ? 0
+          : (_upiUsageCount[upiId] ?? 0);
+
+      // Extract description/merchant with UPI humanization fallback
+      final extractedDescription = _extractDescription(message);
+      final description = matchedUpiName?.trim().isNotEmpty == true
+          ? matchedUpiName!.trim()
+          : (businessRule?.displayName ??
+                (upiId != null ? 'Unknown' : extractedDescription));
+      final merchant = matchedUpiName?.trim().isNotEmpty == true
+          ? matchedUpiName!.trim()
+          : (businessRule?.displayName ?? (upiId ?? extractedDescription));
+
+      // Extract account last 4 digits
+      final accountLast4 = _extractAccount(message);
+
+      // Identify bank
+      final bank = _identifyBank(sender);
 
       // Categorize
-      final category = _categorizeTransaction(description, message);
+      final category = _categorizeTransaction(
+        description,
+        message,
+        upiId: upiId,
+        amount: amount,
+        type: type,
+        hasContactMatch: matchedUpiName?.trim().isNotEmpty == true,
+        businessRule: businessRule,
+        upiFrequencyCount: upiFrequencyCount,
+      );
+
+      String? notes;
+      if (upiId != null) {
+        final noteParts = <String>['UPI ID: $upiId'];
+        if (matchedUpiName?.trim().isNotEmpty == true) {
+          noteParts.add('Contact: ${matchedUpiName!.trim()}');
+        }
+        if (businessRule != null) {
+          noteParts.add('Business: ${businessRule.displayName}');
+        }
+        if (upiFrequencyCount >= 3) {
+          noteParts.add('Recurring: ${upiFrequencyCount + 1}');
+        }
+        if (category == 'Uncategorized') {
+          noteParts.add('Review Needed');
+        }
+        notes = noteParts.join(' | ');
+      }
 
       // Format date
       final dateStr = timestamp.toIso8601String().split('T')[0];
@@ -162,9 +541,14 @@ class SmsTransactionService {
         'description': description,
         'category': category,
         'date': dateStr,
-        'merchant': description,
+        'merchant': merchant,
         'paymentMethod': 'Bank Transfer',
         'source': 'sms',
+        'notes': notes,
+        'balance': balance,
+        'account_last4': accountLast4,
+        'bank': bank,
+        'upi_id': upiId,
       };
     } catch (e) {
       debugPrint('[SmsTransactionService] Error parsing SMS: $e');
@@ -177,56 +561,159 @@ class SmsTransactionService {
     final textLower = text.toLowerCase();
 
     final debitKeywords = [
-      'debited', 'debit', 'paid', 'withdrawn', 'spent',
-      'purchase', 'dr', 'sent', 'transferred to'
+      'debited',
+      'debit',
+      'paid',
+      'withdrawn',
+      'spent',
+      'purchase',
+      'purchased',
+      'sent',
+      'transferred to',
+      'transaction at',
+      'txn at',
+      'txn of',
+      'pos txn',
+      'upi txn',
     ];
 
     final creditKeywords = [
-      'credited', 'credit', 'received', 'deposited',
-      'cr', 'salary', 'refund', 'cashback'
+      'credited',
+      'received',
+      'deposited',
+      'salary',
+      'sal cr',
+      'refund',
+      'cashback',
+      'interest credited',
+      'reward credited',
     ];
 
-    // Check for amount pattern
-    if (!RegExp(r'(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d{2})?', caseSensitive: false).hasMatch(textLower)) {
-      return null;
+    // Exclusion: "credit card" is a DEBIT instrument, not a credit transaction
+    final hasCreditCard =
+        textLower.contains('credit card') || textLower.contains('creditcard');
+
+    // Check credit keywords first (more specific, e.g. salary / refunds)
+    // But skip if the only "credit" match is from "credit card"
+    if (!hasCreditCard) {
+      if (creditKeywords.any((kw) => textLower.contains(kw))) {
+        return 'income';
+      }
+      // Word-boundary check for standalone "cr" (e.g. "Cr Rs.500")
+      if (RegExp(r'\bcr\b').hasMatch(textLower)) {
+        return 'income';
+      }
+    } else {
+      // Even with "credit card", check for explicit credited/received etc.
+      final specificCredit = [
+        'credited',
+        'received',
+        'deposited',
+        'refund',
+        'cashback',
+        'salary',
+      ];
+      if (specificCredit.any((kw) => textLower.contains(kw))) {
+        return 'income';
+      }
     }
 
-    // Check credit first (more specific)
-    if (creditKeywords.any((kw) => textLower.contains(kw))) {
-      return 'income';
-    }
-
-    // Check debit
+    // Then check for debit-style phrases
     if (debitKeywords.any((kw) => textLower.contains(kw))) {
+      return 'expense';
+    }
+    // Word-boundary check for standalone "dr" (e.g. "Dr Rs.1000")
+    if (RegExp(r'\bdr\b').hasMatch(textLower)) {
+      return 'expense';
+    }
+
+    // Fallback: many banks use generic "txn/transaction" wording without explicit debit/credit.
+    // If we see a transaction keyword and a valid amount, treat as an expense by default.
+    final hasTxnWord = RegExp(r'\b(txn|transaction)\b').hasMatch(textLower);
+    if (hasTxnWord && _extractAmount(text) != null) {
       return 'expense';
     }
 
     return null;
   }
 
-  /// Extract amount from SMS
-  double? _extractAmount(String text) {
-    // Enhanced patterns for better amount detection
-    final patterns = [
-      // Most common: Rs.1,234.56 or Rs 1234.56
-      RegExp(r'(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)', caseSensitive: false),
-      // Amount followed by currency: 1234.56 Rs
-      RegExp(r'([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)\s*(?:inr|rs\.?|rupees?)', caseSensitive: false),
-      // Amount in text: Amount Rs.1234
-      RegExp(r'(?:amount|amt|sum|total|value)\s*(?:of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)', caseSensitive: false),
-      // Debited/Credited patterns: Debited Rs.500
-      RegExp(r'(?:debited|credited|paid|received|withdrawn|deposited)\s*(?:by\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)', caseSensitive: false),
+  /// Extract amount from SMS, avoiding confusion with balance
+  double? _extractAmount(String text, {double? balance}) {
+    final textLower = text.toLowerCase();
+
+    // Strategy 1: Contextual patterns - amount right next to debit/credit keywords
+    final contextualPatterns = [
+      RegExp(
+        r'(?:debited|debit|paid|withdrawn|spent|purchased|sent)\s*(?:by\s*|for\s*|of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'(?:credited|received|deposited|refund)\s*(?:by\s*|with\s*|of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)\s*(?:has been\s*)?(?:debited|credited|paid|withdrawn|received|deposited)',
+        caseSensitive: false,
+      ),
     ];
 
-    for (final pattern in patterns) {
+    for (final pattern in contextualPatterns) {
+      final match = pattern.firstMatch(textLower);
+      if (match != null) {
+        try {
+          final amountStr = match.group(1)!.replaceAll(',', '');
+          final amount = double.parse(amountStr);
+          if (amount >= 0.01 && amount <= 10000000) {
+            return amount;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+
+    // Strategy 2: Generic Rs/INR patterns, but skip amounts that match the balance
+    final genericPatterns = [
+      RegExp(
+        r'(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)\s*(?:inr|rs\.?|rupees?)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'(?:amount|amt|sum|total|value)\s*(?:of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+    ];
+
+    // Find the balance region to skip matches inside it
+    final balanceRegion = _findBalanceRegion(text);
+
+    for (final pattern in genericPatterns) {
       final matches = pattern.allMatches(text);
       for (final match in matches) {
+        // Skip if match is inside balance region
+        if (balanceRegion != null &&
+            match.start >= balanceRegion.$1 &&
+            match.start <= balanceRegion.$2) {
+          continue;
+        }
+
         try {
-          final amountStr = match.group(1)!.replaceAll(',', '').replaceAll(' ', '');
+          final amountStr = match
+              .group(1)!
+              .replaceAll(',', '')
+              .replaceAll(' ', '');
           final amount = double.parse(amountStr);
-          
-          // Validate amount (reasonable transaction range)
-          if (amount >= 1 && amount <= 10000000) {  // ₹1 to ₹1 Crore
+
+          // Skip if amount equals the balance
+          if (balance != null && (amount - balance).abs() < 0.01) {
+            continue;
+          }
+
+          if (amount >= 1 && amount <= 10000000) {
             return amount;
           }
         } catch (e) {
@@ -237,34 +724,175 @@ class SmsTransactionService {
     return null;
   }
 
+  /// Find the character range where balance info appears in the text
+  (int, int)? _findBalanceRegion(String text) {
+    final balanceMarkers = [
+      RegExp(
+        r'(?:avl\.?\s*bal|avail(?:able)?\s*bal(?:ance)?|a/c\s*bal|net\s*(?:avl\.?\s*)?bal|closing\s*bal|bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+(?:\.[0-9]{1,2})?',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'(?:rs\.?\s*|inr\s*|₹\s*)[0-9,]+(?:\.[0-9]{1,2})?\s*(?:available|avl|avail)',
+        caseSensitive: false,
+      ),
+    ];
+
+    for (final pattern in balanceMarkers) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        return (match.start, match.end);
+      }
+    }
+    return null;
+  }
+
+  /// Extract available balance from SMS
+  double? _extractBalance(String text) {
+    // Comprehensive balance patterns for Indian banks
+    final patterns = [
+      // "Avl Bal Rs.10,000.00" / "Avl. Bal: Rs 10000" / "Avail Bal INR 5000"
+      RegExp(
+        r'(?:avl\.?\s*bal|avail(?:able)?\s*bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      // "A/c bal: Rs.10000" / "Account balance Rs.5000"
+      RegExp(
+        r'(?:a/c\s*bal(?:ance)?|account\s*bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      // "Net Avl Bal Rs.10000" / "Net Bal: INR 5000"
+      RegExp(
+        r'(?:net\s*(?:avl\.?\s*)?bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      // "Closing Bal Rs.10000"
+      RegExp(
+        r'(?:closing\s*bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      // "Balance Rs.10000" / "Bal Rs 5000" / "Bal: INR 10000" / "Bal:Rs.5000"
+      RegExp(
+        r'(?:bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)',
+        caseSensitive: false,
+      ),
+      // Reversed: "Rs.10000 available" / "INR 5000 avl"
+      RegExp(
+        r'(?:rs\.?\s*|inr\s*|₹\s*)([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)\s*(?:available|avl|avail)',
+        caseSensitive: false,
+      ),
+    ];
+
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        try {
+          return double.parse(match.group(1)!.replaceAll(',', ''));
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Extract last 4 digits of account number
+  String? _extractAccount(String text) {
+    final patterns = [
+      RegExp(
+        r'(?:a/c|acct?|account|card)\s*(?:no\.?\s*)?(?:\*{2,}|[xX]{2,})?(\d{4})',
+        caseSensitive: false,
+      ),
+      RegExp(r'(?:\*{2,}|[xX]{2,})(\d{4})'),
+    ];
+
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        return match.group(1);
+      }
+    }
+    return null;
+  }
+
+  /// Identify bank from sender ID
+  String _identifyBank(String sender) {
+    final senderUpper = sender.toUpperCase();
+
+    const bankMap = {
+      'SBI': 'State Bank of India',
+      'HDFC': 'HDFC Bank',
+      'ICICI': 'ICICI Bank',
+      'AXIS': 'Axis Bank',
+      'KOTAK': 'Kotak Mahindra Bank',
+      'PNB': 'Punjab National Bank',
+      'BOB': 'Bank of Baroda',
+      'CANBNK': 'Canara Bank',
+      'UNION': 'Union Bank',
+      'IDBI': 'IDBI Bank',
+      'YES': 'Yes Bank',
+      'AUBANK': 'AU Small Finance Bank',
+      'INDBNK': 'IndusInd Bank',
+      'SCBANK': 'Standard Chartered',
+      'FEDERAL': 'Federal Bank',
+      'IDFC': 'IDFC First Bank',
+      'RBL': 'RBL Bank',
+      'PAYTM': 'Paytm Payments Bank',
+      'PHONEPE': 'PhonePe',
+      'GPAY': 'Google Pay',
+    };
+
+    for (final entry in bankMap.entries) {
+      if (senderUpper.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    return 'Unknown Bank';
+  }
+
   /// Extract merchant/description from SMS
   String _extractDescription(String text) {
     // Enhanced merchant extraction patterns
     final patterns = [
       // UPI patterns: UPI/merchant@bank or UPI-merchant
-      RegExp(r'UPI[/-]([a-zA-Z0-9\s@\-\.]+?)(?:[/@\s]|$)', caseSensitive: false),
+      RegExp(
+        r'UPI[/-]([a-zA-Z0-9\s@\-\.]+?)(?:[/@\s]|$)',
+        caseSensitive: false,
+      ),
       // VPA pattern: merchant@bank
       RegExp(r'VPA[:\s-]+([a-zA-Z0-9@\.]+)', caseSensitive: false),
       // At/To/From patterns: at MERCHANT NAME
-      RegExp(r'(?:at|to|from)\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|A/C|Ref|UPI|Card|dated)|\.|\s*$)', caseSensitive: false),
+      RegExp(
+        r'(?:at|to|from)\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|A/C|Ref|UPI|Card|dated)|\.|\s*$)',
+        caseSensitive: false,
+      ),
       // Paid to pattern
-      RegExp(r'paid to\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|A/C|Ref|UPI)|\.|\s*$)', caseSensitive: false),
+      RegExp(
+        r'paid to\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|A/C|Ref|UPI)|\.|\s*$)',
+        caseSensitive: false,
+      ),
       // Received from pattern
-      RegExp(r'received from\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|A/C|Ref|UPI)|\.|\s*$)', caseSensitive: false),
+      RegExp(
+        r'received from\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|A/C|Ref|UPI)|\.|\s*$)',
+        caseSensitive: false,
+      ),
       // For purchases: for merchant
-      RegExp(r'for\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|at|A/C)|\.|\s*$)', caseSensitive: false),
+      RegExp(
+        r'for\s+([A-Z][A-Z0-9\s&\-\.\*]+?)(?:\s+(?:on|at|A/C)|\.|\s*$)',
+        caseSensitive: false,
+      ),
     ];
 
     for (final pattern in patterns) {
       final match = pattern.firstMatch(text);
       if (match != null) {
         var desc = match.group(1)!.trim();
-        
+
         // Clean up description
-        desc = desc.replaceAll(RegExp(r'\s+'), ' ')  // Normalize spaces
-                   .replaceAll(RegExp(r'\*+'), '')  // Remove asterisks
-                   .trim();
-        
+        desc = desc
+            .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
+            .replaceAll(RegExp(r'\*+'), '') // Remove asterisks
+            .trim();
+
         // Validate length and content
         if (desc.length >= 3 && desc.length <= 100) {
           // Remove common suffixes that leak into extraction
@@ -277,7 +905,7 @@ class SmsTransactionService {
     // Fallback: Try to extract any capitalized phrase
     final words = text.split(RegExp(r'\s+'));
     final capitalPhrase = <String>[];
-    
+
     for (final word in words) {
       if (word.length > 2 && RegExp(r'^[A-Z]').hasMatch(word)) {
         capitalPhrase.add(word);
@@ -298,70 +926,231 @@ class SmsTransactionService {
   }
 
   /// Auto-categorize transaction
-  String _categorizeTransaction(String description, String fullText) {
+  String _categorizeTransaction(
+    String description,
+    String fullText, {
+    String? upiId,
+    required double amount,
+    required String type,
+    required bool hasContactMatch,
+    _UpiBusinessRule? businessRule,
+    int upiFrequencyCount = 0,
+  }) {
     final descLower = description.toLowerCase();
     final textLower = fullText.toLowerCase();
+
+    if (upiId != null) {
+      if (businessRule != null) {
+        return businessRule.category;
+      }
+
+      final isRecurringUpi = upiFrequencyCount >= 2;
+      final isSmallTxn = amount >= 50 && amount <= 500;
+      final isLargeTxn = amount >= 1000;
+
+      if (type == 'income' && isLargeTxn) {
+        return 'Freelance Income';
+      }
+      if (isRecurringUpi && isLargeTxn) {
+        return 'Rent & Housing';
+      }
+      if (isRecurringUpi && !isLargeTxn) {
+        return 'Subscriptions';
+      }
+      if (hasContactMatch) {
+        if (type == 'expense' && isSmallTxn) {
+          return 'Daily Expenses';
+        }
+        return 'Personal Transfer';
+      }
+      if (type == 'expense' && isSmallTxn) {
+        return 'Daily Expenses';
+      }
+
+      return 'Uncategorized';
+    }
 
     // Enhanced category mapping with more keywords
     final categories = {
       'Food & Dining': [
-        'zomato', 'swiggy', 'dominos', 'pizza', 'mcdonald', 'kfc', 'burger',
-        'restaurant', 'cafe', 'coffee', 'food', 'dining', 'eat', 'lunch',
-        'dinner', 'breakfast', 'biryani', 'starbucks', 'subway'
+        'zomato',
+        'swiggy',
+        'dominos',
+        'pizza',
+        'mcdonald',
+        'kfc',
+        'burger',
+        'restaurant',
+        'cafe',
+        'coffee',
+        'food',
+        'dining',
+        'eat',
+        'lunch',
+        'dinner',
+        'breakfast',
+        'biryani',
+        'starbucks',
+        'subway',
       ],
       'Shopping': [
-        'amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'shop', 'store',
-        'mall', 'mart', 'buy', 'purchase', 'ecommerce', 'meesho', 'jiomart'
+        'amazon',
+        'flipkart',
+        'myntra',
+        'ajio',
+        'nykaa',
+        'shop',
+        'store',
+        'mall',
+        'mart',
+        'buy',
+        'purchase',
+        'ecommerce',
+        'meesho',
+        'jiomart',
       ],
       'Transportation': [
-        'uber', 'ola', 'rapido', 'petrol', 'fuel', 'metro', 'parking',
-        'bus', 'train', 'taxi', 'cab', 'auto', 'rickshaw', 'travel',
-        'fastag', 'toll'
+        'uber',
+        'ola',
+        'rapido',
+        'petrol',
+        'fuel',
+        'metro',
+        'parking',
+        'bus',
+        'train',
+        'taxi',
+        'cab',
+        'auto',
+        'rickshaw',
+        'travel',
+        'fastag',
+        'toll',
       ],
       'Utilities': [
-        'electricity', 'water', 'gas', 'broadband', 'mobile', 'recharge',
-        'bill', 'payment', 'airtel', 'jio', 'vodafone', 'bsnl', 'internet',
-        'wifi', 'dth', 'tata sky'
+        'electricity',
+        'water',
+        'gas',
+        'broadband',
+        'mobile',
+        'recharge',
+        'bill',
+        'payment',
+        'airtel',
+        'jio',
+        'vodafone',
+        'bsnl',
+        'internet',
+        'wifi',
+        'dth',
+        'tata sky',
       ],
       'Entertainment': [
-        'netflix', 'prime', 'spotify', 'hotstar', 'youtube', 'movie',
-        'ticket', 'show', 'concert', 'game', 'steam', 'playstation',
-        'zee5', 'sony liv'
+        'netflix',
+        'prime',
+        'spotify',
+        'hotstar',
+        'youtube',
+        'movie',
+        'ticket',
+        'show',
+        'concert',
+        'game',
+        'steam',
+        'playstation',
+        'zee5',
+        'sony liv',
       ],
       'Groceries': [
-        'bigbasket', 'dmart', 'grofers', 'blinkit', 'grocery', 'supermarket',
-        'vegetables', 'fruits', 'zepto', 'dunzo', 'instamart', 'fresh'
+        'bigbasket',
+        'dmart',
+        'grofers',
+        'blinkit',
+        'grocery',
+        'supermarket',
+        'vegetables',
+        'fruits',
+        'zepto',
+        'dunzo',
+        'instamart',
+        'fresh',
       ],
       'Healthcare': [
-        'pharmacy', 'hospital', 'clinic', 'doctor', 'medicine', 'apollo',
-        'medplus', 'netmeds', '1mg', 'pharmeasy', 'health', 'medical'
+        'pharmacy',
+        'hospital',
+        'clinic',
+        'doctor',
+        'medicine',
+        'apollo',
+        'medplus',
+        'netmeds',
+        '1mg',
+        'pharmeasy',
+        'health',
+        'medical',
       ],
       'Education': [
-        'school', 'college', 'university', 'course', 'tuition', 'fees',
-        'exam', 'book', 'udemy', 'coursera', 'upgrad', 'byjus'
+        'school',
+        'college',
+        'university',
+        'course',
+        'tuition',
+        'fees',
+        'exam',
+        'book',
+        'udemy',
+        'coursera',
+        'upgrad',
+        'byjus',
       ],
       'Rent & Housing': [
-        'rent', 'maintenance', 'society', 'housing', 'lease', 'accommodation'
+        'rent',
+        'maintenance',
+        'society',
+        'housing',
+        'lease',
+        'accommodation',
       ],
       'Insurance': [
-        'insurance', 'policy', 'premium', 'lic', 'health insurance',
-        'car insurance', 'life insurance'
+        'insurance',
+        'policy',
+        'premium',
+        'lic',
+        'health insurance',
+        'car insurance',
+        'life insurance',
       ],
       'Investments': [
-        'mutual fund', 'sip', 'stock', 'equity', 'zerodha', 'groww',
-        'upstox', 'investment', 'fd', 'rd', 'ppf', 'nps', 'elss'
+        'mutual fund',
+        'sip',
+        'stock',
+        'equity',
+        'zerodha',
+        'groww',
+        'upstox',
+        'investment',
+        'fd',
+        'rd',
+        'ppf',
+        'nps',
+        'elss',
       ],
       'Salary': [
-        'salary', 'sal cr', 'sal credit', 'monthly salary', 'payroll', 'wages'
+        'salary',
+        'sal cr',
+        'sal credit',
+        'monthly salary',
+        'payroll',
+        'wages',
       ],
-      'Transfer': [
-        'upi', 'imps', 'neft', 'rtgs', 'transfer', 'sent to', 'p2p'
-      ],
+      'Transfer': ['upi', 'imps', 'neft', 'rtgs', 'transfer', 'sent to', 'p2p'],
     };
 
     // Check each category
     for (final entry in categories.entries) {
-      if (entry.value.any((kw) => descLower.contains(kw) || textLower.contains(kw))) {
+      if (entry.value.any(
+        (kw) => descLower.contains(kw) || textLower.contains(kw),
+      )) {
         return entry.key;
       }
     }
@@ -378,7 +1167,7 @@ class SmsTransactionService {
   Future<Map<String, dynamic>> getScanStats() async {
     try {
       final db = await DatabaseHelper().database;
-      
+
       final result = await db.rawQuery('''
         SELECT COUNT(*) as count, MAX(date) as last_date
         FROM transactions

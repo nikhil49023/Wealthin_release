@@ -214,6 +214,7 @@ class DatabaseService:
                 CREATE TABLE IF NOT EXISTS groups (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
+                    description TEXT,
                     created_by TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 )
@@ -228,6 +229,11 @@ class DatabaseService:
                     PRIMARY KEY (group_id, user_id)
                 )
             ''')
+            try:
+                await db.execute('ALTER TABLE groups ADD COLUMN description TEXT')
+            except Exception:
+                # Column already exists (or table not yet materialized in this transaction).
+                pass
             await db.commit()
             print(f"✅ Planning DB initialized at {PLANNING_DB_PATH}")
             
@@ -804,13 +810,13 @@ class DatabaseService:
 
     # ==================== GROUP OPERATIONS (planning.db) ====================
 
-    async def create_group(self, name: str, user_id: str) -> int:
+    async def create_group(self, name: str, user_id: str, description: Optional[str] = None) -> int:
         """Create a new group and add creator as admin"""
         async with aiosqlite.connect(PLANNING_DB_PATH) as db:
             now = datetime.utcnow().isoformat()
             cursor = await db.execute(
-                'INSERT INTO groups (name, created_by, created_at) VALUES (?, ?, ?)',
-                (name, user_id, now)
+                'INSERT INTO groups (name, description, created_by, created_at) VALUES (?, ?, ?, ?)',
+                (name, description, user_id, now)
             )
             group_id = cursor.lastrowid
             
@@ -842,10 +848,19 @@ class DatabaseService:
         async with aiosqlite.connect(PLANNING_DB_PATH) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute('''
-                SELECT g.id, g.name, gm.role, g.created_at 
+                SELECT
+                    g.id,
+                    g.name,
+                    g.description,
+                    gm.role,
+                    g.created_at,
+                    COUNT(gm2.user_id) as member_count
                 FROM groups g
                 JOIN group_members gm ON g.id = gm.group_id
+                LEFT JOIN group_members gm2 ON gm2.group_id = g.id
                 WHERE gm.user_id = ?
+                GROUP BY g.id, g.name, g.description, gm.role, g.created_at
+                ORDER BY g.created_at DESC
             ''', (user_id,))
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]

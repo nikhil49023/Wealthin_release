@@ -1,36 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// Responsive utilities for adaptive layouts across phone and tablet sizes
+/// Responsive utilities for Android phone/tablet layouts.
 class ResponsiveUtils {
-  // Breakpoints
+  // Android-focused breakpoints
   static const double mobileBreakpoint = 600;
   static const double tabletBreakpoint = 900;
-  static const double desktopBreakpoint = 1200;
+  static const double wideBreakpoint = 1200;
 
   /// Check if device is mobile (< 600dp)
   static bool isMobile(BuildContext context) {
     return MediaQuery.of(context).size.width < mobileBreakpoint;
   }
 
-  /// Check if device is tablet (600dp - 900dp)
+  /// Check if device is tablet (>= 600dp)
   static bool isTablet(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    return width >= mobileBreakpoint && width < tabletBreakpoint;
+    return MediaQuery.of(context).size.width >= mobileBreakpoint;
   }
 
-  /// Check if device is desktop (> 900dp)
-  static bool isDesktop(BuildContext context) {
-    return MediaQuery.of(context).size.width >= tabletBreakpoint;
+  /// Check if device is wide tablet (>= 1200dp)
+  static bool isWide(BuildContext context) {
+    return MediaQuery.of(context).size.width >= wideBreakpoint;
   }
 
-  /// Get responsive value based on screen size
+  /// Get responsive value based on phone/tablet/wide sizing.
   static T responsiveValue<T>({
     required BuildContext context,
     required T mobile,
     T? tablet,
-    T? desktop,
+    T? wide,
   }) {
-    if (isDesktop(context) && desktop != null) return desktop;
+    if (isWide(context) && wide != null) return wide;
     if (isTablet(context) && tablet != null) return tablet;
     return mobile;
   }
@@ -50,29 +49,36 @@ class ResponsiveUtils {
     return responsiveValue(
       context: context,
       mobile: 16.0,
-      tablet: 24.0,
-      desktop: 32.0,
+      tablet: 20.0,
+      wide: 24.0,
     );
   }
 
   /// Get responsive font size
   static double getResponsiveFontSize(BuildContext context, double baseSize) {
     final width = screenWidth(context);
-    if (width >= tabletBreakpoint) {
-      return baseSize * 1.2;
-    } else if (width >= mobileBreakpoint) {
+    if (width >= wideBreakpoint) {
+      return baseSize * 1.15;
+    } else if (width >= tabletBreakpoint) {
       return baseSize * 1.1;
+    } else if (width >= mobileBreakpoint) {
+      return baseSize * 1.05;
     }
     return baseSize;
   }
 
   /// Get number of columns for grid layouts
-  static int getGridColumns(BuildContext context, {int mobile = 1, int tablet = 2, int desktop = 3}) {
+  static int getGridColumns(
+    BuildContext context, {
+    int mobile = 1,
+    int tablet = 2,
+    int wide = 2,
+  }) {
     return responsiveValue(
       context: context,
       mobile: mobile,
       tablet: tablet,
-      desktop: desktop,
+      wide: wide,
     );
   }
 
@@ -81,21 +87,26 @@ class ResponsiveUtils {
     return MediaQuery.of(context).padding;
   }
 
-  /// Get responsive card width (for centering on large screens)
+  /// Get responsive card width (for centering on larger tablets)
   static double getMaxCardWidth(BuildContext context) {
     final width = screenWidth(context);
-    if (width >= desktopBreakpoint) return 800;
-    if (width >= tabletBreakpoint) return 700;
+    if (width >= wideBreakpoint) return 800;
+    if (width >= tabletBreakpoint) return 720;
     return width;
   }
 
   /// Get responsive spacing
-  static double getSpacing(BuildContext context, {double mobile = 8.0, double? tablet, double? desktop}) {
+  static double getSpacing(
+    BuildContext context, {
+    double mobile = 8.0,
+    double? tablet,
+    double? wide,
+  }) {
     return responsiveValue(
       context: context,
       mobile: mobile,
       tablet: tablet ?? mobile * 1.5,
-      desktop: desktop ?? mobile * 2,
+      wide: wide ?? mobile * 2,
     );
   }
 
@@ -105,12 +116,17 @@ class ResponsiveUtils {
   }
 
   /// Get responsive aspect ratio
-  static double getAspectRatio(BuildContext context, {double mobile = 1.0, double? tablet, double? desktop}) {
+  static double getAspectRatio(
+    BuildContext context, {
+    double mobile = 1.0,
+    double? tablet,
+    double? wide,
+  }) {
     return responsiveValue(
       context: context,
       mobile: mobile,
       tablet: tablet ?? mobile,
-      desktop: desktop ?? mobile,
+      wide: wide ?? mobile,
     );
   }
 }
@@ -119,7 +135,7 @@ class ResponsiveUtils {
 extension ResponsiveExtension on BuildContext {
   bool get isMobile => ResponsiveUtils.isMobile(this);
   bool get isTablet => ResponsiveUtils.isTablet(this);
-  bool get isDesktop => ResponsiveUtils.isDesktop(this);
+  bool get isWide => ResponsiveUtils.isWide(this);
   double get screenWidth => ResponsiveUtils.screenWidth(this);
   double get screenHeight => ResponsiveUtils.screenHeight(this);
   double get responsivePadding => ResponsiveUtils.getResponsivePadding(this);

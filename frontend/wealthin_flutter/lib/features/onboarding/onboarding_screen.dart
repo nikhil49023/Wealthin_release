@@ -436,7 +436,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _selectedOccupation,
+            initialValue: _selectedOccupation,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.work_outline_rounded),
               hintText: 'Select your occupation',
@@ -677,7 +677,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Switch(
                         value: _shareBusinessInfo,
                         onChanged: (val) => setState(() => _shareBusinessInfo = val),
-                        activeColor: WealthInTheme.regalGold,
+                        activeThumbColor: WealthInTheme.regalGold,
                       ),
                     ],
                   ),

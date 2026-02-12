@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -20,6 +21,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   late AnimationController _orbController;
   late AnimationController _rotationController;
   late AnimationController _textController;
+  Timer? _textAnimationTimer;
+  Timer? _completionTimer;
   
   late Animation<double> _logoScale;
   late Animation<double> _logoRotateY;
@@ -145,18 +148,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     _mainController.forward();
     
     // Start text animation after logo settles
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    _textAnimationTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (!mounted) return;
       _textController.forward();
     });
     
     // Complete splash after full animation
-    Future.delayed(const Duration(milliseconds: 3500), () {
+    _completionTimer = Timer(const Duration(milliseconds: 3500), () {
+      if (!mounted) return;
       widget.onComplete();
     });
   }
   
   @override
   void dispose() {
+    _textAnimationTimer?.cancel();
+    _completionTimer?.cancel();
     _mainController.dispose();
     _orbController.dispose();
     _rotationController.dispose();

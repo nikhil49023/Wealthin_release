@@ -1,6 +1,6 @@
 """
 Transaction Categorizer Service
-Uses Zoho Catalyst LLM to intelligently categorize financial transactions
+Uses deterministic rules with Sarvam fallback to categorize financial transactions
 based on description and common Indian spending patterns.
 """
 
@@ -99,14 +99,14 @@ class TransactionCategorizer:
     Categorizes transactions using:
     1. MerchantService rules (User-defined, highest priority)
     2. Rule-based keyword matching (Fallback)
-    3. Zoho Catalyst LLM (Final fallback)
+    3. Sarvam AI (Final fallback)
     """
     
     def __init__(self):
         # Import services
-        from .zoho_vision_service import zoho_vision_service
+        from .sarvam_service import sarvam_service
         from .merchant_service import merchant_service
-        self.zoho_service = zoho_vision_service
+        self.sarvam_service = sarvam_service
         self.merchant_service = merchant_service
     
     async def _merchant_rule_categorize(self, description: str) -> str | None:
@@ -151,8 +151,8 @@ class TransactionCategorizer:
         if category:
             return category
         
-        # Fall back to Zoho Catalyst LLM if rules don't match
-        if self.zoho_service.is_configured:
+        # Fall back to Sarvam if rules don't match
+        if self.sarvam_service.is_configured:
             try:
                 prompt = f"""Categorize this Indian financial transaction into ONE of these categories:
 - Food & Dining
@@ -178,10 +178,9 @@ Type: {tx_type}
 
 Respond with ONLY the category name, nothing else."""
                 
-                response = await self.zoho_service.llm_chat(
-                    prompt=prompt,
-                    system_prompt="You are a transaction categorizer. Respond with only the category name.",
-                    max_tokens=50
+                response = await self.sarvam_service.simple_chat(
+                    prompt,
+                    "You are a transaction categorizer. Respond with only one category name from the provided list."
                 )
                 return response.strip()
             except Exception as e:
@@ -210,7 +209,7 @@ Respond with ONLY the category name, nothing else."""
                 uncategorized.append((i, tx))
         
         # Second pass: AI categorization for uncategorized
-        if uncategorized and self.zoho_service.is_configured:
+        if uncategorized and self.sarvam_service.is_configured:
             try:
                 # Build batch prompt
                 batch_items = "\n".join([
@@ -226,10 +225,9 @@ Transactions:
 
 Respond with one category per line, in the same order:"""
 
-                response = await self.zoho_service.llm_chat(
-                    prompt=prompt,
-                    system_prompt="You are a transaction categorizer. Respond with only category names, one per line.",
-                    max_tokens=500
+                response = await self.sarvam_service.simple_chat(
+                    prompt,
+                    "You are a transaction categorizer. Respond with category names only, one per line.",
                 )
                 categories = response.strip().split("\n")
                 

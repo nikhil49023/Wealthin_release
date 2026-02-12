@@ -5,7 +5,6 @@ Enables the AI advisor to take actions: budgets, payments, goals, transactions
 
 Primary LLM Providers:
 1. Sarvam AI - For Indic language support (Hindi, Telugu, Tamil, etc.)
-2. Zoho Catalyst QuickML - For general chat (Qwen 14B model)
 """
 
 import json
@@ -21,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 # Import services
 from .sarvam_service import sarvam_service
-from .zoho_vision_service import zoho_vision_service
 from .web_search_service import web_search_service
 from .socratic_engine import inquiry_engine
 from .whatif_simulator import simulator as whatif_simulator
@@ -29,12 +27,10 @@ from .dpr_generator import dpr_generator
 
 # Check which services are available
 SARVAM_AVAILABLE = sarvam_service.is_configured
-ZOHO_AVAILABLE = zoho_vision_service.is_configured
 WEB_SEARCH_AVAILABLE = web_search_service.is_available
 
 logger.info("AI Services Status:")
 logger.info(f"  - Sarvam AI: {'✅' if SARVAM_AVAILABLE else '❌'}")
-logger.info(f"  - Zoho Catalyst: {'✅' if ZOHO_AVAILABLE else '❌'}")
 
 
 class AgentQueryRequest(BaseModel):
@@ -563,37 +559,17 @@ class AIToolsService:
     
     async def _get_llm_response(self, query: str, system_prompt: str = "") -> str:
         """
-        Get LLM response using available providers in priority order:
-        1. Sarvam AI (for Indic languages or as primary)
-        2. Zoho Catalyst QuickML (for general chat)
+        Get LLM response using Sarvam AI only.
         """
         default_system_prompt = system_prompt or "You are a helpful financial advisor for Indian entrepreneurs. Be concise and practical. Use ₹ for amounts."
         
-        # Check if query contains Indic script - use Sarvam
-        if SARVAM_AVAILABLE and sarvam_service.is_indic_query(query):
-            try:
-                return await sarvam_service.simple_chat(query, default_system_prompt)
-            except Exception as e:
-                print(f"Sarvam error: {e}, falling back to Zoho")
-        
-        # Try Zoho Catalyst LLM
-        if ZOHO_AVAILABLE:
-            try:
-                return await zoho_vision_service.llm_chat(
-                    prompt=query,
-                    system_prompt=default_system_prompt
-                )
-            except Exception as e:
-                print(f"Zoho LLM error: {e}, trying Sarvam")
-        
-        # Fallback to Sarvam for English queries too
         if SARVAM_AVAILABLE:
             try:
                 return await sarvam_service.simple_chat(query, default_system_prompt)
             except Exception as e:
-                print(f"Sarvam fallback error: {e}")
+                print(f"Sarvam error: {e}")
         
-        raise Exception("No LLM providers available. Please configure Sarvam AI or Zoho Catalyst.")
+        raise Exception("No LLM providers available. Please configure Sarvam AI.")
     
     async def _chat_response(self, query: str, user_context: Optional[Dict[str, Any]] = None) -> AIToolResponse:
         """Generate a chat response using available LLM providers."""
@@ -818,8 +794,7 @@ Use this information to provide personalized, relevant advice. Reference specifi
     ) -> AIToolResponse:
         """
         Process a query with tool/function calling capability.
-        Uses Sarvam AI for Indic languages, Zoho Catalyst for general chat,
-        with pattern-based action extraction for financial tools.
+        Uses Sarvam AI with pattern-based action extraction for financial tools.
         """
         # Use our unified chat response method
         return await self._chat_response(query, user_context)
@@ -1329,7 +1304,7 @@ Popular options:
             }}
             """
             
-            # We use the _get_llm_response method which handles Sarvam/Zoho fallback
+            # We use the _get_llm_response method which handles Sarvam routing
             response_json = await self._get_llm_response(prompt, "You are a financial data analyst. return only valid JSON.")
             
             # Parse the JSON

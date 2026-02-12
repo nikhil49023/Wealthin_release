@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'
-    show debugPrint, defaultTargetPlatform, TargetPlatform, ValueNotifier;
+import 'package:flutter/foundation.dart' show debugPrint, ValueNotifier;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'backend_config.dart';
 import 'database_helper.dart';
 import 'python_bridge_service.dart';
 import 'financial_calculator.dart';
@@ -18,21 +16,22 @@ typedef BudgetData = BudgetModel;
 typedef GoalData = GoalModel;
 
 /// Data Service - Handles all CRUD operations and analytics
-/// On Android: Uses embedded Python + local SQLite (no HTTP backend)
-/// On Desktop: Uses HTTP backend + local SQLite fallback
+/// Android-only runtime with embedded Python + local SQLite.
 class DataService {
   // Singleton pattern
   static final DataService _instance = DataService._internal();
   factory DataService() => _instance;
   DataService._internal();
 
-  // Use BackendConfig for dynamic port management (desktop only)
-  String get _baseUrl => backendConfig.baseUrl;
+  // Retained for optional cloud API calls where available.
+  static const String _baseUrl = 'http://127.0.0.1:8000';
 
-  // Platform detection - skip HTTP on Android
-  bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
+  // Android-only app runtime.
+  bool get _isAndroid => true;
 
-  // Platform detection - skip HTTP on Android
+  static const String _merchantRulesKey = 'merchant_rules_local_v1';
+  static const String _savedIdeasKeyPrefix = 'saved_ideas_';
+  static const String _savedDprsKeyPrefix = 'saved_dprs_';
 
   // ==================== CREDIT SYSTEM (NATIVE) ====================
   final ValueNotifier<int> userCredits = ValueNotifier<int>(100);
@@ -84,6 +83,104 @@ class DataService {
       debugPrint('Error getting streak: $e');
       return null;
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _readJsonList(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(key);
+    if (raw == null || raw.isEmpty) return [];
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error reading local json list for $key: $e');
+    }
+    return [];
+  }
+
+  Future<void> _writeJsonList(
+    String key,
+    List<Map<String, dynamic>> value,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, jsonEncode(value));
+  }
+
+  Map<String, dynamic>? _extractJsonMap(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+
+    final start = raw.indexOf('{');
+    final end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      final snippet = raw.substring(start, end + 1);
+      try {
+        final decoded = jsonDecode(snippet);
+        if (decoded is Map<String, dynamic>) return decoded;
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  List<Map<String, dynamic>> _extractJsonListOfMaps(
+    String raw, {
+    String listKey = 'ideas',
+  }) {
+    List<Map<String, dynamic>> toMapList(dynamic value) {
+      if (value is! List) return [];
+      return value
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return toMapList(decoded);
+      }
+      if (decoded is Map && decoded[listKey] is List) {
+        return toMapList(decoded[listKey]);
+      }
+    } catch (_) {}
+
+    final blockMatch = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```').firstMatch(raw);
+    if (blockMatch != null) {
+      final inner = blockMatch.group(1) ?? '';
+      try {
+        final decoded = jsonDecode(inner);
+        if (decoded is List) return toMapList(decoded);
+        if (decoded is Map && decoded[listKey] is List) {
+          return toMapList(decoded[listKey]);
+        }
+      } catch (_) {}
+    }
+
+    final start = raw.indexOf('[');
+    final end = raw.lastIndexOf(']');
+    if (start >= 0 && end > start) {
+      final snippet = raw.substring(start, end + 1);
+      try {
+        final decoded = jsonDecode(snippet);
+        if (decoded is List) return toMapList(decoded);
+      } catch (_) {}
+    }
+
+    final map = _extractJsonMap(raw);
+    if (map != null && map[listKey] is List) {
+      return toMapList(map[listKey]);
+    }
+
+    return [];
   }
 
   // ==================== BUDGET OPERATIONS ====================
@@ -415,6 +512,33 @@ class DataService {
     String startDate,
     String endDate,
   ) async {
+    if (_isAndroid) {
+      try {
+        final summary = await databaseHelper.getTransactionSummary(
+          startDate: startDate,
+          endDate: endDate,
+        );
+        final byCategory = await databaseHelper.getCategoryBreakdown(
+          startDate: startDate,
+          endDate: endDate,
+        );
+        final income = (summary?['total_income'] as num?)?.toDouble() ?? 0.0;
+        final expenses =
+            (summary?['total_expenses'] as num?)?.toDouble() ?? 0.0;
+        final net = income - expenses;
+        return SpendingSummary(
+          totalIncome: income,
+          totalExpenses: expenses,
+          net: net,
+          savingsRate: income > 0 ? (net / income) * 100 : 0,
+          byCategory: byCategory,
+        );
+      } catch (e) {
+        debugPrint('Error getting local summary: $e');
+      }
+      return null;
+    }
+
     try {
       final response = await http.get(
         Uri.parse(
@@ -705,6 +829,25 @@ class DataService {
     String userId, {
     int days = 7,
   }) async {
+    if (_isAndroid) {
+      try {
+        final payments = await databaseHelper.getScheduledPayments();
+        final now = DateTime.now();
+        final maxDate = now.add(Duration(days: days));
+        final upcoming = payments.where((p) {
+          final dueDateStr = p['due_date']?.toString();
+          if (dueDateStr == null || dueDateStr.isEmpty) return false;
+          final dueDate = DateTime.tryParse(dueDateStr);
+          if (dueDate == null) return false;
+          return !dueDate.isBefore(now) && !dueDate.isAfter(maxDate);
+        }).toList();
+        return upcoming.map((p) => ScheduledPaymentData.fromJson(p)).toList();
+      } catch (e) {
+        debugPrint('Error getting upcoming payments (Android local): $e');
+        return [];
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/scheduled-payments/$userId/upcoming?days=$days'),
@@ -726,6 +869,11 @@ class DataService {
 
   /// Get all merchant-category rules
   Future<List<MerchantRule>> getMerchantRules() async {
+    if (_isAndroid) {
+      final rows = await _readJsonList(_merchantRulesKey);
+      return rows.map((r) => MerchantRule.fromJson(r)).toList();
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/merchant-rules'),
@@ -749,6 +897,35 @@ class DataService {
     required String category,
     bool isAuto = true,
   }) async {
+    if (_isAndroid) {
+      final normalizedKeyword = keyword.trim();
+      final normalizedCategory = category.trim();
+      if (normalizedKeyword.isEmpty || normalizedCategory.isEmpty) return null;
+
+      final existing = await _readJsonList(_merchantRulesKey);
+      final lowerKeyword = normalizedKeyword.toLowerCase();
+
+      final index = existing.indexWhere(
+        (r) => (r['keyword']?.toString().toLowerCase() ?? '') == lowerKeyword,
+      );
+
+      final newRule = {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'keyword': normalizedKeyword,
+        'category': normalizedCategory,
+        'is_auto': isAuto,
+      };
+
+      if (index >= 0) {
+        existing[index] = {...existing[index], ...newRule};
+      } else {
+        existing.add(newRule);
+      }
+
+      await _writeJsonList(_merchantRulesKey, existing);
+      return MerchantRule.fromJson(newRule);
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/merchant-rules'),
@@ -774,6 +951,13 @@ class DataService {
 
   /// Delete a merchant rule
   Future<bool> deleteMerchantRule(int ruleId) async {
+    if (_isAndroid) {
+      final existing = await _readJsonList(_merchantRulesKey);
+      final filtered = existing.where((r) => r['id'] != ruleId).toList();
+      await _writeJsonList(_merchantRulesKey, filtered);
+      return filtered.length != existing.length;
+    }
+
     try {
       final response = await http.delete(
         Uri.parse('$_baseUrl/merchant-rules/$ruleId'),
@@ -790,6 +974,34 @@ class DataService {
 
   /// Seed default merchant rules (for demo)
   Future<bool> seedMerchantRules() async {
+    if (_isAndroid) {
+      final existing = await _readJsonList(_merchantRulesKey);
+      if (existing.isNotEmpty) return true;
+
+      final defaults = <Map<String, dynamic>>[
+        {
+          'id': DateTime.now().millisecondsSinceEpoch + 1,
+          'keyword': 'swiggy',
+          'category': 'Food',
+          'is_auto': true,
+        },
+        {
+          'id': DateTime.now().millisecondsSinceEpoch + 2,
+          'keyword': 'uber',
+          'category': 'Transport',
+          'is_auto': true,
+        },
+        {
+          'id': DateTime.now().millisecondsSinceEpoch + 3,
+          'keyword': 'amazon',
+          'category': 'Shopping',
+          'is_auto': true,
+        },
+      ];
+      await _writeJsonList(_merchantRulesKey, defaults);
+      return true;
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/merchant-rules/seed'),
@@ -809,6 +1021,60 @@ class DataService {
 
   /// Get user's NCM score (Viksit Bharat themed)
   Future<NCMScore?> getNCMScore(String userId) async {
+    if (_isAndroid) {
+      try {
+        final dashboard = await getDashboard(userId);
+        if (dashboard == null) return null;
+
+        final income = dashboard.totalIncome;
+        final expense = dashboard.totalExpense;
+        final savingsRate = dashboard.savingsRate.clamp(0, 100).toDouble();
+        final spendRatio = income > 0 ? (expense / income).clamp(0, 2) : 1.0;
+
+        final consumptionPoints = ((1.2 - spendRatio) * 25)
+            .clamp(0, 25)
+            .toDouble();
+        final savingsPoints = (savingsRate * 0.45).clamp(0, 45).toDouble();
+        final txCount = (await databaseHelper.getTransactions(
+          limit: 500,
+        )).length;
+        final taxPoints = txCount >= 20 ? 15.0 : (txCount / 20) * 15.0;
+
+        final score = (consumptionPoints + savingsPoints + taxPoints)
+            .clamp(0, 100)
+            .toDouble();
+
+        String milestone = 'Citizen';
+        String nextMilestone = 'Contributor';
+        if (score >= 80) {
+          milestone = 'Nation Builder';
+          nextMilestone = 'Legacy Creator';
+        } else if (score >= 60) {
+          milestone = 'Contributor';
+          nextMilestone = 'Nation Builder';
+        }
+
+        final progress = score >= 80
+            ? ((score - 80) / 20 * 100).clamp(0, 100).toDouble()
+            : score >= 60
+            ? ((score - 60) / 20 * 100).clamp(0, 100).toDouble()
+            : (score / 60 * 100).clamp(0, 100).toDouble();
+
+        return NCMScore(
+          score: score,
+          milestone: milestone,
+          nextMilestone: nextMilestone,
+          progress: progress,
+          consumptionPoints: consumptionPoints,
+          savingsPoints: savingsPoints,
+          taxPoints: taxPoints,
+        );
+      } catch (e) {
+        debugPrint('Error getting local NCM score: $e');
+        return null;
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/ncm/score/$userId'),
@@ -826,6 +1092,28 @@ class DataService {
 
   /// Get NCM insight with contextual message
   Future<Map<String, dynamic>?> getNCMInsight(String userId) async {
+    if (_isAndroid) {
+      final score = await getNCMScore(userId);
+      if (score == null) return null;
+
+      String message = 'You are progressing steadily. Keep tracking expenses.';
+      if (score.score >= 80) {
+        message =
+            'Excellent financial discipline. You are in top contributor band.';
+      } else if (score.score >= 60) {
+        message =
+            'Good momentum. Improve savings consistency to reach next milestone.';
+      }
+
+      return {
+        'score': score.score,
+        'milestone': score.milestone,
+        'next_milestone': score.nextMilestone,
+        'progress': score.progress,
+        'message': message,
+      };
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/ncm/insight/$userId'),
@@ -844,6 +1132,41 @@ class DataService {
 
   /// Get personalized investment nudges with Insight Chips
   Future<List<InvestmentNudge>> getInvestmentNudges(String userId) async {
+    if (_isAndroid) {
+      final surplus = await getSurplusAnalysis(userId);
+      final monthlySurplus =
+          (surplus?['monthly_surplus'] as num?)?.toDouble() ?? 0.0;
+      if (monthlySurplus <= 0) return [];
+
+      final nudgeAmount = (monthlySurplus * 0.3).clamp(500.0, 20000.0);
+      final nudgeJson = <Map<String, dynamic>>[
+        {
+          'id': 'rd_1',
+          'title': 'Start a Recurring Deposit',
+          'subtitle': 'Low-risk monthly savings habit',
+          'amount': nudgeAmount,
+          'instrument': 'rd',
+          'expected_yield': 6.5,
+          'action_text': 'Open bank app',
+          'insight_chips': [
+            {
+              'type': 'surplus',
+              'icon': 'savings',
+              'label': 'Monthly surplus',
+              'value': '₹${monthlySurplus.toStringAsFixed(0)}',
+            },
+            {
+              'type': 'safety',
+              'icon': 'shield',
+              'label': 'Risk level',
+              'value': 'Low',
+            },
+          ],
+        },
+      ];
+      return nudgeJson.map((n) => InvestmentNudge.fromJson(n)).toList();
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/nudges/$userId'),
@@ -866,6 +1189,21 @@ class DataService {
 
   /// Get surplus analysis for investment planning
   Future<Map<String, dynamic>?> getSurplusAnalysis(String userId) async {
+    if (_isAndroid) {
+      final dashboard = await getDashboard(userId);
+      if (dashboard == null) return null;
+
+      final monthlySurplus = dashboard.totalIncome - dashboard.totalExpense;
+      return {
+        'monthly_income': dashboard.totalIncome,
+        'monthly_expense': dashboard.totalExpense,
+        'monthly_surplus': monthlySurplus,
+        'surplus_ratio': dashboard.totalIncome > 0
+            ? (monthlySurplus / dashboard.totalIncome)
+            : 0.0,
+      };
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/nudges/surplus/$userId'),
@@ -884,6 +1222,96 @@ class DataService {
 
   /// Get comprehensive financial health score (0-100) with detailed breakdown
   Future<HealthScore?> getHealthScore(String userId) async {
+    if (_isAndroid) {
+      try {
+        final dashboard = await getDashboard(userId);
+        if (dashboard == null) return null;
+
+        final income = dashboard.totalIncome;
+        final expense = dashboard.totalExpense;
+        final savingsRate = dashboard.savingsRate.clamp(0, 100).toDouble();
+
+        final payments = await getScheduledPayments(userId);
+        final monthlyDebt = payments.fold<double>(
+          0.0,
+          (sum, p) => sum + p.amount,
+        );
+        final debtRatio = income > 0 ? (monthlyDebt / income) : 1.0;
+
+        final goals = await getGoals(userId);
+        double goalTarget = 0;
+        double goalSaved = 0;
+        for (final g in goals) {
+          goalTarget += g.targetAmount;
+          goalSaved += g.currentAmount;
+        }
+
+        final savingsScore = (savingsRate / 100 * 30).clamp(0, 30).toDouble();
+        final debtScore = ((1 - debtRatio).clamp(0, 1) * 25).toDouble();
+        final emergencyMonths = expense > 0
+            ? (goalSaved / expense).clamp(0, 12)
+            : 0.0;
+        final liquidityScore = (emergencyMonths / 6 * 25)
+            .clamp(0, 25)
+            .toDouble();
+        final investmentRatio = goalTarget > 0
+            ? (goalSaved / goalTarget).clamp(0, 1)
+            : 0.0;
+        final investmentScore = (investmentRatio * 20).clamp(0, 20).toDouble();
+
+        final total =
+            (savingsScore + debtScore + liquidityScore + investmentScore)
+                .clamp(0, 100)
+                .toDouble();
+
+        String grade = 'Poor';
+        if (total >= 80) {
+          grade = 'Excellent';
+        } else if (total >= 65) {
+          grade = 'Good';
+        } else if (total >= 45) {
+          grade = 'Fair';
+        }
+
+        final insights = <String>[];
+        if (savingsRate < 20) {
+          insights.add(
+            'Savings rate is below 20%. Reduce discretionary spending.',
+          );
+        }
+        if (debtRatio > 0.35) {
+          insights.add(
+            'Debt obligations are high. Prioritize high-interest payments.',
+          );
+        }
+        if (emergencyMonths < 3) {
+          insights.add(
+            'Build an emergency buffer of at least 3 months expenses.',
+          );
+        }
+        if (insights.isEmpty) {
+          insights.add(
+            'Financial profile is stable. Maintain current discipline.',
+          );
+        }
+
+        return HealthScore(
+          totalScore: total,
+          grade: grade,
+          breakdown: {
+            'savings': savingsScore,
+            'debt': debtScore,
+            'liquidity': liquidityScore,
+            'investment': investmentScore,
+          },
+          insights: insights,
+        );
+      } catch (e) {
+        debugPrint('Error getting local health score: $e');
+        return null;
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/analytics/health-score/$userId'),
@@ -912,10 +1340,12 @@ class DataService {
 
     try {
       debugPrint('Fetching optimized dashboard from backend for user $userId');
-      final response = await http.get(
-        Uri.parse('$_baseUrl/dashboard/$userId'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/dashboard/$userId'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
@@ -1226,7 +1656,6 @@ class DataService {
       try {
         final now = DateTime.now();
         final startOfMonth = DateTime(now.year, now.month, 1);
-        final startOfLastMonth = DateTime(now.year, now.month - 1, 1);
         final threeMonthsAgo = DateTime(now.year, now.month - 3, 1);
 
         // === CURRENT MONTH DATA ===
@@ -1542,7 +1971,11 @@ $emiRecommendation
     if (_isAndroid) {
       // Android: create locally first, then sync later
       try {
-        final groupId = await databaseHelper.createGroup(name, userId);
+        final groupId = await databaseHelper.createGroup(
+          name,
+          userId,
+          description: description,
+        );
         return {'id': groupId, 'name': name, 'description': description};
       } catch (e) {
         debugPrint('Error creating local group: $e');
@@ -1551,20 +1984,26 @@ $emiRecommendation
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/groups/create'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'name': name,
-          'user_id': userId,
-          'description': description,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/groups/create'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'name': name,
+              'user_id': userId,
+              'description': description,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         // Sync to local SQLite
-        await databaseHelper.createGroup(name, userId);
+        await databaseHelper.createGroup(
+          name,
+          userId,
+          description: description,
+        );
         return data;
       }
     } catch (e) {
@@ -1586,14 +2025,17 @@ $emiRecommendation
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/groups/list/$userId'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/groups/list/$userId'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final groups = (data['groups'] as List?)
+        final groups =
+            (data['groups'] as List?)
                 ?.map((g) => g as Map<String, dynamic>)
                 .toList() ??
             [];
@@ -1602,7 +2044,9 @@ $emiRecommendation
         for (var group in groups) {
           try {
             await databaseHelper.createGroup(
-                group['name'] as String? ?? '', userId);
+              group['name'] as String? ?? '',
+              userId,
+            );
           } catch (e) {
             // Ignore if already exists
           }
@@ -1634,10 +2078,12 @@ $emiRecommendation
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/groups/$groupId/members'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/groups/$groupId/members'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1659,22 +2105,29 @@ $emiRecommendation
     String role = 'member',
   }) async {
     if (_isAndroid) {
-      // Android: queue for sync, add locally optimistically
-      debugPrint('Android: Queuing member add for sync');
-      return true; // Optimistic update
+      // Android: persist locally for offline-first behaviour
+      return await databaseHelper.addGroupMember(groupId, email, role: role);
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/groups/$groupId/members/add'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'role': role,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/groups/add-member'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'group_id': groupId,
+              'user_id': email,
+              'role': role,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        // Keep local copy in sync for offline reads.
+        await databaseHelper.addGroupMember(groupId, email, role: role);
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('Error adding group member: $e');
       return false;
@@ -1692,10 +2145,12 @@ $emiRecommendation
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/groups/$groupId/dashboard?user_id=$userId'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/groups/$groupId/dashboard?user_id=$userId'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
@@ -1714,10 +2169,12 @@ $emiRecommendation
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/groups/$groupId/invite/generate'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/groups/$groupId/invite/generate'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1847,16 +2304,73 @@ $emiRecommendation
     int daysAhead = 90,
   }) async {
     if (_isAndroid) {
-      // Android: use local data only
-      debugPrint('Android: Cashflow forecast not yet implemented locally');
-      return [];
+      try {
+        final txRows = await databaseHelper.getTransactions(limit: 1000);
+        final now = DateTime.now();
+        final lookbackStart = now.subtract(const Duration(days: 60));
+
+        double totalIncome = 0.0;
+        double totalExpense = 0.0;
+        for (final row in txRows) {
+          final date = DateTime.tryParse(row['date']?.toString() ?? '');
+          if (date == null || date.isBefore(lookbackStart)) continue;
+          final amount = (row['amount'] as num?)?.toDouble() ?? 0.0;
+          final type = row['type']?.toString().toLowerCase() ?? 'expense';
+          if (type == 'income' || type == 'credit' || type == 'deposit') {
+            totalIncome += amount;
+          } else {
+            totalExpense += amount;
+          }
+        }
+
+        final dailyNet = (totalIncome - totalExpense) / 60.0;
+        final dashboard = await getDashboard(userId);
+        double runningBalance = dashboard?.balance ?? 0.0;
+
+        final scheduled = await getScheduledPayments(userId);
+        final dueMap = <String, double>{};
+        for (final p in scheduled) {
+          final due = DateTime.tryParse(p.dueDate);
+          if (due == null) continue;
+          final key = DateFormat('yyyy-MM-dd').format(
+            DateTime(now.year, now.month, due.day),
+          );
+          dueMap[key] = (dueMap[key] ?? 0.0) + p.amount;
+        }
+
+        final projections = <Map<String, dynamic>>[];
+        for (int i = 1; i <= daysAhead; i++) {
+          final day = now.add(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(day);
+          final scheduledOutflow = dueMap[dateKey] ?? 0.0;
+
+          runningBalance += dailyNet;
+          runningBalance -= scheduledOutflow;
+
+          projections.add({
+            'date': dateKey,
+            'projected_income': dailyNet > 0 ? dailyNet : 0.0,
+            'projected_expense': dailyNet < 0 ? dailyNet.abs() : 0.0,
+            'scheduled_outflow': scheduledOutflow,
+            'balance': runningBalance,
+          });
+        }
+        return projections;
+      } catch (e) {
+        debugPrint('Error generating local cashflow forecast: $e');
+        return [];
+      }
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/cashflow/forecast/$userId?days_ahead=$daysAhead'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse(
+              '$_baseUrl/cashflow/forecast/$userId?days_ahead=$daysAhead',
+            ),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1874,15 +2388,54 @@ $emiRecommendation
   /// Get business runway (months until cash runs out)
   Future<Map<String, dynamic>?> getRunway(String userId) async {
     if (_isAndroid) {
-      debugPrint('Android: Runway calculation not yet implemented locally');
-      return null;
+      try {
+        final dashboard = await getDashboard(userId);
+        if (dashboard == null) return null;
+
+        final monthlyBurn = dashboard.totalExpense - dashboard.totalIncome;
+        if (monthlyBurn <= 0) {
+          return {
+            'runway_months': 999.0,
+            'runway_days': 999 * 30,
+            'status': 'safe',
+            'recommendation':
+                'Cashflow is positive. Continue current discipline.',
+            'zero_date': null,
+          };
+        }
+
+        final goals = await getGoals(userId);
+        final availableCash = goals.fold<double>(
+          0.0,
+          (sum, g) => sum + g.currentAmount,
+        );
+        final runwayMonths = (availableCash / monthlyBurn).clamp(0, 120);
+        final zeroDate = DateTime.now().add(
+          Duration(days: (runwayMonths * 30).round()),
+        );
+
+        return {
+          'runway_months': runwayMonths,
+          'runway_days': (runwayMonths * 30).round(),
+          'status': runwayMonths >= 6 ? 'stable' : 'risk',
+          'recommendation': runwayMonths >= 6
+              ? 'Runway is healthy.'
+              : 'Reduce burn or increase income to extend runway.',
+          'zero_date': zeroDate.toIso8601String(),
+        };
+      } catch (e) {
+        debugPrint('Error calculating local runway: $e');
+        return null;
+      }
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/cashflow/runway/$userId'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/cashflow/runway/$userId'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1906,15 +2459,31 @@ $emiRecommendation
     int daysAhead = 90,
   }) async {
     if (_isAndroid) {
-      debugPrint('Android: Cash crunch warnings not yet implemented locally');
-      return [];
+      final warnings = <Map<String, dynamic>>[];
+      final forecast = await getCashflowForecast(userId, daysAhead: daysAhead);
+      for (final row in forecast) {
+        final balance = (row['balance'] as num?)?.toDouble() ?? 0.0;
+        if (balance < 0) {
+          warnings.add({
+            'date': row['date'],
+            'projected_balance': balance,
+            'severity': balance < -10000 ? 'high' : 'medium',
+            'message': 'Projected negative balance',
+          });
+        }
+      }
+      return warnings;
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/cashflow/cash-crunch/$userId?days_ahead=$daysAhead'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse(
+              '$_baseUrl/cashflow/cash-crunch/$userId?days_ahead=$daysAhead',
+            ),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1938,7 +2507,7 @@ $emiRecommendation
     String? location,
     String? budgetRange,
   }) async {
-    // First try HTTP backend (for desktop)
+    // Keep HTTP path only as optional fallback.
     if (!_isAndroid) {
       try {
         final response = await http.post(
@@ -2006,6 +2575,31 @@ $emiRecommendation
     bool enableWebSearch = true,
     String searchCategory = 'general',
   }) async {
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.chatWithLLM(
+          query: message,
+          conversationHistory: conversationHistory
+              .map((m) => m.map((k, v) => MapEntry(k, v.toString())))
+              .toList(),
+          userId: userId,
+          userContext: {
+            'enable_web_search': enableWebSearch,
+            'search_category': searchCategory,
+          },
+        );
+        return {
+          'success':
+              result['success'] == true || result.containsKey('response'),
+          'response': result['response']?.toString() ?? '',
+          ...result,
+        };
+      } catch (e) {
+        debugPrint('Android brainstorm failed: $e');
+        return null;
+      }
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/brainstorm/chat'),
@@ -2030,6 +2624,10 @@ $emiRecommendation
 
   /// Check if OpenAI brainstorming is available
   Future<bool> isBrainstormAvailable() async {
+    if (_isAndroid) {
+      return true;
+    }
+
     try {
       final response = await http.get(Uri.parse('$_baseUrl/brainstorm/status'));
       if (response.statusCode == 200) {
@@ -2046,6 +2644,37 @@ $emiRecommendation
   Future<DailyInsight?> getFinBites({
     String query = 'Indian financial market news today',
   }) async {
+    if (_isAndroid) {
+      try {
+        final result = await pythonBridge.chatWithLLM(
+          query:
+              'Give one short finance update in JSON with keys: headline, insight, recommendation, trend. Query: $query',
+        );
+        final response = result['response']?.toString();
+        if (response != null && response.isNotEmpty) {
+          final parsed = _extractJsonMap(response);
+          if (parsed != null) {
+            return DailyInsight(
+              headline: parsed['headline']?.toString() ?? 'Market Update',
+              insightText: parsed['insight']?.toString() ?? '',
+              recommendation: parsed['recommendation']?.toString() ?? '',
+              trendIndicator: parsed['trend']?.toString() ?? 'stable',
+            );
+          }
+
+          return DailyInsight(
+            headline: 'Market Update',
+            insightText: response,
+            recommendation: 'Track major expenses and stay diversified.',
+            trendIndicator: 'stable',
+          );
+        }
+      } catch (e) {
+        debugPrint('Local Fin-Bites generation failed: $e');
+      }
+      return null;
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/fin-bites?query=${Uri.encodeComponent(query)}'),
@@ -2077,6 +2706,27 @@ $emiRecommendation
       try {
         final result = await pythonBridge.extractReceiptFromPath(filePath);
         if (result['success'] == true) {
+          final tx = result['transaction'] as Map<String, dynamic>?;
+          if (tx != null) {
+            final amount =
+                (tx['amount'] as num?)?.toDouble() ??
+                double.tryParse(tx['amount']?.toString() ?? '');
+            final confidenceRaw = result['confidence'] ?? tx['confidence'];
+            final confidence = confidenceRaw is num
+                ? (confidenceRaw <= 1 ? confidenceRaw * 100 : confidenceRaw)
+                      .toDouble()
+                : double.tryParse(confidenceRaw?.toString() ?? '');
+
+            return ReceiptData(
+              merchantName:
+                  tx['merchant']?.toString() ?? tx['description']?.toString(),
+              date: tx['date']?.toString(),
+              totalAmount: amount,
+              category: tx['category']?.toString(),
+              paymentMethod: tx['payment_method']?.toString(),
+              confidence: confidence,
+            );
+          }
           return ReceiptData.fromJson(result);
         }
       } catch (e) {
@@ -2084,7 +2734,7 @@ $emiRecommendation
       }
     }
 
-    // On Desktop: Use HTTP backend
+    // Optional HTTP fallback path.
     if (!_isAndroid) {
       try {
         var request = http.MultipartRequest(
@@ -2243,6 +2893,43 @@ $emiRecommendation
   Future<Map<String, dynamic>?> generateDPR({
     required Map<String, dynamic> projectData,
   }) async {
+    final mode = _normalizeIdeasMode(
+      projectData['mode']?.toString() ?? 'market_research',
+    );
+    final businessIdea =
+        projectData['business_idea']?.toString() ??
+        projectData['project_name']?.toString() ??
+        'Business idea';
+    final userData = projectData['user_data'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(projectData['user_data'])
+        : projectData;
+    final canvasItems = projectData['canvas_items'] is List
+        ? (projectData['canvas_items'] as List)
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList()
+        : <Map<String, dynamic>>[];
+
+    // Prefer backend DPR generation for Groq OpenAI synthesis.
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/brainstorm/generate-dpr'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'business_idea': businessIdea,
+          'user_data': userData,
+          'canvas_items': canvasItems,
+          'mode': mode,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('[DPR Generation] HTTP ${response.statusCode}, falling back');
+    } catch (e) {
+      debugPrint('[DPR Generation] HTTP unavailable, falling back: $e');
+    }
+
     if (_isAndroid) {
       try {
         final result = await pythonBridge.executeTool(
@@ -2267,6 +2954,58 @@ $emiRecommendation
         'sections': [],
       },
     };
+  }
+
+  Future<Map<String, dynamic>> generateDprFromCanvas({
+    required String userId,
+    required List<Map<String, dynamic>> canvasItems,
+    Map<String, dynamic>? userData,
+    String mode = 'market_research',
+    String? businessIdea,
+  }) async {
+    final normalizedMode = _normalizeIdeasMode(mode);
+    final payload = {
+      'user_id': userId,
+      'canvas_items': canvasItems,
+      'user_data': userData ?? {},
+      'mode': normalizedMode,
+      if (businessIdea != null && businessIdea.trim().isNotEmpty)
+        'business_idea': businessIdea.trim(),
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/brainstorm/generate-dpr-from-canvas'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+      }
+      return {
+        'success': false,
+        'error': 'HTTP ${response.statusCode}',
+      };
+    } catch (e) {
+      debugPrint('[Canvas DPR] HTTP unavailable, using local fallback: $e');
+      final fallback = await generateDPR(
+        projectData: {
+          'business_idea':
+              businessIdea ??
+              (canvasItems.isNotEmpty
+                  ? canvasItems.first['title']?.toString() ?? 'Business idea'
+                  : 'Business idea'),
+          'user_data': userData ?? {},
+          'canvas_items': canvasItems,
+          'mode': normalizedMode,
+        },
+      );
+      if (fallback != null) return fallback;
+      return {'success': false, 'error': e.toString()};
+    }
   }
 
   /// Get empty DPR template
@@ -2416,6 +3155,10 @@ $emiRecommendation
     String userId, {
     int months = 6,
   }) async {
+    if (_isAndroid) {
+      return [];
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/analysis/history/$userId?months=$months'),
@@ -2435,6 +3178,10 @@ $emiRecommendation
     String userId, {
     int months = 12,
   }) async {
+    if (_isAndroid) {
+      return [];
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/metrics/history/$userId?months=$months'),
@@ -2459,6 +3206,84 @@ $emiRecommendation
     String budgetRange = "5-10 Lakhs",
     Map<String, dynamic>? userContext,
   }) async {
+    if (_isAndroid) {
+      try {
+        final prompt =
+            'Evaluate this business idea for India and respond in strict JSON with keys: '
+            'score (0-100), viability (Low|Medium|High), summary, '
+            'market_analysis {market_size, target_audience}, '
+            'financial_projection {initial_investment, break_even_timeline}, '
+            'swot {strengths[], weaknesses[]}, recommendations[], revenue_models[]. '
+            'Idea: $idea. Location: $location. Budget: $budgetRange.';
+
+        final ai = await pythonBridge.chatWithLLM(
+          query: prompt,
+          userId: userId,
+          userContext: userContext ?? {},
+        );
+
+        final responseText = ai['response']?.toString() ?? '';
+        final parsed = _extractJsonMap(responseText);
+
+        Map<String, dynamic> evaluation =
+            parsed ??
+            {
+              'score': 70,
+              'summary': responseText.isNotEmpty
+                  ? responseText
+                  : 'Idea captured. Run deeper analysis for more precision.',
+              'viability': 'Medium',
+              'market_analysis': {
+                'market_size': 'Moderate and growing segment',
+                'target_audience': 'Indian consumers and SMBs',
+              },
+              'financial_projection': {
+                'initial_investment': budgetRange,
+                'break_even_timeline': '12-18 months',
+              },
+              'swot': {
+                'strengths': <String>['Solves a real user problem'],
+                'weaknesses': <String>['Execution complexity depends on team'],
+              },
+              'recommendations': <String>[
+                'Validate with 10-20 potential users',
+                'Start with an MVP and measurable milestones',
+                'Track CAC, retention, and conversion from day one',
+              ],
+              'revenue_models': <String>['Subscription', 'Transaction fee'],
+            };
+
+        final score = (evaluation['score'] as num?)?.toInt() ?? 70;
+        final viability = score >= 80
+            ? 'High'
+            : score >= 60
+            ? 'Medium'
+            : 'Low';
+        evaluation['viability'] = evaluation['viability'] ?? viability;
+
+        final key = '$_savedIdeasKeyPrefix$userId';
+        final saved = await _readJsonList(key);
+        saved.insert(0, {
+          'id': 'idea_${DateTime.now().millisecondsSinceEpoch}',
+          'idea_text': idea,
+          'score': score,
+          'viability': evaluation['viability'],
+          'summary': evaluation['summary']?.toString() ?? '',
+          'created_at': DateTime.now().toIso8601String(),
+          'evaluation': evaluation,
+        });
+        if (saved.length > 100) {
+          saved.removeRange(100, saved.length);
+        }
+        await _writeJsonList(key, saved);
+
+        return evaluation;
+      } catch (e) {
+        debugPrint('[Idea Evaluation] Android error: $e');
+        return null;
+      }
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/ideas/evaluate'),
@@ -2489,6 +3314,12 @@ $emiRecommendation
     String userId, {
     int limit = 10,
   }) async {
+    if (_isAndroid) {
+      final key = '$_savedIdeasKeyPrefix$userId';
+      final saved = await _readJsonList(key);
+      return saved.take(limit).toList();
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/ideas/$userId?limit=$limit'),
@@ -2505,22 +3336,235 @@ $emiRecommendation
 
   // ==================== ENHANCED BRAINSTORMING CANVAS ====================
 
+  String _brainstormPersonaPrompt(String persona) {
+    switch (persona) {
+      case 'cynical_vc':
+        return 'You are a skeptical VC. Prioritize unit economics, moat, execution risks, and brutal realism.';
+      case 'enthusiastic_entrepreneur':
+        return 'You are a creative entrepreneur. Generate bold, practical opportunities and growth loops.';
+      case 'risk_manager':
+        return 'You are a risk manager. Emphasize legal, compliance, downside control, and contingency plans.';
+      case 'customer_advocate':
+        return 'You are a customer advocate. Focus on user pain, adoption friction, and clear value delivery.';
+      case 'financial_analyst':
+        return 'You are a financial analyst. Quantify assumptions, cashflow impact, and break-even sensitivity.';
+      case 'systems_thinker':
+        return 'You are a systems thinker. Highlight second-order effects, dependencies, and ecosystem dynamics.';
+      default:
+        return 'You are a neutral strategy consultant. Be concise, practical, and outcome-focused.';
+    }
+  }
+
+  String _brainstormWorkflowPrompt(String workflowMode) {
+    switch (workflowMode) {
+      case 'refinery':
+        return 'Workflow: REFINERY. Critique ideas, find weak links, challenge assumptions, and propose stronger alternatives.';
+      case 'anchor':
+        return 'Workflow: ANCHOR. Extract only high-signal, actionable ideas that should be pinned to a canvas.';
+      default:
+        return 'Workflow: INPUT. Expand, clarify, and structure raw ideas into actionable directions.';
+    }
+  }
+
+  String _normalizeIdeasMode(String mode) {
+    const allowed = {
+      'financial_planner',
+      'market_research',
+      'career_advisor',
+      'investment_analyst',
+      'life_planning',
+    };
+    final normalized = mode.trim().toLowerCase();
+    return allowed.contains(normalized) ? normalized : 'market_research';
+  }
+
+  String _brainstormAnalysisModePrompt(String mode) {
+    switch (_normalizeIdeasMode(mode)) {
+      case 'financial_planner':
+        return 'Analysis Mode: Financial Planner. Focus on cashflow, taxation, affordability, and practical money strategy.';
+      case 'career_advisor':
+        return 'Analysis Mode: Career Advisor. Focus on role-fit, skill gaps, CV positioning, and action-based career planning.';
+      case 'investment_analyst':
+        return 'Analysis Mode: Investment Analyst. Focus on risk-return, diversification, downside protection, and portfolio trade-offs.';
+      case 'life_planning':
+        return 'Analysis Mode: Life Planning Coach. Focus on milestones, timelines, savings buffers, and long-horizon personal planning.';
+      default:
+        return 'Analysis Mode: Market Research Expert. Focus on demand, market sizing, competition, unit economics, and execution feasibility.';
+    }
+  }
+
+  List<Map<String, dynamic>> _fallbackBrainstormModes() {
+    return const [
+      {
+        'id': 'financial_planner',
+        'label': 'Financial Planner',
+        'description': 'Cashflow, tax efficiency, and money strategy.',
+      },
+      {
+        'id': 'market_research',
+        'label': 'Market Research',
+        'description': 'Demand, competitors, viability, and go-to-market.',
+      },
+      {
+        'id': 'career_advisor',
+        'label': 'Career Advisor',
+        'description': 'CV critique, role-fit, and upskilling roadmap.',
+      },
+      {
+        'id': 'investment_analyst',
+        'label': 'Investment Analyst',
+        'description': 'Portfolio allocation, risk, and return outlook.',
+      },
+      {
+        'id': 'life_planning',
+        'label': 'Life Planning',
+        'description': 'Goal timelines, milestones, and long-term planning.',
+      },
+    ];
+  }
+
+  String _formatConversationSnippet(
+    List<Map<String, dynamic>>? conversationHistory, {
+    int maxTurns = 12,
+  }) {
+    final history = conversationHistory ?? const <Map<String, dynamic>>[];
+    if (history.isEmpty) return 'No prior conversation.';
+    final start = history.length > maxTurns ? history.length - maxTurns : 0;
+    return history
+        .sublist(start)
+        .map((m) {
+          final role = m['role']?.toString() ?? 'user';
+          final content = m['content']?.toString().trim() ?? '';
+          if (content.isEmpty) return '';
+          return '$role: $content';
+        })
+        .where((line) => line.isNotEmpty)
+        .join('\n');
+  }
+
+  List<Map<String, String>> _toStringHistory(
+    List<Map<String, dynamic>>? conversationHistory,
+  ) {
+    return (conversationHistory ?? const <Map<String, dynamic>>[])
+        .map(
+          (m) => <String, String>{
+            'role': m['role']?.toString() ?? 'user',
+            'content': m['content']?.toString() ?? '',
+          },
+        )
+        .where((m) => (m['content'] ?? '').trim().isNotEmpty)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getBrainstormModes() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/brainstorm/modes'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map && data['modes'] is List) {
+          final parsed = <Map<String, dynamic>>[];
+          for (final raw in (data['modes'] as List)) {
+            if (raw is! Map) continue;
+            final item = Map<String, dynamic>.from(raw);
+            final key = item['id']?.toString() ?? item['key']?.toString() ?? '';
+            if (key.isEmpty) continue;
+            parsed.add({
+              'id': key,
+              'label': item['label']?.toString() ?? key,
+              'description':
+                  item['description']?.toString() ??
+                  item['focus']?.toString() ??
+                  '',
+              'category': item['category']?.toString() ?? 'general',
+            });
+          }
+          if (parsed.isNotEmpty) return parsed;
+        }
+      }
+    } catch (e) {
+      debugPrint('[Brainstorm Modes] Using fallback modes: $e');
+    }
+    return _fallbackBrainstormModes();
+  }
+
   Future<Map<String, dynamic>> brainstormChat({
     required String userId,
     required String message,
     List<Map<String, dynamic>>? conversationHistory,
     String persona = 'neutral',
+    String mode = 'market_research',
+    String workflowMode = 'input',
     bool enableWebSearch = true,
   }) async {
+    final normalizedMode = _normalizeIdeasMode(mode);
+    final normalizedWorkflow = workflowMode.trim().toLowerCase();
+
+    // Prefer backend Groq ideas endpoint first (all platforms).
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/brainstorm/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'message': message,
+          'conversation_history': conversationHistory ?? [],
+          'persona': persona,
+          'mode': normalizedMode,
+          'workflow_mode': normalizedWorkflow,
+          'enable_web_search': enableWebSearch,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      debugPrint('[Brainstorm Chat] HTTP ${response.statusCode}, falling back');
+    } catch (e) {
+      debugPrint('[Brainstorm Chat] HTTP unavailable, falling back: $e');
+    }
+
     // Android: Use embedded Python via MethodChannel
     if (_isAndroid) {
       try {
-        final result = await pythonBridge.chatWithLLM(query: message);
+        final prompt = '''
+${_brainstormWorkflowPrompt(normalizedWorkflow)}
+${_brainstormAnalysisModePrompt(normalizedMode)}
+${_brainstormPersonaPrompt(persona)}
+
+Conversation context:
+${_formatConversationSnippet(conversationHistory, maxTurns: 10)}
+
+User idea:
+$message
+
+Respond with:
+1) Refined direction (2-4 bullets)
+2) Biggest risk
+3) Next 2 concrete actions
+''';
+
+        final result = await pythonBridge.chatWithLLM(
+          query: prompt,
+          userId: userId,
+          conversationHistory: _toStringHistory(conversationHistory),
+          userContext: {
+            'mode': normalizedMode,
+            'workflow_mode': normalizedWorkflow,
+            'persona': persona,
+            'enable_web_search': enableWebSearch,
+          },
+        );
         if (result['success'] == true || result.containsKey('response')) {
           return {
             'success': true,
             'content': result['response'] ?? result['content'] ?? '',
             'persona': persona,
+            'mode': normalizedMode,
+            'workflow_mode': normalizedWorkflow,
+            'visualization': {
+              'mode': normalizedMode,
+              'workflow_mode': normalizedWorkflow,
+            },
             ...result,
           };
         }
@@ -2531,54 +3575,17 @@ $emiRecommendation
       }
     }
 
-    // Desktop: Use HTTP
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/brainstorm/chat'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': userId,
-          'message': message,
-          'conversation_history': conversationHistory ?? [],
-          'persona': persona,
-          'enable_web_search': enableWebSearch,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
-    } catch (e) {
-      debugPrint('[Brainstorm Chat] Error: $e');
-      return {'success': false, 'error': e.toString()};
-    }
+    return {'success': false, 'error': 'Brainstorm chat unavailable'};
   }
 
   Future<Map<String, dynamic>> reverseBrainstorm({
     required List<String> ideas,
     List<Map<String, dynamic>>? conversationHistory,
+    String mode = 'market_research',
   }) async {
-    // Android: Use embedded Python chat with critique prompt
-    if (_isAndroid) {
-      try {
-        final critiquePrompt = 'Play devil\'s advocate and critique these business ideas: ${ideas.join(", ")}';
-        final result = await pythonBridge.chatWithLLM(query: critiquePrompt);
-        if (result['success'] == true || result.containsKey('response')) {
-          return {
-            'success': true,
-            'critique': result['response'] ?? '',
-            ...result,
-          };
-        }
-        return {'success': false, 'error': result['error'] ?? 'No critique response'};
-      } catch (e) {
-        debugPrint('[Reverse Brainstorm] Android error: $e');
-        return {'success': false, 'error': e.toString()};
-      }
-    }
+    final normalizedMode = _normalizeIdeasMode(mode);
 
-    // Desktop: Use HTTP
+    // Prefer backend critique endpoint first.
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/brainstorm/critique'),
@@ -2586,60 +3593,200 @@ $emiRecommendation
         body: jsonEncode({
           'ideas': ideas,
           'conversation_history': conversationHistory ?? [],
+          'mode': normalizedMode,
+          'workflow_mode': 'refinery',
         }),
       );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+      debugPrint('[Reverse Brainstorm] HTTP ${response.statusCode}, falling back');
     } catch (e) {
-      debugPrint('[Reverse Brainstorm] Error: $e');
-      return {'success': false, 'error': e.toString()};
+      debugPrint('[Reverse Brainstorm] HTTP unavailable, falling back: $e');
     }
+
+    // Android: Use embedded Python chat with critique prompt
+    if (_isAndroid) {
+      try {
+        final critiquePrompt = '''
+${_brainstormWorkflowPrompt('refinery')}
+${_brainstormAnalysisModePrompt(normalizedMode)}
+${_brainstormPersonaPrompt('cynical_vc')}
+
+Ideas to critique:
+${ideas.map((i) => '- $i').join('\n')}
+
+Recent context:
+${_formatConversationSnippet(conversationHistory, maxTurns: 12)}
+
+Return concise markdown with sections:
+- Fatal flaws
+- Weak assumptions
+- Risk score (1-10) with reason
+- Salvage plan (3 concrete fixes)
+''';
+
+        final result = await pythonBridge.chatWithLLM(
+          query: critiquePrompt,
+          conversationHistory: _toStringHistory(conversationHistory),
+          userContext: {
+            'mode': normalizedMode,
+            'workflow_mode': 'refinery',
+            'persona': 'cynical_vc',
+          },
+        );
+        if (result['success'] == true || result.containsKey('response')) {
+          return {
+            'success': true,
+            'critique': result['response'] ?? '',
+            'mode': normalizedMode,
+            'workflow_mode': 'refinery',
+            ...result,
+          };
+        }
+        return {
+          'success': false,
+          'error': result['error'] ?? 'No critique response',
+        };
+      } catch (e) {
+        debugPrint('[Reverse Brainstorm] Android error: $e');
+        return {'success': false, 'error': e.toString()};
+      }
+    }
+
+    return {'success': false, 'error': 'Critique unavailable'};
   }
 
   Future<Map<String, dynamic>> extractCanvasItems({
     required List<Map<String, dynamic>> conversationHistory,
+    String mode = 'market_research',
   }) async {
-    // Android: Use embedded Python chat to extract ideas
-    if (_isAndroid) {
-      try {
-        final extractPrompt = 'Extract the key business ideas, decisions, and action items from this brainstorming conversation. Return them as a structured list.';
-        final result = await pythonBridge.chatWithLLM(query: extractPrompt);
-        if (result['success'] == true || result.containsKey('response')) {
-          return {
-            'success': true,
-            'ideas': [],
-            'response': result['response'] ?? '',
-            ...result,
-          };
-        }
-        return {'success': false, 'error': result['error'] ?? 'No extraction result', 'ideas': []};
-      } catch (e) {
-        debugPrint('[Extract Canvas] Android error: $e');
-        return {'success': false, 'error': e.toString(), 'ideas': []};
-      }
-    }
+    final normalizedMode = _normalizeIdeasMode(mode);
 
-    // Desktop: Use HTTP
+    // Prefer backend canvas extraction endpoint first.
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/brainstorm/extract-canvas'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'conversation_history': conversationHistory,
+          'mode': normalizedMode,
+          'workflow_mode': 'anchor',
         }),
       );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return {'success': false, 'error': 'HTTP ${response.statusCode}', 'ideas': []};
+      debugPrint('[Extract Canvas] HTTP ${response.statusCode}, falling back');
     } catch (e) {
-      debugPrint('[Extract Canvas] Error: $e');
-      return {'success': false, 'error': e.toString(), 'ideas': []};
+      debugPrint('[Extract Canvas] HTTP unavailable, falling back: $e');
     }
+
+    // Android: Use embedded Python chat to extract ideas
+    if (_isAndroid) {
+      try {
+        final extractPrompt = '''
+${_brainstormWorkflowPrompt('anchor')}
+${_brainstormAnalysisModePrompt(normalizedMode)}
+Extract the most important surviving ideas and action items from this conversation.
+Return STRICT JSON only in this shape:
+{
+  "ideas": [
+    {"title": "short title", "content": "what to do", "category": "feature|risk|opportunity|insight"}
+  ]
+}
+
+Conversation:
+${_formatConversationSnippet(conversationHistory, maxTurns: 18)}
+''';
+
+        final result = await pythonBridge.chatWithLLM(
+          query: extractPrompt,
+          conversationHistory: _toStringHistory(conversationHistory),
+          userContext: {
+            'mode': normalizedMode,
+            'workflow_mode': 'anchor',
+            'persona': 'neutral',
+          },
+        );
+        if (result['success'] == true || result.containsKey('response')) {
+          final responseText = result['response']?.toString() ?? '';
+          final parsedIdeas = _extractJsonListOfMaps(
+            responseText,
+            listKey: 'ideas',
+          );
+          final allowed = {'feature', 'risk', 'opportunity', 'insight'};
+
+          final ideas = parsedIdeas
+              .map((idea) {
+                final title = idea['title']?.toString().trim() ?? '';
+                final content = idea['content']?.toString().trim() ?? '';
+                final rawCategory =
+                    idea['category']?.toString().toLowerCase().trim() ??
+                    'insight';
+                final category = allowed.contains(rawCategory)
+                    ? rawCategory
+                    : 'insight';
+                return {
+                  'title': title,
+                  'content': content,
+                  'category': category,
+                };
+              })
+              .where((idea) => (idea['title'] ?? '').isNotEmpty)
+              .toList();
+
+          if (ideas.isEmpty && responseText.isNotEmpty) {
+            final fallbackLines = responseText
+                .split('\n')
+                .map((line) => line.trim())
+                .where(
+                  (line) =>
+                      line.isNotEmpty &&
+                      !line.startsWith('```') &&
+                      !line.startsWith('{') &&
+                      !line.startsWith('['),
+                )
+                .take(5);
+            for (final line in fallbackLines) {
+              final clean = line.replaceFirst(
+                RegExp(r'^[-*•\d\.\)\s]+'),
+                '',
+              );
+              if (clean.length < 12) continue;
+              ideas.add({
+                'title': clean.length > 56
+                    ? '${clean.substring(0, 56)}...'
+                    : clean,
+                'content': clean,
+                'category': 'insight',
+              });
+            }
+          }
+
+          return {
+            'success': true,
+            'ideas': ideas,
+            'response': responseText,
+            'mode': normalizedMode,
+            'workflow_mode': 'anchor',
+            ...result,
+          };
+        }
+        return {
+          'success': false,
+          'error': result['error'] ?? 'No extraction result',
+          'ideas': [],
+        };
+      } catch (e) {
+        debugPrint('[Extract Canvas] Android error: $e');
+        return {'success': false, 'error': e.toString(), 'ideas': []};
+      }
+    }
+
+    return {'success': false, 'error': 'Canvas extraction unavailable', 'ideas': []};
   }
 
   // ==================== DPR MANAGEMENT ====================
@@ -2653,6 +3800,32 @@ $emiRecommendation
     Map<String, dynamic>? researchData,
     Map<String, dynamic>? financialProjections,
   }) async {
+    if (_isAndroid) {
+      try {
+        final key = '$_savedDprsKeyPrefix$userId';
+        final saved = await _readJsonList(key);
+        final id = 'dpr_${DateTime.now().millisecondsSinceEpoch}';
+        saved.insert(0, {
+          'id': id,
+          'user_id': userId,
+          'business_idea': businessIdea,
+          'sections': sections,
+          'completeness': completeness,
+          'research_data': researchData ?? {},
+          'financial_projections': financialProjections ?? {},
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        if (saved.length > 100) {
+          saved.removeRange(100, saved.length);
+        }
+        await _writeJsonList(key, saved);
+        return id;
+      } catch (e) {
+        debugPrint('[DPR Save] Android error: $e');
+        return null;
+      }
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/dpr/save'),
@@ -2682,6 +3855,12 @@ $emiRecommendation
     String userId, {
     int limit = 10,
   }) async {
+    if (_isAndroid) {
+      final key = '$_savedDprsKeyPrefix$userId';
+      final saved = await _readJsonList(key);
+      return saved.take(limit).toList();
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/dpr/$userId?limit=$limit'),
@@ -2768,8 +3947,7 @@ $emiRecommendation
   }) async {
     try {
       if (_isAndroid) {
-        final result = await pythonBridge.calculateMudraDPR(inputs);
-        if (result['success'] != false) return result;
+        return await pythonBridge.calculateMudraDPR(inputs);
       }
       final response = await http.post(
         Uri.parse('$_baseUrl/mudra-dpr/calculate'),
@@ -2792,8 +3970,7 @@ $emiRecommendation
   }) async {
     try {
       if (_isAndroid) {
-        final result = await pythonBridge.whatIfSimulate(inputs, overrides);
-        if (result['success'] != false) return result;
+        return await pythonBridge.whatIfSimulate(inputs, overrides);
       }
       final response = await http.post(
         Uri.parse('$_baseUrl/mudra-dpr/whatif'),
@@ -2891,28 +4068,59 @@ $emiRecommendation
   /// Get recurring transactions analysis
   Future<Map<String, dynamic>> getRecurringTransactions(String userId) async {
     if (_isAndroid) {
-       // TODO: Implement bridge call for Android via PythonBridgeService
-       // For now, return empty as no HTTP backend on Android
-       return {
-         'status': 'success',
-         'recurring_count': 0,
-         'estimated_monthly_bills': 0.0,
-         'items': [],
-       };
+      try {
+        final txRows = await databaseHelper.getTransactions(limit: 300);
+        final txList = txRows
+            .map(
+              (t) => {
+                'description': t['description'] ?? '',
+                'amount': t['amount'] ?? 0,
+                'date': t['date'] ?? '',
+                'category': t['category'] ?? 'Other',
+                'merchant': t['merchant'] ?? t['description'] ?? '',
+              },
+            )
+            .toList();
+
+        final result = await pythonBridge.detectSubscriptions(txList);
+        if (result['success'] == true) {
+          final items = <Map<String, dynamic>>[
+            ...List<Map<String, dynamic>>.from(result['subscriptions'] ?? []),
+            ...List<Map<String, dynamic>>.from(
+              result['recurring_habits'] ?? [],
+            ),
+          ];
+          return {
+            'status': 'success',
+            'recurring_count': items.length,
+            'estimated_monthly_bills':
+                (result['total_monthly_cost'] as num?)?.toDouble() ?? 0.0,
+            'items': items,
+          };
+        }
+      } catch (e) {
+        debugPrint('Error getting recurring transactions (Android): $e');
+      }
+      return {
+        'status': 'success',
+        'recurring_count': 0,
+        'estimated_monthly_bills': 0.0,
+        'items': [],
+      };
     }
-    
+
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/analytics/recurring/$userId'),
       );
-      
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
     } catch (e) {
       debugPrint('Error getting recurring transactions: $e');
     }
-    
+
     return {};
   }
 }
@@ -3297,8 +4505,6 @@ class ImportResult {
       confidence: (json['confidence'] as num?)?.toDouble(),
     );
   }
-
-
 }
 
 class ReceiptData {

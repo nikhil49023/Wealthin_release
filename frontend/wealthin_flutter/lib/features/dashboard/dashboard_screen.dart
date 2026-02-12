@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 // TODO: Firebase migration - removed wealthin_client import
 // import 'package:wealthin_client/wealthin_client.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../main.dart' show authService;
@@ -13,10 +12,6 @@ import '../../core/utils/responsive_utils.dart';
 import '../../widgets/daily_streak_card.dart';
 import 'widgets/metric_card.dart';
 import 'widgets/finbite_card.dart';
-import 'widgets/cashflow_card.dart';
-import 'widgets/financial_overview_card.dart';
-import 'widgets/trend_analysis_card.dart';
-import 'widgets/category_breakdown_card.dart';
 import 'widgets/recent_transactions_card.dart';
 import 'widgets/interactive_banner.dart';
 import '../finance/financial_tools_screen.dart';
@@ -37,7 +32,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   bool _isLoadingInsight = true;
   String _greeting = '';
-  final String _userName = 'there';
 
   // Financial Summary State - REAL DATA
   DashboardData? _data;
@@ -105,11 +99,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       // Try Sarvam-powered Fin-Bites (financial news) first
       final finBite = await dataService.getFinBites();
-      
+
       if (finBite != null) {
         _cachedInsight = finBite;
         _cacheTime = DateTime.now();
-        
+
         if (mounted) {
           setState(() {
             _dailyInsight = finBite;
@@ -118,7 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return;
       }
-      
+
       // Fallback to personalized insight
       final userId = authService.currentUserId;
       final insight = await dataService.getDailyInsight(userId);
@@ -320,7 +314,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: WealthInTheme.emerald.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.check_circle, color: WealthInTheme.emerald),
+              child: const Icon(
+                Icons.check_circle,
+                color: WealthInTheme.emerald,
+              ),
             ),
             const SizedBox(width: 12),
             const Text('Receipt Scanned'),
@@ -344,7 +341,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   value: receipt.confidence! / 100,
                   backgroundColor: WealthInTheme.gray200,
                   valueColor: AlwaysStoppedAnimation(
-                    receipt.confidence! > 70 ? WealthInTheme.emerald : WealthInTheme.warning,
+                    receipt.confidence! > 70
+                        ? WealthInTheme.emerald
+                        : WealthInTheme.warning,
                   ),
                 ),
               ),
@@ -480,14 +479,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         if (result != null && result.files.single.path != null) {
           final filePath = result.files.single.path!;
-          
+
           if (mounted) {
             // Show loading dialog
             showDialog(
               context: context,
               barrierDismissible: false,
               builder: (context) => AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -511,34 +512,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           }
 
-          final importResult = await dataService.importFromPdf(authService.currentUserId, filePath);
-          
+          final importResult = await dataService.importFromPdf(
+            authService.currentUserId,
+            filePath,
+          );
+
           if (mounted) {
-             Navigator.pop(context); // Close loading dialog
-             
-             if (importResult != null && importResult.success) {
-               ScaffoldMessenger.of(context).showSnackBar(
-                 SnackBar(
-                   content: Row(
-                     children: [
-                       const Icon(Icons.check_circle, color: Colors.white),
-                       const SizedBox(width: 8),
-                       Text(
-                         'Imported ${importResult.importedCount} transactions successfully!',
-                       ),
-                     ],
-                   ),
-                   backgroundColor: WealthInTheme.emerald,
-                   behavior: SnackBarBehavior.floating,
-                   shape: RoundedRectangleBorder(
-                     borderRadius: BorderRadius.circular(10),
-                   ),
-                 ),
-               );
-               _loadDashboardData(); // Refresh dashboard
-             } else {
-               _showErrorSnackBar(importResult?.message ?? 'Failed to import PDF');
-             }
+            Navigator.pop(context); // Close loading dialog
+
+            if (importResult != null && importResult.success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Imported ${importResult.importedCount} transactions successfully!',
+                      ),
+                    ],
+                  ),
+                  backgroundColor: WealthInTheme.emerald,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+              _loadDashboardData(); // Refresh dashboard
+            } else {
+              _showErrorSnackBar(
+                importResult?.message ?? 'Failed to import PDF',
+              );
+            }
           }
         }
       }
@@ -575,22 +581,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context,
       mobile: 1,
       tablet: 2,
-      desktop: 3,
     );
 
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadDashboardData,
-          child: ResponsiveUtils.isDesktop(context) || ResponsiveUtils.isTablet(context)
-              ? _buildDesktopGrid(theme, crossAxisCount)
-              : _buildMobileLayout(theme),
+          child: _buildMobileLayout(theme, crossAxisCount: crossAxisCount),
         ),
       ),
     );
   }
 
-  Widget _buildMobileLayout(ThemeData theme) {
+  Widget _buildMobileLayout(ThemeData theme, {int crossAxisCount = 1}) {
     final userName = authService.currentUser?.email?.split('@').first ?? 'User';
     final capitalizedName = userName.isNotEmpty
         ? userName[0].toUpperCase() + userName.substring(1)
@@ -722,8 +725,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ).animate().fadeIn().slideY(begin: -0.1),
           const SizedBox(height: 16),
-          
-          
+
           // Interactive Banner (main hero section)
           InteractiveBanner(
             userName: capitalizedName,
@@ -731,211 +733,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onTap: () => _showUpdatesSheet(context),
           ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95)),
           const SizedBox(height: 16),
-          
+
           // Daily Streak Card
           const DailyStreakCard(),
           const SizedBox(height: 20),
-          
+
           // Daily Insight / FinBite Card
-          _buildSuggestionCard(theme).animate().shimmer(delay: 800.ms, duration: 1200.ms),
+          _buildSuggestionCard(
+            theme,
+          ).animate().shimmer(delay: 800.ms, duration: 1200.ms),
           const SizedBox(height: 20),
-          
-          // Quick Actions (Enhanced - 2 rows)
-          _buildQuickActions(theme).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
-          const SizedBox(height: 100),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildDesktopGrid(ThemeData theme, int crossAxisCount) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(theme),
-          const SizedBox(height: 32),
-          StaggeredGrid.count(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 24,
-            crossAxisSpacing: 24,
-            children: [
-              StaggeredGridTile.count(
-                crossAxisCellCount: 1,
-                mainAxisCellCount: 1,
-                child: ExpenseCard(
-                  amount: _data?.totalExpense ?? 0,
-                  isLoading: _isLoading,
-                ).animate().fadeIn().scale(),
-              ),
-              StaggeredGridTile.count(
-                crossAxisCellCount: 1,
-                mainAxisCellCount: 1,
-                child: IncomeCard(
-                  amount: _data?.totalIncome ?? 0,
-                  isLoading: _isLoading,
-                ).animate().fadeIn(delay: 100.ms).scale(),
-              ),
-              StaggeredGridTile.count(
-                crossAxisCellCount: 1,
-                mainAxisCellCount: 1,
-                child: SavingsRateCard(
-                  savingsRate: _data?.savingsRate.toInt() ?? 0,
-                  isLoading: _isLoading,
-                ).animate().fadeIn(delay: 200.ms).scale(),
-              ),
-              // Cash Flow Card
-              StaggeredGridTile.count(
-                crossAxisCellCount: crossAxisCount > 2 ? 2 : crossAxisCount,
-                mainAxisCellCount: 1.5,
-                child: CashflowCard(
-                  data: _data,
-                  isLoading: _isLoading,
-                ).animate().fadeIn(delay: 250.ms),
-              ),
-              // Category Breakdown Card
-              StaggeredGridTile.count(
-                crossAxisCellCount: crossAxisCount > 2 ? 1 : crossAxisCount,
-                mainAxisCellCount: 1.5,
-                child: CategoryBreakdownCard(
-                  categoryBreakdown: _data?.categoryBreakdown ?? {},
-                  isLoading: _isLoading,
-                ).animate().fadeIn(delay: 260.ms),
-              ),
-              StaggeredGridTile.count(
-                crossAxisCellCount: crossAxisCount > 2 ? 1 : crossAxisCount,
-                mainAxisCellCount: 1.5, // Taller for list
-                child: RecentTransactionsCard(
-                  transactions: _data?.recentTransactions ?? [],
-                  isLoading: _isLoading,
-                ).animate().fadeIn(delay: 265.ms),
-              ),
-              // Trend Analysis
-              StaggeredGridTile.count(
-                crossAxisCellCount: crossAxisCount > 2 ? 2 : crossAxisCount,
-                mainAxisCellCount: 1.5,
-                child: const TrendAnalysisCard().animate().fadeIn(
-                  delay: 270.ms,
+          if (crossAxisCount > 1)
+            Row(
+              children: [
+                Expanded(
+                  child: ExpenseCard(
+                    amount: _data?.totalExpense ?? 0,
+                    isLoading: _isLoading,
+                  ),
                 ),
-              ),
-              // Financial Overview Card
-              StaggeredGridTile.count(
-                crossAxisCellCount: crossAxisCount > 2 ? 1 : crossAxisCount,
-                mainAxisCellCount: crossAxisCount > 2 ? 1.5 : 1.5,
-                child: const FinancialOverviewCard().animate().fadeIn(
-                  delay: 280.ms,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: IncomeCard(
+                    amount: _data?.totalIncome ?? 0,
+                    isLoading: _isLoading,
+                  ),
                 ),
-              ),
-              StaggeredGridTile.count(
-                crossAxisCellCount: crossAxisCount,
-                mainAxisCellCount: 1, // Shorter height for AI card in grid
-                child: _buildSuggestionCard(
-                  theme,
-                ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0),
-              ),
-              StaggeredGridTile.count(
-                crossAxisCellCount: crossAxisCount,
-                mainAxisCellCount: 0.5,
-                child: _buildQuickActions(
-                  theme,
-                ).animate().fadeIn(delay: 400.ms),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+              ],
+            ).animate().fadeIn(delay: 250.ms),
 
-  Widget _buildHeader(ThemeData theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dashboard',
-                style: theme.textTheme.headlineMedium,
-              ),
-              Text(
-                '$_greeting, $_userName',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        Row(
-          children: [
-            IconButton(
-              onPressed: () => _showUpdatesSheet(context),
-              icon: const Icon(Icons.notifications_outlined),
-              iconSize: 24,
-              style: IconButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                foregroundColor: theme.colorScheme.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              ),
-              icon: const Icon(Icons.person_outlined),
-              iconSize: 24,
-              style: IconButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                foregroundColor: theme.colorScheme.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-
-  Widget _buildMobileMetrics() {
-    return SizedBox(
-      height: 140,
-      child: PageView(
-        controller: PageController(viewportFraction: 0.9),
-        padEnds: false,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ExpenseCard(
+          if (crossAxisCount <= 1)
+            ExpenseCard(
               amount: _data?.totalExpense ?? 0,
               isLoading: _isLoading,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: SavingsCard(
-              amount: _data?.balance ?? 0,
+            ).animate().fadeIn(delay: 250.ms),
+          const SizedBox(height: 12),
+
+          if (crossAxisCount <= 1)
+            IncomeCard(
+              amount: _data?.totalIncome ?? 0,
               isLoading: _isLoading,
+            ).animate().fadeIn(delay: 275.ms),
+          if (crossAxisCount <= 1) const SizedBox(height: 12),
+
+          SavingsRateCard(
+            savingsRate: _data?.savingsRate.toInt() ?? 0,
+            isLoading: _isLoading,
+          ).animate().fadeIn(delay: 300.ms),
+          const SizedBox(height: 16),
+
+          RecentTransactionsCard(
+            transactions: _data?.recentTransactions ?? [],
+            isLoading: _isLoading,
+          ).animate().fadeIn(delay: 375.ms),
+          const SizedBox(height: 16),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Detailed charts and deep analytics are available in the Analysis tab.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: SavingsRateCard(
-              savingsRate: _data?.savingsRate.toInt() ?? 0,
-              isLoading: _isLoading,
-            ),
-          ),
+          const SizedBox(height: 20),
+
+          // Quick Actions (Enhanced - 2 rows)
+          _buildQuickActions(
+            theme,
+          ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -1011,7 +885,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ScheduledPaymentsScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const ScheduledPaymentsScreen(),
+                    ),
                   );
                 },
               ),
@@ -1024,7 +900,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const FinancialToolsScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const FinancialToolsScreen(),
+                    ),
                   );
                 },
               ),
@@ -1039,7 +917,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   // Since we're inside dashboard, we need to use a different approach
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Tap the Analysis tab for detailed insights!'),
+                      content: const Text(
+                        'Tap the Analysis tab for detailed insights!',
+                      ),
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -1244,7 +1124,7 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
           transform: Matrix4.identity()..scale(_isHovered ? 1.05 : 1.0),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _isHovered 
+            color: _isHovered
                 ? theme.colorScheme.primary.withValues(alpha: 0.15)
                 : theme.colorScheme.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),

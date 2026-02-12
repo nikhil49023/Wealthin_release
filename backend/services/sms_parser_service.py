@@ -16,91 +16,100 @@ class SMSTransactionParser:
     Parses SMS from major Indian banks to extract transaction information.
     Supports: SBI, HDFC, ICICI, Axis, Kotak, PNB, BOB, Canara, and others.
     """
-    
+
     def __init__(self):
         # Common bank sender IDs
         self.bank_senders = [
-            'SBI', 'SBIINB', 'SBIACCOUNT',
+            'SBI', 'SBIINB', 'SBIACCOUNT', 'SBIPSG',
             'HDFCBK', 'HDFCBANK',
             'ICICIB', 'ICICIBANK',
             'AXISBK', 'AXISBANK',
             'KOTAKBK', 'KOTAK',
-            'PNBSMS', 'BOBCARD', 'CANBNK',
+            'PNBSMS', 'BOBCARD', 'BOBSMS', 'CANBNK',
             'UNIONBK', 'IDBIBK', 'YESBANK',
-            'AUBANK', 'INDBNK', 'SCBANK'
+            'AUBANK', 'INDBNK', 'SCBANK',
+            'FEDERALBK', 'ILOANBK', 'ABORIG',
+            'PAYTM', 'PHONEPE', 'GPAY', 'CRED',
+            'IDFCFIRST', 'BAJFINANCE', 'RBLBANK',
         ]
-        
+
         # Transaction type keywords
         self.debit_keywords = [
             'debited', 'debit', 'paid', 'withdrawn', 'spent',
-            'purchase', 'dr', 'sent', 'transferred to'
+            'purchase', 'purchased', 'sent', 'transferred to',
+            'charged', 'txn at', 'txn of', 'pos txn', 'upi txn',
+            'transaction at',
         ]
-        
+
         self.credit_keywords = [
-            'credited', 'credit', 'received', 'deposited',
-            'cr', 'salary', 'refund', 'cashback'
+            'credited', 'received', 'deposited',
+            'salary', 'sal cr', 'refund', 'cashback',
+            'interest credited', 'reward credited',
         ]
-    
+
     def is_transaction_sms(self, sender: str, message: str) -> bool:
         """Check if SMS is a transaction notification"""
         # Check sender
         sender_upper = sender.upper()
         is_bank_sender = any(bank in sender_upper for bank in self.bank_senders)
-        
+
         # Check for transaction keywords
         msg_lower = message.lower()
         has_transaction_keyword = (
             any(kw in msg_lower for kw in self.debit_keywords) or
-            any(kw in msg_lower for kw in self.credit_keywords)
+            any(kw in msg_lower for kw in self.credit_keywords) or
+            # Also check word-boundary "dr"/"cr" patterns
+            bool(re.search(r'\bdr\b', msg_lower)) or
+            bool(re.search(r'\bcr\b', msg_lower))
         )
-        
+
         # Check for amount pattern
-        has_amount = bool(re.search(r'(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d{2})?', msg_lower))
-        
+        has_amount = bool(re.search(r'(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d{1,2})?', msg_lower))
+
         return is_bank_sender and has_transaction_keyword and has_amount
-    
+
     def parse_sms(self, sender: str, message: str, timestamp: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
         """
         Parse transaction SMS and extract details
-        
+
         Args:
             sender: SMS sender ID
             message: SMS text content
             timestamp: SMS timestamp
-        
+
         Returns:
             Transaction dict or None if parsing fails
         """
         if not self.is_transaction_sms(sender, message):
             return None
-        
+
         try:
-            # Extract amount
-            amount = self._extract_amount(message)
+            # Extract balance FIRST so we can exclude it from amount extraction
+            balance = self._extract_balance(message)
+
+            # Extract transaction amount (context-aware, avoids balance)
+            amount = self._extract_amount(message, balance)
             if not amount:
                 return None
-            
+
             # Determine transaction type
             tx_type = self._determine_type(message)
-            
+
             # Extract merchant/description
             description = self._extract_description(message)
-            
+
             # Extract account number (last 4 digits)
             account = self._extract_account(message)
-            
+
             # Extract date/time if present in SMS
             tx_date = self._extract_date(message) or timestamp or datetime.now()
-            
-            # Extract balance if available
-            balance = self._extract_balance(message)
-            
+
             # Categorize transaction
             category = self._categorize_transaction(description, message)
-            
+
             # Determine bank from sender
             bank = self._identify_bank(sender)
-            
+
             return {
                 'amount': amount,
                 'type': tx_type,
@@ -114,7 +123,7 @@ class SMSTransactionParser:
                 'raw_sms': message,
                 'sender': sender
             }
-        
+
         except Exception as e:
             logger.error(f"Error parsing SMS: {e}")
             return None
@@ -172,60 +181,125 @@ class SMSTransactionParser:
 
         return (parsed, confidence)
 
-    def _extract_amount(self, text: str) -> Optional[float]:
-        """Extract transaction amount"""
-        # Common patterns:
-        # Rs.1,234.56 | INR 1234.56 | ₹1,234 | Rs 1234 | Rs.100.5
-        patterns = [
-            r'(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)',  # Match 1-2 decimals
-            r'([\d,]+(?:\.\d{1,2})?)\s*(?:inr|rs\.?)',
-            r'amount\s*(?:of\s*)?(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)',
+    def _extract_amount(self, text: str, balance: Optional[float] = None) -> Optional[float]:
+        """Extract transaction amount, avoiding confusion with balance"""
+        msg_lower = text.lower()
+
+        # Strategy 1: Look for amount right next to debit/credit keywords
+        # e.g. "debited by Rs.500", "credited with Rs.1000", "paid Rs.250"
+        contextual_patterns = [
+            r'(?:debited|debit|paid|withdrawn|spent|purchased|sent|charged)\s*(?:by\s*|for\s*|of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            r'(?:credited|received|deposited|refund)\s*(?:by\s*|with\s*|of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            r'(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)\s*(?:has been\s*)?(?:debited|credited|paid|withdrawn|received|deposited)',
         ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
+
+        for pattern in contextual_patterns:
+            match = re.search(pattern, msg_lower)
             if match:
                 amount_str = match.group(1).replace(',', '')
                 try:
-                    return float(amount_str)
-                except:
+                    amount = float(amount_str)
+                    if 0.01 <= amount <= 10_000_000:
+                        return amount
+                except (ValueError, OverflowError):
                     pass
+
+        # Strategy 2: Generic Rs/INR patterns, but skip amounts that match the balance
+        generic_patterns = [
+            r'(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            r'([\d,]+(?:\.\d{1,2})?)\s*(?:inr|rs\.?)',
+            r'(?:amount|amt)\s*(?:of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?([\d,]+(?:\.\d{1,2})?)',
+        ]
+
+        # Collect all amount matches, excluding those in balance context
+        balance_region = self._find_balance_region(text)
+
+        for pattern in generic_patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                # Skip if this match is inside the balance region
+                if balance_region and balance_region[0] <= match.start() <= balance_region[1]:
+                    continue
+
+                amount_str = match.group(1).replace(',', '')
+                try:
+                    amount = float(amount_str)
+                    # Skip if amount equals the balance (likely picked up balance)
+                    if balance is not None and abs(amount - balance) < 0.01:
+                        continue
+                    if 0.01 <= amount <= 10_000_000:
+                        return amount
+                except (ValueError, OverflowError):
+                    pass
+
         return None
-    
+
+    def _find_balance_region(self, text: str) -> Optional[tuple]:
+        """Find the character range in text where balance info appears"""
+        balance_markers = [
+            r'(?:avl\.?\s*bal|avail(?:able)?\s*bal(?:ance)?|a/c\s*bal|net\s*(?:avl\.?\s*)?bal|closing\s*bal|bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[\d,]+(?:\.\d{1,2})?',
+            r'(?:rs\.?\s*|inr\s*|₹\s*)[\d,]+(?:\.\d{1,2})?\s*(?:available|avl|avail)',
+        ]
+        for pattern in balance_markers:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return (match.start(), match.end())
+        return None
+
     def _determine_type(self, text: str) -> str:
         """Determine if transaction is debit or credit"""
         text_lower = text.lower()
-        
-        # Check credit first (more specific)
-        if any(kw in text_lower for kw in self.credit_keywords):
-            return 'credit'
-        
-        # Check debit
+
+        # Exclusion: "credit card" is a DEBIT instrument, not a credit transaction
+        has_credit_card = 'credit card' in text_lower or 'creditcard' in text_lower
+
+        # Check credit keywords first (more specific phrases)
+        # But skip if the only "credit" match is from "credit card"
+        if not has_credit_card:
+            if any(kw in text_lower for kw in self.credit_keywords):
+                return 'credit'
+            # Word-boundary check for standalone "cr" (e.g. "Cr Rs.500")
+            if re.search(r'\bcr\b', text_lower):
+                return 'credit'
+        else:
+            # Even with "credit card", check for explicit credited/received etc.
+            specific_credit = ['credited', 'received', 'deposited', 'refund', 'cashback', 'salary']
+            if any(kw in text_lower for kw in specific_credit):
+                return 'credit'
+
+        # Check debit keywords
         if any(kw in text_lower for kw in self.debit_keywords):
             return 'debit'
-        
+        # Word-boundary check for standalone "dr" (e.g. "Dr Rs.1000")
+        if re.search(r'\bdr\b', text_lower):
+            return 'debit'
+
         return 'debit'  # Default to debit if unclear
-    
+
     def _extract_description(self, text: str) -> str:
         """Extract merchant/transaction description"""
-        # Common patterns (case-insensitive for merchant names)
+        # Words that should not be treated as merchant names
+        skip_words = {'your', 'my', 'the', 'this', 'his', 'her', 'their', 'our', 'a/c', 'account'}
+
         patterns = [
-            r'(?:at|to|from)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\.|$)',
-            r'(?:paid to|sent to)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\.|$)',
-            r'(?:received from)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\.|$)',
+            r'(?:at|to|from)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\s+a/c|\.|$)',
+            r'(?:paid to|sent to)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\.|$)',
+            r'(?:received from)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\.|$)',
             r'(?:UPI/)([\w\s@\-\.]+?)(?:/|$)',
-            r'(?:VPA-)([\w@\.]+)',
+            r'(?:VPA[:\s-])([\w@\.]+)',
+            r'(?:for\s+)([\w\s&\-\.]+?)(?:\s+on|\s+at|\s+ref|\.|$)',
         ]
-        
+
         for pattern in patterns:
-            match = re.search(pattern, text)
+            match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 desc = match.group(1).strip()
-                # Clean up
                 desc = re.sub(r'\s+', ' ', desc)
-                if len(desc) > 3:  # Avoid single letters
+                # Skip if description is just a common word (not a merchant name)
+                if desc.lower() in skip_words:
+                    continue
+                if len(desc) > 3:
                     return desc
-        
+
         # Fallback: Extract first capitalized phrase
         words = text.split()
         cap_phrase = []
@@ -234,49 +308,59 @@ class SMSTransactionParser:
                 cap_phrase.append(word)
                 if len(cap_phrase) >= 3:
                     break
-        
+
         if cap_phrase:
             return ' '.join(cap_phrase)
-        
+
         return 'Transaction'
-    
+
     def _extract_account(self, text: str) -> Optional[str]:
         """Extract last 4 digits of account"""
-        # Pattern: A/C **1234 or Account XX1234
         patterns = [
-            r'(?:a/c|account|card)\s*(?:\*{2,}|xx)?(\d{4})',
-            r'(\d{4})\s*(?:on|at)',
+            r'(?:a/c|acct?|account|card)\s*(?:no\.?\s*)?(?:\*{2,}|[xX]{2,})?(\d{4})',
+            r'(?:\*{2,}|[xX]{2,})(\d{4})',
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 return match.group(1)
         return None
-    
+
     def _extract_balance(self, text: str) -> Optional[float]:
-        """Extract available balance if mentioned"""
+        """Extract available balance if mentioned in SMS"""
+        # Comprehensive balance patterns for Indian banks
+        # Order matters: more specific patterns first
         patterns = [
-            r'(?:balance|bal|avl\.?\s*bal)\.?\s*(?:is\s*)?(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{2})?)',
-            r'(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{2})?)\s*(?:available|avl)',
+            # "Avl Bal Rs.10,000.00" / "Avl. Bal: Rs 10000" / "Avail Bal INR 5000"
+            r'(?:avl\.?\s*bal|avail(?:able)?\s*bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            # "A/c bal: Rs.10000" / "Account balance Rs.5000"
+            r'(?:a/c\s*bal(?:ance)?|account\s*bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            # "Net Avl Bal Rs.10000" / "Net Bal: INR 5000"
+            r'(?:net\s*(?:avl\.?\s*)?bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            # "Closing Bal Rs.10000"
+            r'(?:closing\s*bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            # "Balance Rs.10000" / "Bal Rs 5000" / "Bal: INR 10000" / "Bal:Rs.5000"
+            r'(?:bal(?:ance)?)\s*[:.]?\s*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            # Reversed: "Rs.10000 available" / "INR 5000 avl"
+            r'(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)\s*(?:available|avl|avail)',
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 try:
                     return float(match.group(1).replace(',', ''))
-                except:
+                except (ValueError, OverflowError):
                     pass
         return None
-    
+
     def _extract_date(self, text: str) -> Optional[datetime]:
         """Extract transaction date if present"""
         current_year = datetime.now().year
 
-        # Pattern: 12-Jan-26 | 12/01/26 | 12 Jan
         patterns = [
-            (r'(\d{1,2})-(\w{3})-(\d{2})', '%d-%b-%y'),  # 12-Jan-26
+            (r'(\d{1,2})-(\w{3})-(\d{2,4})', '%d-%b-%y'),  # 12-Jan-26
             (r'(\d{1,2})/(\d{1,2})/(\d{2,4})', None),     # 12/01/26 (custom)
             (r'(\d{1,2})\s+(\w{3})', None),               # 12 Jan (custom)
             (r'on\s+(\d{1,2})-(\d{1,2})-(\d{2,4})', None), # on 12-01-2026
@@ -290,10 +374,12 @@ class SMSTransactionParser:
             if match:
                 try:
                     if fmt:
-                        # Use strptime for standard formats
                         date_str = match.group(0)
-                        parsed = datetime.strptime(date_str, fmt)
-                        # Handle 2-digit years: 00-50 -> 2000s, 51-99 -> 1900s
+                        # Handle 4-digit year in dd-Mon-yyyy format
+                        if re.match(r'\d{1,2}-\w{3}-\d{4}', date_str):
+                            parsed = datetime.strptime(date_str, '%d-%b-%Y')
+                        else:
+                            parsed = datetime.strptime(date_str, fmt)
                         if parsed.year < 100:
                             if parsed.year <= 50:
                                 parsed = parsed.replace(year=parsed.year + 2000)
@@ -301,21 +387,17 @@ class SMSTransactionParser:
                                 parsed = parsed.replace(year=parsed.year + 1900)
                         return parsed
                     else:
-                        # Custom parsing for flexible formats
                         groups = match.groups()
                         if len(groups) == 2 and groups[1].isalpha():
-                            # Format: "12 Jan" (no year)
                             day = int(groups[0])
                             month_abbr = groups[1][:3].title()
                             date_str = f"{day} {month_abbr} {current_year}"
                             parsed = datetime.strptime(date_str, '%d %b %Y')
                             return parsed
                         elif len(groups) >= 2:
-                            # Format: "12/01/26" or "12-01-2026"
                             day = int(groups[0])
                             month = int(groups[1])
                             year = int(groups[2]) if len(groups) > 2 else current_year
-                            # Handle 2-digit years
                             if year < 100:
                                 year = year + 2000 if year <= 50 else year + 1900
                             return datetime(year, month, day)
@@ -324,37 +406,43 @@ class SMSTransactionParser:
                     continue
 
         return None
-    
+
     def _categorize_transaction(self, description: str, full_text: str) -> str:
         """Auto-categorize transaction based on merchant"""
         desc_lower = description.lower()
         text_lower = full_text.lower()
-        
-        # Category mapping
+
         categories = {
-            'Food & Dining': ['zomato', 'swiggy', 'dominos', 'mcdonald', 'kfc', 'restaurant', 'cafe'],
-            'Shopping': ['amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'shop'],
-            'Transport': ['uber', 'ola', 'petrol', 'fuel', 'metro', 'parking'],
-            'Utilities': ['electricity', 'water', 'gas', 'broadband', 'mobile', 'recharge', 'bill'],
-            'Entertainment': ['netflix', 'prime', 'spotify', 'hotstar', 'movie', 'ticket'],
-            'Groceries': ['bigbasket', 'dmart', 'grofers', 'blinkit', 'grocery'],
-            'Healthcare': ['pharmacy', 'hospital', 'clinic', 'doctor', 'medicine', 'apollo'],
-            'Education': ['school', 'college', 'course', 'tuition', 'fees'],
-            'EMI': ['emi', 'loan', 'credit card'],
+            'Food & Dining': ['zomato', 'swiggy', 'dominos', 'mcdonald', 'kfc', 'restaurant', 'cafe', 'pizza', 'burger', 'starbucks', 'subway'],
+            'Shopping': ['amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'shop', 'meesho', 'jiomart'],
+            'Transport': ['uber', 'ola', 'rapido', 'petrol', 'fuel', 'metro', 'parking', 'fastag', 'toll'],
+            'Utilities': ['electricity', 'water', 'gas', 'broadband', 'mobile', 'recharge', 'bill', 'airtel', 'jio', 'vodafone', 'bsnl'],
+            'Entertainment': ['netflix', 'prime', 'spotify', 'hotstar', 'movie', 'ticket', 'zee5', 'sonyliv'],
+            'Groceries': ['bigbasket', 'dmart', 'grofers', 'blinkit', 'grocery', 'zepto', 'instamart'],
+            'Healthcare': ['pharmacy', 'hospital', 'clinic', 'doctor', 'medicine', 'apollo', 'medplus', '1mg'],
+            'Education': ['school', 'college', 'course', 'tuition', 'fees', 'udemy', 'byjus'],
+            'Rent & Housing': ['rent', 'maintenance', 'society', 'housing'],
+            'Insurance': ['insurance', 'policy', 'premium', 'lic'],
+            'Investments': ['mutual fund', 'sip', 'stock', 'zerodha', 'groww', 'upstox', 'fd', 'ppf', 'nps'],
+            'EMI': ['emi', 'loan'],
             'Salary': ['salary', 'sal cr'],
-            'Transfer': ['upi', 'imps', 'neft', 'transfer']
+            'Transfer': ['upi', 'imps', 'neft', 'rtgs', 'transfer']
         }
-        
+
         for category, keywords in categories.items():
             if any(kw in desc_lower or kw in text_lower for kw in keywords):
                 return category
-        
+
+        # ATM check
+        if 'atm' in text_lower or 'cash withdrawal' in text_lower:
+            return 'Cash Withdrawal'
+
         return 'Others'
-    
+
     def _identify_bank(self, sender: str) -> str:
         """Identify bank from sender ID"""
         sender_upper = sender.upper()
-        
+
         bank_map = {
             'SBI': 'State Bank of India',
             'HDFC': 'HDFC Bank',
@@ -369,37 +457,43 @@ class SMSTransactionParser:
             'YES': 'Yes Bank',
             'AUBANK': 'AU Small Finance Bank',
             'INDBNK': 'IndusInd Bank',
-            'SCBANK': 'Standard Chartered'
+            'SCBANK': 'Standard Chartered',
+            'FEDERAL': 'Federal Bank',
+            'IDFC': 'IDFC First Bank',
+            'RBL': 'RBL Bank',
+            'PAYTM': 'Paytm Payments Bank',
+            'PHONEPE': 'PhonePe',
+            'GPAY': 'Google Pay',
         }
-        
+
         for key, name in bank_map.items():
             if key in sender_upper:
                 return name
-        
+
         return 'Unknown Bank'
-    
+
     def parse_batch(self, sms_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Parse multiple SMS messages
-        
+
         Args:
             sms_list: List of dicts with 'sender', 'message', 'timestamp'
-        
+
         Returns:
             List of parsed transactions
         """
         transactions = []
-        
+
         for sms in sms_list:
             result = self.parse_sms(
                 sender=sms.get('sender', ''),
                 message=sms.get('message', ''),
                 timestamp=sms.get('timestamp')
             )
-            
+
             if result:
                 transactions.append(result)
-        
+
         logger.info(f"Parsed {len(transactions)} transactions from {len(sms_list)} SMS")
         return transactions
 

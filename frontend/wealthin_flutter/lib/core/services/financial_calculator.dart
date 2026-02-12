@@ -206,8 +206,9 @@ class FinancialCalculator {
     final monthsCovered = monthlyExpenses > 0 ? (currentSavings / monthlyExpenses) : 0.0;
 
     String status = "Critical";
-    if (percentComplete >= 100) status = "Excellent";
-    else if (percentComplete >= 80) status = "Good";
+    if (percentComplete >= 100) {
+      status = "Excellent";
+    } else if (percentComplete >= 80) status = "Good";
     else if (percentComplete >= 50) status = "Fair";
     else if (percentComplete >= 20) status = "Poor";
 

@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService extends ChangeNotifier {
-  
   User? _user;
+  StreamSubscription<AuthState>? _authStateSubscription;
   User? get currentUser => _user;
   bool get isAuthenticated => _user != null;
 
@@ -12,15 +14,23 @@ class AuthService extends ChangeNotifier {
   }
 
   void _initialize() {
-    final session = Supabase.instance.client.auth.currentSession;
-    _user = session?.user;
-    
-    // Listen to auth state changes
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      _user = data.session?.user;
-      notifyListeners();
-      debugPrint('[AuthService] User changed: ${_user?.email}');
-    });
+    try {
+      final client = Supabase.instance.client;
+      final session = client.auth.currentSession;
+      _user = session?.user;
+
+      // Listen to auth state changes
+      _authStateSubscription = client.auth.onAuthStateChange.listen((data) {
+        _user = data.session?.user;
+        notifyListeners();
+        debugPrint('[AuthService] User changed: ${_user?.email}');
+      });
+    } catch (error) {
+      debugPrint(
+        '[AuthService] Supabase is unavailable during startup: $error',
+      );
+      _user = null;
+    }
   }
 
   /// Sign in with email and password
@@ -55,7 +65,7 @@ class AuthService extends ChangeNotifier {
       );
       return response;
     } on AuthException catch (e) {
-       throw _handleSupabaseError(e);
+      throw _handleSupabaseError(e);
     } catch (e) {
       throw 'An unexpected error occurred: $e';
     }
@@ -100,5 +110,10 @@ class AuthService extends ChangeNotifier {
     }
     return e.message;
   }
-}
 
+  @override
+  void dispose() {
+    _authStateSubscription?.cancel();
+    super.dispose();
+  }
+}

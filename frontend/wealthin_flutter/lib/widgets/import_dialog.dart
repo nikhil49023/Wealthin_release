@@ -1,15 +1,9 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/foundation.dart'
-    show debugPrint, defaultTargetPlatform, TargetPlatform;
-import '../core/services/backend_config.dart';
 import '../core/services/data_service.dart';
 import '../core/services/python_bridge_service.dart';
 import '../core/models/models.dart';
@@ -103,91 +97,54 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
     });
 
     try {
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        // Save PDF to temp file
-        final tempDir = await getTemporaryDirectory();
-        final tempPath =
-            '${tempDir.path}/statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        final tempFile = File(tempPath);
-        await tempFile.writeAsBytes(_fileBytes!);
+      // Save PDF to temp file
+      final tempDir = await getTemporaryDirectory();
+      final tempPath =
+          '${tempDir.path}/statement_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final tempFile = File(tempPath);
+      await tempFile.writeAsBytes(_fileBytes!);
 
-        debugPrint('[ImportDialog] PDF saved to: $tempPath');
+      debugPrint('[ImportDialog] PDF saved to: $tempPath');
 
-        // Use DataService which calls Python backend (pdfplumber)
-        final transactions = await dataService.scanBankStatement(tempPath);
+      // Use local parser flow via DataService
+      final transactions = await dataService.scanBankStatement(tempPath);
 
-        List<Map<String, dynamic>> transactionMaps = [];
-        if (transactions.isNotEmpty) {
-          transactionMaps = transactions
-              .map(
-                (tx) => {
-                  'date': tx.date.toIso8601String().substring(0, 10),
-                  'description': tx.description,
-                  'amount': tx.amount,
-                  'type': tx.type,
-                  'category': tx.category,
-                  'merchant': tx.merchant,
-                },
-              )
-              .toList()
-              .cast<Map<String, dynamic>>();
-        }
+      List<Map<String, dynamic>> transactionMaps = [];
+      if (transactions.isNotEmpty) {
+        transactionMaps = transactions
+            .map(
+              (tx) => {
+                'date': tx.date.toIso8601String().substring(0, 10),
+                'description': tx.description,
+                'amount': tx.amount,
+                'type': tx.type,
+                'category': tx.category,
+                'merchant': tx.merchant,
+              },
+            )
+            .toList()
+            .cast<Map<String, dynamic>>();
+      }
 
-        // Clean up temp file
-        try {
-          await tempFile.delete();
-        } catch (_) {}
+      // Clean up temp file
+      try {
+        await tempFile.delete();
+      } catch (_) {}
 
-        if (transactionMaps.isNotEmpty) {
-          setState(() {
-            _bankDetected = _detectBank(_fileName);
-            _extractedTransactions = transactionMaps;
-            _showPreview = true;
-            _isLoading = false;
-          });
-          debugPrint(
-            '[ImportDialog] Found ${transactionMaps.length} transactions',
-          );
-        } else {
-          throw Exception(
-            'No transactions found. Ensure the PDF has selectable text with dates and amounts.',
-          );
-        }
+      if (transactionMaps.isNotEmpty) {
+        setState(() {
+          _bankDetected = _detectBank(_fileName);
+          _extractedTransactions = transactionMaps;
+          _showPreview = true;
+          _isLoading = false;
+        });
+        debugPrint(
+          '[ImportDialog] Found ${transactionMaps.length} transactions',
+        );
       } else {
-        // === Desktop: Use HTTP backend ===
-        final uri = Uri.parse(
-          '${backendConfig.baseUrl}/transactions/import/pdf?user_id=${widget.userId}',
+        throw Exception(
+          'No transactions found. Ensure the PDF has selectable text with dates and amounts.',
         );
-        final request = http.MultipartRequest('POST', uri);
-
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'file',
-            _fileBytes!,
-            filename: _fileName ?? 'statement.pdf',
-            contentType: MediaType('application', 'pdf'),
-          ),
-        );
-
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          setState(() {
-            _bankDetected = data['bank_detected'];
-            _extractedTransactions = List<Map<String, dynamic>>.from(
-              data['transactions'] ?? [],
-            );
-            _showPreview = true;
-            _isLoading = false;
-          });
-        } else {
-          final errorData = jsonDecode(response.body);
-          throw Exception(
-            errorData['detail'] ?? 'Failed to extract transactions',
-          );
-        }
       }
 
       if (_extractedTransactions.isEmpty && mounted) {
@@ -217,81 +174,43 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
     });
 
     try {
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        // Use Python bridge for image OCR
-        final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/$_fileName');
-        await tempFile.writeAsBytes(_fileBytes!);
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/$_fileName');
+      await tempFile.writeAsBytes(_fileBytes!);
 
-        // Use Python bridge for receipt extraction
-        final result = await pythonBridge.executeTool(
-          'extract_receipt',
-          {'file_path': tempFile.path},
-        );
+      // Use Python bridge for receipt extraction
+      final result = await pythonBridge.executeTool(
+        'extract_receipt',
+        {'file_path': tempFile.path},
+      );
 
-        setState(() {
-          if (result['success'] == true && result['transaction'] != null) {
-            _extractedTransactions = [
-              result['transaction'] as Map<String, dynamic>,
-            ];
-          } else {
-            _error =
-                result['error']?.toString() ?? 'Failed to extract from image';
-          }
-          _showPreview = true;
-          _isLoading = false;
-        });
-      } else {
-        // Original HTTP logic
-        final uri = Uri.parse(
-          '${backendConfig.baseUrl}/transactions/import/image?user_id=${widget.userId}',
-        );
-        final request = http.MultipartRequest('POST', uri);
+      setState(() {
+        if (result['success'] == true && result['transaction'] != null) {
+          _extractedTransactions = [
+            result['transaction'] as Map<String, dynamic>,
+          ];
+        } else {
+          _error =
+              result['error']?.toString() ?? 'Failed to extract from image';
+        }
+        _showPreview = true;
+        _isLoading = false;
+      });
 
-        final extension = _fileName?.split('.').last ?? 'jpg';
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'file',
-            _fileBytes!,
-            filename: _fileName ?? 'receipt.$extension',
-            contentType: MediaType(
-              'image',
-              extension == 'jpg' ? 'jpeg' : extension,
-            ),
+      try {
+        await tempFile.delete();
+      } catch (_) {}
+
+      final confidence = (result['confidence'] is num)
+          ? (result['confidence'] as num).toDouble()
+          : double.tryParse(result['confidence']?.toString() ?? '');
+      if (confidence != null && confidence < 0.7 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Low confidence extraction. Please verify details.'),
+            backgroundColor: Colors.orange,
           ),
         );
-
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final transaction = data['transaction'] as Map<String, dynamic>?;
-
-          setState(() {
-            if (transaction != null) {
-              _extractedTransactions = [transaction];
-            }
-            _showPreview = true;
-            _isLoading = false;
-          });
-
-          if (data['confidence'] != null && data['confidence'] < 0.7) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Low confidence extraction. Please verify the details.',
-                ),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        } else {
-          final errorData = jsonDecode(response.body);
-          throw Exception(
-            errorData['detail'] ?? 'Failed to extract from image',
-          );
-        }
       }
     } catch (e) {
       setState(() {
@@ -313,34 +232,15 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
     });
   }
 
-  /// Deduplicate transactions based on date + amount + description prefix
-  List<Map<String, dynamic>> _deduplicateTransactions(
-    List<Map<String, dynamic>> transactions,
-  ) {
-    final seen = <String>{};
-    final result = <Map<String, dynamic>>[];
-
-    for (final tx in transactions) {
-      final desc = tx['description']?.toString() ?? '';
-      final key =
-          '${tx['date']}_${tx['amount']}_${desc.length > 15 ? desc.substring(0, 15) : desc}';
-      if (!seen.contains(key)) {
-        seen.add(key);
-        result.add(tx);
-      }
-    }
-
-    return result;
-  }
-
   /// Detect bank/source from filename
   String _detectBank(String? filename) {
     if (filename == null) return 'Statement';
     final lower = filename.toLowerCase();
 
     if (lower.contains('phonepe')) return 'PhonePe';
-    if (lower.contains('gpay') || lower.contains('googlepay'))
+    if (lower.contains('gpay') || lower.contains('googlepay')) {
       return 'Google Pay';
+    }
     if (lower.contains('paytm')) return 'Paytm';
     if (lower.contains('hdfc')) return 'HDFC Bank';
     if (lower.contains('sbi')) return 'SBI';
@@ -757,44 +657,66 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
 
                                   // Trigger analysis snapshot after import
                                   try {
-                                    final dashData = await dataService.getDashboard(widget.userId);
-                                    final healthScore = await dataService.getHealthScore(widget.userId);
+                                    final dashData = await dataService
+                                        .getDashboard(widget.userId);
+                                    final healthScore = await dataService
+                                        .getHealthScore(widget.userId);
 
                                     if (dashData != null) {
-                                      final snapshotResult = await dataService.saveAnalysisSnapshot(
-                                        userId: widget.userId,
-                                        totalIncome: dashData.totalIncome,
-                                        totalExpense: dashData.totalExpense,
-                                        savingsRate: dashData.savingsRate,
-                                        healthScore: healthScore?.totalScore ?? 0,
-                                        categoryBreakdown: dashData.categoryBreakdown.map(
-                                          (k, v) => MapEntry(k, v.toDouble()),
-                                        ),
-                                        insights: healthScore?.insights ?? [],
+                                      final snapshotResult = await dataService
+                                          .saveAnalysisSnapshot(
+                                            userId: widget.userId,
+                                            totalIncome: dashData.totalIncome,
+                                            totalExpense: dashData.totalExpense,
+                                            savingsRate: dashData.savingsRate,
+                                            healthScore:
+                                                healthScore?.totalScore ?? 0,
+                                            categoryBreakdown: dashData
+                                                .categoryBreakdown
+                                                .map(
+                                                  (k, v) =>
+                                                      MapEntry(k, v.toDouble()),
+                                                ),
+                                            insights:
+                                                healthScore?.insights ?? [],
+                                          );
+                                      debugPrint(
+                                        '[Import] Analysis snapshot triggered',
                                       );
-                                      debugPrint('[Import] Analysis snapshot triggered');
 
                                       // Check for new milestones
-                                      final newMilestones = List<Map<String, dynamic>>.from(
-                                        snapshotResult['newly_achieved_milestones'] ?? [],
-                                      );
+                                      final newMilestones =
+                                          List<Map<String, dynamic>>.from(
+                                            snapshotResult['newly_achieved_milestones'] ??
+                                                [],
+                                          );
                                       if (newMilestones.isNotEmpty && mounted) {
                                         for (final m in newMilestones) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                 '🎉 ${m['name']} unlocked! +${m['xp_reward']} XP',
                                               ),
-                                              backgroundColor: const Color(0xFF4CAF50),
-                                              duration: const Duration(seconds: 3),
+                                              backgroundColor: const Color(
+                                                0xFF4CAF50,
+                                              ),
+                                              duration: const Duration(
+                                                seconds: 3,
+                                              ),
                                             ),
                                           );
-                                          await Future.delayed(const Duration(milliseconds: 500));
+                                          await Future.delayed(
+                                            const Duration(milliseconds: 500),
+                                          );
                                         }
                                       }
                                     }
                                   } catch (e) {
-                                    debugPrint('[Import] Analysis snapshot error (non-critical): $e');
+                                    debugPrint(
+                                      '[Import] Analysis snapshot error (non-critical): $e',
+                                    );
                                   }
                                 }
 

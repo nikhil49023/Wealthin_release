@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, kIsWeb;
@@ -6,8 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
-import 'core/services/backend_config.dart';
-import 'core/services/sidecar_manager.dart';
 import 'core/services/python_bridge_service.dart';
 import 'core/services/startup_permissions_service.dart';
 import 'features/auth/auth_wrapper.dart';
@@ -20,12 +20,11 @@ import 'features/onboarding/onboarding_screen.dart';
 import 'core/services/ai_agent_service.dart';
 import 'core/services/data_service.dart';
 import 'core/config/secrets.dart';
+import 'core/utils/responsive_utils.dart';
 import 'features/analysis/analysis_screen.dart';
-
 
 /// Global auth service for Supabase authentication
 late final AuthService authService;
-
 
 /// Global theme mode notifier
 final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(
@@ -38,66 +37,93 @@ final dataService = DataService();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: 'https://sguzpnegfmeuczgsmtgl.supabase.co',
-    anonKey: 'sb_publishable_ee1UuOOs0ruoqtmdqbRCEg__ls-kja4',
-  );
+  await _initializeSupabase();
 
   // Initialize auth service
   authService = AuthService();
 
-  // Initialize credit system
-  await dataService.initCredits();
-  debugPrint('[App] User Credits Initialized: ${dataService.userCredits.value}');
-
-  // Initialize daily streak
-  final streakData = await dataService.initStreak();
-  debugPrint('[App] Daily Streak: ${streakData['current_streak']} days');
-
-  // Initialize secure storage for API keys
-  await AppSecrets.initialize();
-  debugPrint('[App] Secure storage initialized');
-  if (AppSecrets.isUsingDefaultKeys) {
-    debugPrint('[App] Warning: Using default API keys. Configure in Settings for production.');
-  }
-
-  // Initialize backend based on platform
-  if (!kIsWeb) {
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      // On Android, use EMBEDDED Python via Chaquopy (no HTTP backend needed)
-      debugPrint('[App] Initializing embedded Python backend...');
-      final available = await pythonBridge.initialize();
-      debugPrint(available
-          ? '[App] ✓ Python backend initialized - Full embedded mode'
-          : '[App] ⚠ Python unavailable - using Dart fallbacks');
-      
-      // No HTTP backend needed on Android - everything runs locally
-      debugPrint('[App] Mode: Embedded Python (no external backend)');
-    } else {
-      // On desktop (Linux/Windows/macOS), try sidecar + HTTP backend
-      debugPrint('[App] Starting Python backend sidecar...');
-      final sidecarStarted = await sidecarManager.start();
-      if (sidecarStarted) {
-        debugPrint('[App] Sidecar started successfully');
-      } else {
-        debugPrint('[App] Sidecar failed - trying existing backend');
-      }
-      
-      // Initialize HTTP backend connection for desktop
-      backendConfig.initialize().then((connected) {
-        debugPrint(connected
-            ? '[Backend] Connected on port ${backendConfig.activePort}'
-            : '[Backend] No HTTP backend - using local calculations');
-      });
-    }
-  }
-
-  // Initialize AI Agent Service with Cloud preference for LLM
-  await aiAgentService.initialize();
-
   runApp(const WealthInApp());
+
+  // Non-critical startup tasks run in background to reduce launch latency.
+  unawaited(_initializeDeferredServices());
 }
 
+Future<void> _initializeSupabase() async {
+  try {
+    await Supabase.initialize(
+      url: 'https://sguzpnegfmeuczgsmtgl.supabase.co',
+      anonKey: 'sb_publishable_ee1UuOOs0ruoqtmdqbRCEg__ls-kja4',
+    ).timeout(const Duration(seconds: 8));
+  } on TimeoutException {
+    debugPrint('[App] ⚠ Supabase initialization timed out.');
+  } catch (error, stackTrace) {
+    debugPrint('[App] ⚠ Supabase initialization failed: $error');
+    debugPrint('$stackTrace');
+  }
+}
+
+Future<void> _initializeDeferredServices() async {
+  final dataTasks = Future.wait<void>([
+    _runStartupTask('credits', () async {
+      await dataService.initCredits();
+      debugPrint(
+        '[App] User Credits Initialized: ${dataService.userCredits.value}',
+      );
+    }),
+    _runStartupTask('daily streak', () async {
+      final streakData = await dataService.initStreak();
+      debugPrint('[App] Daily Streak: ${streakData['current_streak']} days');
+    }),
+  ]);
+
+  final secureStorageTask = _runStartupTask('secure storage', () async {
+    await AppSecrets.initialize();
+    debugPrint('[App] Secure storage initialized');
+    if (AppSecrets.isUsingDefaultKeys) {
+      debugPrint(
+        '[App] Warning: Using default API keys. Configure in Settings for production.',
+      );
+    }
+  });
+
+  final pythonTask = _runStartupTask('python backend', () async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      debugPrint('[App] Initializing embedded Python backend...');
+      final available = await pythonBridge.initialize();
+      debugPrint(
+        available
+            ? '[App] ✓ Python backend initialized (embedded mode)'
+            : '[App] ⚠ Python unavailable - using Dart fallbacks',
+      );
+      return;
+    }
+
+    debugPrint(
+      '[App] Android-only runtime: skipping non-Android backend setup.',
+    );
+  });
+
+  await Future.wait<void>([dataTasks, secureStorageTask, pythonTask]);
+
+  await _runStartupTask('AI agent service', () async {
+    await aiAgentService.initialize();
+  });
+}
+
+Future<void> _runStartupTask(
+  String taskName,
+  Future<void> Function() task, {
+  Duration timeout = const Duration(seconds: 8),
+}) async {
+  try {
+    await task().timeout(timeout);
+  } on TimeoutException {
+    debugPrint('[App] ⚠ Startup task timed out: $taskName');
+  } catch (error, stackTrace) {
+    debugPrint('[App] ⚠ Startup task failed: $taskName ($error)');
+    debugPrint('$stackTrace');
+  }
+}
 
 class WealthInApp extends StatefulWidget {
   const WealthInApp({super.key});
@@ -118,8 +144,14 @@ class _WealthInAppState extends State<WealthInApp> {
   }
 
   Future<void> _checkOnboardingStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+    var onboardingComplete = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+    } catch (error) {
+      debugPrint('[App] Failed to read onboarding status: $error');
+    }
+
     if (mounted) {
       setState(() {
         _showOnboarding = !onboardingComplete;
@@ -129,10 +161,12 @@ class _WealthInAppState extends State<WealthInApp> {
   }
 
   void _onSplashComplete() {
+    if (!mounted) return;
     setState(() => _showSplash = false);
   }
 
   void _onOnboardingComplete() {
+    if (!mounted) return;
     setState(() => _showOnboarding = false);
   }
 
@@ -142,11 +176,22 @@ class _WealthInAppState extends State<WealthInApp> {
       valueListenable: themeModeNotifier,
       builder: (context, themeMode, child) {
         return MaterialApp(
-          title: 'WealthIn',
+          title: 'Wealthin',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
+          builder: (context, child) {
+            final mediaQuery = MediaQuery.of(context);
+            final currentScale = mediaQuery.textScaler.scale(1.0);
+            final clampedScale = currentScale.clamp(0.9, 1.15).toDouble();
+            return MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler: TextScaler.linear(clampedScale),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: _buildHome(),
         );
       },
@@ -157,19 +202,19 @@ class _WealthInAppState extends State<WealthInApp> {
     if (_showSplash) {
       return SplashScreen(onComplete: _onSplashComplete);
     }
-    
+
     // Still checking onboarding status
     if (_checkingOnboarding) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     // Show onboarding for first-time users
     if (_showOnboarding) {
       return OnboardingScreen(onComplete: _onOnboardingComplete);
     }
-    
+
     return const AuthWrapper(
       child: MainNavigationShell(),
     );
@@ -209,126 +254,113 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth > 800) {
-          // Desktop Layout with NavigationRail
-          return Scaffold(
-            body: Row(
-              children: [
-                NavigationRail(
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: (index) =>
-                      setState(() => _selectedIndex = index),
-                  labelType: NavigationRailLabelType.all,
-                  destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      selectedIcon: Icon(Icons.dashboard),
-                      label: Text('Home'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.account_balance_wallet_outlined),
-                      selectedIcon: Icon(Icons.account_balance_wallet),
-                      label: Text('Finance'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.auto_awesome_outlined),
-                      selectedIcon: Icon(Icons.auto_awesome),
-                      label: Text('AI Tools'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.analytics_outlined),
-                      selectedIcon: Icon(Icons.analytics),
-                      label: Text('Analysis'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.lightbulb_outline),
-                      selectedIcon: Icon(Icons.lightbulb),
-                      label: Text('Ideas'),
-                    ),
-                  ],
-                ),
-                const VerticalDivider(thickness: 1, width: 1),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    switchInCurve: Curves.easeIn,
-                    switchOutCurve: Curves.easeOut,
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: child,
-                      );
-                    },
-                    child: Container(
-                      key: ValueKey(_selectedIndex),
-                      child: _screens[_selectedIndex],
-                    ),
+    final isWideLayout =
+        MediaQuery.of(context).size.width >= ResponsiveUtils.tabletBreakpoint;
+
+    if (isWideLayout) {
+      return Scaffold(
+        body: Row(
+          children: [
+            SafeArea(
+              child: NavigationRail(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (index) =>
+                    setState(() => _selectedIndex = index),
+                labelType: NavigationRailLabelType.all,
+                destinations: const [
+                  NavigationRailDestination(
+                    icon: Icon(Icons.dashboard_outlined),
+                    selectedIcon: Icon(Icons.dashboard_rounded),
+                    label: Text('Home'),
                   ),
-                ),
-              ],
-            ),
-          );
-        } else {
-          // Mobile Layout with NavigationBar
-          return Scaffold(
-            body: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              switchInCurve: Curves.easeInOut,
-              switchOutCurve: Curves.easeInOut,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.1, 0),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
+                  NavigationRailDestination(
+                    icon: Icon(Icons.account_balance_wallet_outlined),
+                    selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                    label: Text('Finance'),
                   ),
-                );
-              },
-              child: Container(
-                key: ValueKey(_selectedIndex),
-                child: _screens[_selectedIndex],
+                  NavigationRailDestination(
+                    icon: Icon(Icons.auto_awesome_outlined),
+                    selectedIcon: Icon(Icons.auto_awesome_rounded),
+                    label: Text('AI'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.analytics_outlined),
+                    selectedIcon: Icon(Icons.analytics_rounded),
+                    label: Text('Analysis'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.lightbulb_outline),
+                    selectedIcon: Icon(Icons.lightbulb_rounded),
+                    label: Text('Ideas'),
+                  ),
+                ],
               ),
             ),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) =>
-                  setState(() => _selectedIndex = index),
-                destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard_rounded),
-                  label: 'Home',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-                  label: 'Finance',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.auto_awesome_outlined),
-                  selectedIcon: Icon(Icons.auto_awesome_rounded),
-                  label: 'AI',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.analytics_outlined),
-                  selectedIcon: Icon(Icons.analytics_rounded),
-                  label: 'Analysis',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.lightbulb_outline),
-                  selectedIcon: Icon(Icons.lightbulb_rounded),
-                  label: 'Ideas',
-                ),
-              ],
-            ),
-          );
-        }
+            const VerticalDivider(width: 1),
+            Expanded(child: _buildAnimatedBody()),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: _buildAnimatedBody(),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) =>
+            setState(() => _selectedIndex = index),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard_rounded),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+            label: 'Finance',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_awesome_outlined),
+            selectedIcon: Icon(Icons.auto_awesome_rounded),
+            label: 'AI',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics_rounded),
+            label: 'Analysis',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.lightbulb_outline),
+            selectedIcon: Icon(Icons.lightbulb_rounded),
+            label: 'Ideas',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimatedBody() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.1, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
       },
+      child: Container(
+        key: ValueKey(_selectedIndex),
+        child: _screens[_selectedIndex],
+      ),
     );
   }
 }

@@ -172,7 +172,7 @@ class _DailyStreakCardState extends State<DailyStreakCard> {
   Widget _buildRaceTrack(int currentDayIndex) {
     const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     
-    return Container(
+    return SizedBox(
       height: 60,
       child: Stack(
         children: [

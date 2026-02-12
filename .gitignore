@@ -22,3 +22,14 @@ build/
 .gradle/
 **/gradle-wrapper.jar
 **/.gradle/
+
+# Runtime artifacts
+*.log
+*.pid
+*.db
+backend/*.log
+backend/*.pid
+backend/*.db
+frontend/wealthin_flutter/build/
+frontend/wealthin_flutter/android/build/
+frontend/wealthin_flutter/.gradle/

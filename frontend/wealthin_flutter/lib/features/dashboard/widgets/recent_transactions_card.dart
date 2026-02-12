@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/wealthin_theme.dart';
@@ -44,12 +43,15 @@ class RecentTransactionsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Recent Transactions',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Recent Transactions',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 TextButton(
@@ -58,7 +60,8 @@ class RecentTransactionsCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const FinanceHubScreen(initialTabIndex: 0),
+                        builder: (context) =>
+                            const FinanceHubScreen(initialTabIndex: 0),
                       ),
                     );
                   },
@@ -67,18 +70,17 @@ class RecentTransactionsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: ListView.separated(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: transactions.length,
-                separatorBuilder: (context, index) =>
-                    Divider(color: isDark ? WealthInColors.blackBorder : null),
-                itemBuilder: (context, index) {
-                  final transaction = transactions[index];
-                  return _buildTransactionItem(context, transaction, isDark);
-                },
-              ),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: transactions.length,
+              separatorBuilder: (context, index) =>
+                  Divider(color: isDark ? WealthInColors.blackBorder : null),
+              itemBuilder: (context, index) {
+                final transaction = transactions[index];
+                return _buildTransactionItem(context, transaction, isDark);
+              },
             ),
           ],
         ),
@@ -172,29 +174,39 @@ class RecentTransactionsCard extends StatelessWidget {
                         ? WealthInColors.textSecondaryDark
                         : WealthInColors.textSecondary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isExpense ? '-' : '+'}₹${transaction.amount.toStringAsFixed(0)}',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 110),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${isExpense ? '-' : '+'}₹${transaction.amount.toStringAsFixed(0)}',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Text(
-                transaction.category,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: isDark
-                      ? WealthInColors.textSecondaryDark
-                      : WealthInColors.textSecondary,
+                Text(
+                  transaction.category,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? WealthInColors.textSecondaryDark
+                        : WealthInColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -204,21 +216,39 @@ class RecentTransactionsCard extends StatelessWidget {
   IconData _getCategoryIcon(String category) {
     final cat = category.toLowerCase();
     if (cat.contains('food') || cat.contains('dining')) return Icons.restaurant;
-    if (cat.contains('grocery') || cat.contains('groceries')) return Icons.local_grocery_store;
-    if (cat.contains('transport') || cat.contains('travel') || cat.contains('commute')) return Icons.directions_car;
+    if (cat.contains('grocery') || cat.contains('groceries'))
+      return Icons.local_grocery_store;
+    if (cat.contains('transport') ||
+        cat.contains('travel') ||
+        cat.contains('commute'))
+      return Icons.directions_car;
     if (cat.contains('shopping')) return Icons.shopping_bag;
-    if (cat.contains('bill') || cat.contains('utilities')) return Icons.receipt_long;
-    if (cat.contains('entertainment') || cat.contains('movie')) return Icons.movie;
-    if (cat.contains('health') || cat.contains('medical') || cat.contains('pharmacy')) return Icons.medical_services;
-    if (cat.contains('education') || cat.contains('school')) return Icons.school;
-    if (cat.contains('salary') || cat.contains('income')) return Icons.attach_money;
-    if (cat.contains('invest') || cat.contains('stock') || cat.contains('trading')) return Icons.trending_up;
-    if (cat.contains('rent') || cat.contains('house') || cat.contains('housing')) return Icons.home;
+    if (cat.contains('bill') || cat.contains('utilities'))
+      return Icons.receipt_long;
+    if (cat.contains('entertainment') || cat.contains('movie'))
+      return Icons.movie;
+    if (cat.contains('health') ||
+        cat.contains('medical') ||
+        cat.contains('pharmacy'))
+      return Icons.medical_services;
+    if (cat.contains('education') || cat.contains('school'))
+      return Icons.school;
+    if (cat.contains('salary') || cat.contains('income'))
+      return Icons.attach_money;
+    if (cat.contains('invest') ||
+        cat.contains('stock') ||
+        cat.contains('trading'))
+      return Icons.trending_up;
+    if (cat.contains('rent') ||
+        cat.contains('house') ||
+        cat.contains('housing'))
+      return Icons.home;
     if (cat.contains('insurance')) return Icons.security;
-    if (cat.contains('loan') || cat.contains('emi')) return Icons.account_balance;
+    if (cat.contains('loan') || cat.contains('emi'))
+      return Icons.account_balance;
     if (cat.contains('care') || cat.contains('salon')) return Icons.spa;
     if (cat.contains('transfer')) return Icons.swap_horiz;
-    
+
     return Icons.category;
   }
 }
