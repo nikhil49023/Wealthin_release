@@ -584,7 +584,7 @@ class _MSMEDirectoryTabState extends State<_MSMEDirectoryTab> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedState,
+                      initialValue: _selectedState,
                       decoration: const InputDecoration(
                         labelText: 'State',
                         border: OutlineInputBorder(),
@@ -605,7 +605,7 @@ class _MSMEDirectoryTabState extends State<_MSMEDirectoryTab> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedSector,
+                      initialValue: _selectedSector,
                       decoration: const InputDecoration(
                         labelText: 'Sector',
                         border: OutlineInputBorder(),

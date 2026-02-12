@@ -450,7 +450,7 @@ class _EditTransactionDialogState extends State<_EditTransactionDialog> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _categories.contains(_category) ? _category : 'Other',
+              initialValue: _categories.contains(_category) ? _category : 'Other',
               decoration: const InputDecoration(
                 labelText: 'Category',
                 border: OutlineInputBorder(),

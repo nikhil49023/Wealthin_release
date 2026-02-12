@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _isGoogleLoading = false;
+  final bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
 

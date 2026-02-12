@@ -640,7 +640,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           'Level $_userLevel',
@@ -650,7 +653,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                             color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -761,73 +763,66 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.timeline,
-                  color: Color(0xFF4CAF50),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Analysis Timeline',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 420;
+              return Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4CAF50).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.timeline,
+                          color: Color(0xFF4CAF50),
+                          size: 24,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '7-Day Analysis Cycle',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white60 : Colors.black54,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Analysis Timeline',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '7-Day Analysis Cycle',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      if (!isCompact) ...[
+                        const SizedBox(width: 8),
+                        _buildAnalysisStatusBadge(),
+                      ],
+                    ],
+                  ),
+                  if (isCompact) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _buildAnalysisStatusBadge(),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _canAnalyze
-                      ? const Color(0xFF4CAF50).withOpacity(0.2)
-                      : const Color(0xFFFF9800).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _canAnalyze ? Icons.check_circle : Icons.schedule,
-                      size: 16,
-                      color: _canAnalyze ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _canAnalyze ? 'Ready' : '${_daysRemaining}d ${_hoursRemaining}h',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _canAnalyze ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 20),
 
@@ -889,113 +884,124 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               const SizedBox(height: 12),
 
               // Progress bar with marker
-              Stack(
-                children: [
-                  // Background track
-                  Container(
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withOpacity(0.1)
-                          : Colors.black.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxLeft = (constraints.maxWidth - 20)
+                      .clamp(0.0, double.infinity)
+                      .toDouble();
+                  final markerLeft = ((constraints.maxWidth * progress) - 10)
+                      .clamp(0.0, maxLeft)
+                      .toDouble();
 
-                  // Filled progress
-                  FractionallySizedBox(
-                    widthFactor: progress,
-                    child: Container(
-                      height: 12,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF4CAF50),
-                            const Color(0xFF66BB6A),
-                          ],
+                  return Stack(
+                    children: [
+                      // Background track
+                      Container(
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.black.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4CAF50).withOpacity(0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
-                    ),
-                  ),
 
-                  // Next analysis date marker (at 100%)
-                  Positioned(
-                    right: 0,
-                    top: -4,
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
+                      // Filled progress
+                      FractionallySizedBox(
+                        widthFactor: progress,
+                        child: Container(
+                          height: 12,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _canAnalyze
-                                ? const Color(0xFF4CAF50)
-                                : const Color(0xFFFF9800),
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF4CAF50),
+                                const Color(0xFF66BB6A),
+                              ],
                             ),
+                            borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
-                                color: (_canAnalyze
-                                        ? const Color(0xFF4CAF50)
-                                        : const Color(0xFFFF9800))
-                                    .withOpacity(0.5),
+                                color: const Color(0xFF4CAF50).withOpacity(0.4),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          child: Icon(
-                            _canAnalyze ? Icons.check : Icons.flag,
-                            size: 12,
-                            color: Colors.white,
-                          ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
 
-                  // Current position marker (moving)
-                  if (!_canAnalyze)
-                    Positioned(
-                      left: MediaQuery.of(context).size.width * progress * 0.85 - 10,
-                      top: -4,
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF2196F3),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF2196F3).withOpacity(0.5),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      // Next analysis date marker (at 100%)
+                      Positioned(
+                        right: 0,
+                        top: -4,
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _canAnalyze
+                                    ? const Color(0xFF4CAF50)
+                                    : const Color(0xFFFF9800),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (_canAnalyze
+                                            ? const Color(0xFF4CAF50)
+                                            : const Color(0xFFFF9800))
+                                        .withOpacity(0.5),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                _canAnalyze ? Icons.check : Icons.flag,
+                                size: 12,
+                                color: Colors.white,
+                              ),
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.circle,
-                          size: 8,
-                          color: Colors.white,
-                        ),
                       ),
-                    ),
-                ],
+
+                      // Current position marker (moving)
+                      if (!_canAnalyze)
+                        Positioned(
+                          left: markerLeft,
+                          top: -4,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFF2196F3),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF2196F3).withOpacity(0.5),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 8),
 
@@ -1046,6 +1052,41 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalysisStatusBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _canAnalyze
+            ? const Color(0xFF4CAF50).withOpacity(0.2)
+            : const Color(0xFFFF9800).withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _canAnalyze ? Icons.check_circle : Icons.schedule,
+            size: 16,
+            color: _canAnalyze
+                ? const Color(0xFF4CAF50)
+                : const Color(0xFFFF9800),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            _canAnalyze ? 'Ready' : '${_daysRemaining}d ${_hoursRemaining}h',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _canAnalyze
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFFFF9800),
             ),
           ),
         ],
@@ -1204,21 +1245,30 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.emoji_events,
-                color: Color(0xFFFFC107),
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Milestones',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.emoji_events,
+                      color: Color(0xFFFFC107),
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Milestones',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -1419,8 +1469,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     final lower = name.toLowerCase();
     if (lower.contains('first') || lower.contains('step')) return Icons.flag;
     if (lower.contains('budget')) return Icons.account_balance_wallet;
-    if (lower.contains('saver') || lower.contains('saving'))
+    if (lower.contains('saver') || lower.contains('saving')) {
       return Icons.savings;
+    }
     if (lower.contains('champion')) return Icons.emoji_events;
     if (lower.contains('debt')) return Icons.money_off;
     if (lower.contains('guardian')) return Icons.shield;
@@ -1428,12 +1479,15 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     if (lower.contains('invest')) return Icons.trending_up;
     if (lower.contains('analyst')) return Icons.analytics;
     if (lower.contains('streak')) return Icons.local_fire_department;
-    if (lower.contains('goal') && lower.contains('set'))
+    if (lower.contains('goal') && lower.contains('set')) {
       return Icons.track_changes;
-    if (lower.contains('goal') && lower.contains('achiev'))
+    }
+    if (lower.contains('goal') && lower.contains('achiev')) {
       return Icons.check_circle;
-    if (lower.contains('idea') || lower.contains('innovat'))
+    }
+    if (lower.contains('idea') || lower.contains('innovat')) {
       return Icons.lightbulb;
+    }
     if (lower.contains('dpr')) return Icons.description;
     return Icons.star;
   }
@@ -1731,6 +1785,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   Widget _buildMetricsGrid(ThemeData theme) {
+    final isCompact = MediaQuery.of(context).size.width < 420;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1745,41 +1800,63 @@ class _AnalysisScreenState extends State<AnalysisScreen>
             ),
           ),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: IncomeCard(
-                amount: _data?.totalIncome ?? 0,
-                isLoading: _isLoading,
+        if (isCompact) ...[
+          IncomeCard(
+            amount: _data?.totalIncome ?? 0,
+            isLoading: _isLoading,
+          ),
+          const SizedBox(height: 12),
+          ExpenseCard(
+            amount: _data?.totalExpense ?? 0,
+            isLoading: _isLoading,
+          ),
+          const SizedBox(height: 12),
+          SavingsCard(
+            amount: (_data?.totalIncome ?? 0) - (_data?.totalExpense ?? 0),
+            isLoading: _isLoading,
+          ),
+          const SizedBox(height: 12),
+          SavingsRateCard(
+            savingsRate: (_data?.savingsRate ?? 0).round(),
+            isLoading: _isLoading,
+          ),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: IncomeCard(
+                  amount: _data?.totalIncome ?? 0,
+                  isLoading: _isLoading,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ExpenseCard(
-                amount: _data?.totalExpense ?? 0,
-                isLoading: _isLoading,
+              const SizedBox(width: 12),
+              Expanded(
+                child: ExpenseCard(
+                  amount: _data?.totalExpense ?? 0,
+                  isLoading: _isLoading,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: SavingsCard(
-                amount: (_data?.totalIncome ?? 0) - (_data?.totalExpense ?? 0),
-                isLoading: _isLoading,
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: SavingsCard(
+                  amount: (_data?.totalIncome ?? 0) - (_data?.totalExpense ?? 0),
+                  isLoading: _isLoading,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SavingsRateCard(
-                savingsRate: (_data?.savingsRate ?? 0).round(),
-                isLoading: _isLoading,
+              const SizedBox(width: 12),
+              Expanded(
+                child: SavingsRateCard(
+                  savingsRate: (_data?.savingsRate ?? 0).round(),
+                  isLoading: _isLoading,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -1892,12 +1969,17 @@ class _AnalysisScreenState extends State<AnalysisScreen>
             ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ),
       ],

@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/services/backend_config.dart';
+import '../../core/services/python_bridge_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
 
@@ -54,34 +52,40 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
     try {
       // Add simulated progress updates while waiting
       _addSimulatedProgress();
-      
-      final response = await http.post(
-        Uri.parse('${backendConfig.baseUrl}/agent/deep-research'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'query': query,
-          'max_iterations': 3,
-        }),
-      ).timeout(const Duration(minutes: 3));
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        
-        setState(() {
-          _statusLog = List<String>.from(data['status_log'] ?? []);
-          _report = data['report'] as String?;
-          _sources = List<String>.from(data['sources'] ?? []);
-          _isResearching = false;
-        });
-        
-        // Scroll to show final status
-        _scrollToBottom();
-      } else {
-        setState(() {
-          _statusLog.add('❌ Server error: ${response.statusCode}');
-          _isResearching = false;
-        });
+
+      final result = await pythonBridge.chatWithLLM(
+        query:
+            'Perform deep research on this topic and return a structured report with practical conclusions and references if possible: $query',
+      );
+
+      final responseText = result['response']?.toString();
+      final rawSources = result['sources'];
+      final parsedSources = <String>[];
+      if (rawSources is List) {
+        for (final source in rawSources) {
+          if (source is String) {
+            parsedSources.add(source);
+          } else if (source is Map<String, dynamic>) {
+            final title = source['title']?.toString() ?? 'Source';
+            final url = source['url']?.toString();
+            parsedSources.add(url != null && url.isNotEmpty ? '$title - $url' : title);
+          } else {
+            parsedSources.add(source.toString());
+          }
+        }
       }
+
+      setState(() {
+        _statusLog.addAll([
+          '🧠 Synthesizing final report...',
+          '✅ Research complete',
+        ]);
+        _report = responseText;
+        _sources = parsedSources;
+        _isResearching = false;
+      });
+
+      _scrollToBottom();
     } catch (e) {
       setState(() {
         _statusLog.add('❌ Error: $e');

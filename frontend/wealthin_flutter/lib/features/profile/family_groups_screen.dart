@@ -187,7 +187,7 @@ class _FamilyGroupsScreenState extends State<FamilyGroupsScreen> {
         await db.delete('group_members', where: 'group_id = ?', whereArgs: [group['id']]);
         
         // Delete group
-        await db.delete('account_groups', where: 'id = ?', whereArgs: [group['id']]);
+        await db.delete('groups', where: 'id = ?', whereArgs: [group['id']]);
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

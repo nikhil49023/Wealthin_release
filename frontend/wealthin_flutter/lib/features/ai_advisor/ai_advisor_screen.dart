@@ -650,8 +650,9 @@ class _AiAdvisorScreenBodyState extends State<AiAdvisorScreenBody>
     var amount = double.tryParse(amountMatch.group(1)!.replaceAll(',', ''));
     if (amount == null) return null;
     
-    if (text.toLowerCase().contains('lakh')) amount *= 100000;
-    else if (text.toLowerCase().contains('k')) amount *= 1000;
+    if (text.toLowerCase().contains('lakh')) {
+      amount *= 100000;
+    } else if (text.toLowerCase().contains('k')) amount *= 1000;
 
     String name = 'Savings Goal';
     final forMatch = RegExp(r'(?:save\s+(?:for|towards?)?|goal\s+(?:for)?)\s+(.+?)(?:\s+(?:of|by|worth)|\d|$)', caseSensitive: false).firstMatch(text);

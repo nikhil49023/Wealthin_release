@@ -433,9 +433,7 @@ class NativePdfParser {
       }
       
       // Extract date
-      if (date == null) {
-        date = _extractDate(line);
-      }
+      date ??= _extractDate(line);
       
       // Extract total (look for keywords)
       if (totalAmount == null) {
@@ -506,9 +504,7 @@ class NativePdfParser {
     
     // Extract details
     for (final line in lines) {
-      if (date == null) {
-        date = _extractDate(line);
-      }
+      date ??= _extractDate(line);
       
       final lineLower = line.toLowerCase();
       if (amount == null && (lineLower.contains('total') || lineLower.contains('fare') || 

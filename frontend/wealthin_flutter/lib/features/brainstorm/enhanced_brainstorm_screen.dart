@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/data_service.dart';
 import '../../core/services/database_helper.dart';
@@ -11,10 +12,12 @@ class EnhancedBrainstormScreen extends StatefulWidget {
   const EnhancedBrainstormScreen({super.key});
 
   @override
-  State<EnhancedBrainstormScreen> createState() => _EnhancedBrainstormScreenState();
+  State<EnhancedBrainstormScreen> createState() =>
+      _EnhancedBrainstormScreenState();
 }
 
-class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> with SingleTickerProviderStateMixin {
+class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
+    with SingleTickerProviderStateMixin {
   final DataService _dataService = DataService();
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final TextEditingController _messageController = TextEditingController();
@@ -28,6 +31,37 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
   List<Map<String, dynamic>> _canvasItems = [];
   bool _isLoading = false;
   bool _isCritiqueMode = false;
+  String _activeWorkflowMode = 'input';
+  String _activeIdeasMode = 'market_research';
+  List<Map<String, dynamic>> _ideasModes = const [
+    {
+      'id': 'financial_planner',
+      'label': 'Financial Planner',
+      'description': 'Cashflow and tax-aware planning',
+    },
+    {
+      'id': 'market_research',
+      'label': 'Market Research',
+      'description': 'Demand, competition, and viability',
+    },
+    {
+      'id': 'career_advisor',
+      'label': 'Career Advisor',
+      'description': 'CV critique and role-fit strategy',
+    },
+    {
+      'id': 'investment_analyst',
+      'label': 'Investment Analyst',
+      'description': 'Risk-return and allocation insights',
+    },
+    {
+      'id': 'life_planning',
+      'label': 'Life Planning',
+      'description': 'Goals, milestones, and timelines',
+    },
+  ];
+  Map<String, dynamic>? _lastVisualization;
+  bool _isGeneratingDpr = false;
 
   // Personas (Thinking Hats)
   final Map<String, Map<String, dynamic>> _personas = {
@@ -35,45 +69,110 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
       'name': 'Neutral Consultant',
       'icon': Icons.psychology,
       'color': Colors.blue,
-      'description': 'Balanced, practical advice'
+      'description': 'Balanced, practical advice',
     },
     'cynical_vc': {
       'name': 'Cynical VC',
       'icon': Icons.trending_down,
       'color': Colors.red,
-      'description': 'Find every way this could fail'
+      'description': 'Find every way this could fail',
     },
     'enthusiastic_entrepreneur': {
       'name': 'Creative Entrepreneur',
       'icon': Icons.lightbulb,
       'color': Colors.amber,
-      'description': 'See opportunities everywhere'
+      'description': 'See opportunities everywhere',
     },
     'risk_manager': {
       'name': 'Risk Manager',
       'icon': Icons.shield,
       'color': Colors.orange,
-      'description': 'Legal & financial safety'
+      'description': 'Legal & financial safety',
     },
     'customer_advocate': {
       'name': 'Customer Advocate',
       'icon': Icons.people,
       'color': Colors.purple,
-      'description': 'User-centric perspective'
+      'description': 'User-centric perspective',
     },
     'financial_analyst': {
       'name': 'Financial Analyst',
       'icon': Icons.calculate,
       'color': Colors.green,
-      'description': 'Run the numbers'
+      'description': 'Run the numbers',
     },
     'systems_thinker': {
       'name': 'Systems Thinker',
       'icon': Icons.account_tree,
       'color': Colors.teal,
-      'description': 'Big picture ecosystem view'
+      'description': 'Big picture ecosystem view',
     },
   };
+
+  final Map<String, Map<String, dynamic>> _workflowModes = const {
+    'input': {
+      'label': 'INPUT: Explore Ideas',
+      'subtitle': 'Expand and structure raw thoughts',
+      'icon': Icons.chat_bubble_outline,
+      'color': Colors.blue,
+    },
+    'refinery': {
+      'label': 'REFINERY: Stress Test',
+      'subtitle': 'Challenge assumptions and find weak links',
+      'icon': Icons.psychology,
+      'color': Colors.red,
+    },
+    'anchor': {
+      'label': 'ANCHOR: Capture Survivors',
+      'subtitle': 'Pin strongest ideas to canvas',
+      'icon': Icons.push_pin,
+      'color': Colors.teal,
+    },
+  };
+
+  final List<String> _starterPrompts = const [
+    'Validate this business idea for Indian market demand',
+    'What are the top 3 risks and how do I mitigate them?',
+    'Propose an MVP scope and first-week action plan',
+  ];
+
+  IconData _modeIcon(String modeId) {
+    switch (modeId) {
+      case 'financial_planner':
+        return Icons.account_balance_wallet_outlined;
+      case 'career_advisor':
+        return Icons.badge_outlined;
+      case 'investment_analyst':
+        return Icons.show_chart;
+      case 'life_planning':
+        return Icons.route_outlined;
+      default:
+        return Icons.insights_outlined;
+    }
+  }
+
+  Color _modeColor(String modeId) {
+    switch (modeId) {
+      case 'financial_planner':
+        return Colors.green;
+      case 'career_advisor':
+        return Colors.indigo;
+      case 'investment_analyst':
+        return Colors.deepPurple;
+      case 'life_planning':
+        return Colors.teal;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  String _modeLabel(String modeId) {
+    final mode = _ideasModes.firstWhere(
+      (m) => (m['id']?.toString() ?? '') == modeId,
+      orElse: () => const {'label': 'Market Research'},
+    );
+    return mode['label']?.toString() ?? 'Market Research';
+  }
 
   // UI state
   bool _isCanvasVisible = true;
@@ -83,9 +182,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // On mobile, start with chat view; on desktop, show both panels
+    // Android-first: start with chat view
     _isCanvasVisible = !(_isMobileLayout);
     _loadOrCreateSession();
+    _loadIdeasModes();
     _showProTipOnFirstLaunch();
   }
 
@@ -116,69 +216,24 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
                 Text('💡 PRO-TIP'),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Use the Cynical VC for brutal critique',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Use REFINE when you want a strict, investor-style critique.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'When you click REFINE, the AI automatically switches to "Cynical VC" persona.',
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Why? Your brain is better at spotting flaws than creating perfection.',
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red, width: 1),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.trending_down, color: Colors.red, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Cynical VC will:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8),
-                      Text('✓ Find every failure point', style: TextStyle(fontSize: 13)),
-                      Text('✓ Challenge your assumptions', style: TextStyle(fontSize: 13)),
-                      Text('✓ Show real financial impact', style: TextStyle(fontSize: 13)),
-                      Text('✓ Make your idea bulletproof', style: TextStyle(fontSize: 13)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Result: 10x stronger ideas that survive the real world.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
+                  SizedBox(height: 10),
+                  Text('• Finds weak assumptions quickly'),
+                  Text('• Highlights financial and execution risks'),
+                  Text('• Suggests stronger alternatives'),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -213,7 +268,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
       _currentPersona = session['persona'] as String? ?? 'neutral';
 
       // Load messages and canvas items
-      final messages = await _dbHelper.getBrainstormMessages(_currentSessionId!);
+      final messages = await _dbHelper.getBrainstormMessages(
+        _currentSessionId!,
+      );
       final canvasItems = await _dbHelper.getCanvasItems(_currentSessionId!);
 
       setState(() {
@@ -226,6 +283,31 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
     }
   }
 
+  Future<void> _loadIdeasModes() async {
+    try {
+      final modes = await _dataService.getBrainstormModes();
+      if (!mounted || modes.isEmpty) return;
+
+      final normalized = modes
+          .map((m) => Map<String, dynamic>.from(m))
+          .where((m) => (m['id']?.toString().isNotEmpty ?? false))
+          .toList();
+      if (normalized.isEmpty) return;
+
+      setState(() {
+        _ideasModes = normalized;
+        final exists = _ideasModes.any(
+          (m) => (m['id']?.toString() ?? '') == _activeIdeasMode,
+        );
+        if (!exists) {
+          _activeIdeasMode = _ideasModes.first['id']?.toString() ?? 'market_research';
+        }
+      });
+    } catch (e) {
+      debugPrint('[Brainstorm] Failed to load modes: $e');
+    }
+  }
+
   Future<void> _createNewSession() async {
     final sessionId = await _dbHelper.createBrainstormSession(
       'Brainstorm ${DateTime.now().day}/${DateTime.now().month}',
@@ -234,9 +316,11 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
 
     setState(() {
       _currentSessionId = sessionId;
-      _sessionTitle = 'Brainstorm ${DateTime.now().day}/${DateTime.now().month}';
+      _sessionTitle =
+          'Brainstorm ${DateTime.now().day}/${DateTime.now().month}';
       _messages = [];
       _canvasItems = [];
+      _lastVisualization = null;
     });
   }
 
@@ -244,7 +328,11 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
     final message = _messageController.text.trim();
     if (message.isEmpty || _currentSessionId == null) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isCritiqueMode = false;
+      _activeWorkflowMode = 'input';
+    });
 
     // Add user message to DB and UI
     await _dbHelper.addBrainstormMessage(
@@ -271,11 +359,17 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
       final response = await _dataService.brainstormChat(
         userId: 'user_1',
         message: message,
-        conversationHistory: _messages.map((m) => {
-          'role': m['role'],
-          'content': m['content'],
-        }).toList(),
+        conversationHistory: _messages
+            .map(
+              (m) => {
+                'role': m['role'],
+                'content': m['content'],
+              },
+            )
+            .toList(),
         persona: _currentPersona,
+        mode: _activeIdeasMode,
+        workflowMode: 'input',
       );
 
       if (response['success'] == true) {
@@ -289,6 +383,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
         );
 
         setState(() {
+          _lastVisualization = response['visualization'] is Map<String, dynamic>
+              ? Map<String, dynamic>.from(response['visualization'])
+              : null;
           _messages.add({
             'role': 'assistant',
             'content': response['content'],
@@ -296,6 +393,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
             'is_critique': _isCritiqueMode ? 1 : 0,
             'created_at': DateTime.now().toIso8601String(),
             'sources': response['sources'],
+            'mode': response['mode'] ?? _activeIdeasMode,
           });
         });
 
@@ -314,19 +412,19 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
   Future<void> _runCritique() async {
     if (_messages.isEmpty || _currentSessionId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Start brainstorming first before critiquing!')),
+        const SnackBar(
+          content: Text('Start brainstorming first before critiquing!'),
+        ),
       );
       return;
     }
-
-    // Store original persona to restore later
-    final originalPersona = _currentPersona;
 
     // PRO-TIP: Automatically switch to Cynical VC for brutal critique
     setState(() {
       _currentPersona = 'cynical_vc';
       _isLoading = true;
       _isCritiqueMode = true;
+      _activeWorkflowMode = 'refinery';
     });
 
     // Show visual feedback about persona switch
@@ -348,7 +446,8 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
               ),
             ],
           ),
-          backgroundColor: (_personas['cynical_vc']!['color'] as Color).withOpacity(0.9),
+          backgroundColor: (_personas['cynical_vc']!['color'] as Color)
+              .withOpacity(0.9),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -363,10 +462,15 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
 
       final response = await _dataService.reverseBrainstorm(
         ideas: userIdeas,
-        conversationHistory: _messages.map((m) => {
-          'role': m['role'],
-          'content': m['content'],
-        }).toList(),
+        conversationHistory: _messages
+            .map(
+              (m) => {
+                'role': m['role'],
+                'content': m['content'],
+              },
+            )
+            .toList(),
+        mode: _activeIdeasMode,
       );
 
       if (response['success'] == true) {
@@ -439,14 +543,22 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _activeWorkflowMode = 'anchor';
+    });
 
     try {
       final response = await _dataService.extractCanvasItems(
-        conversationHistory: _messages.map((m) => {
-          'role': m['role'],
-          'content': m['content'],
-        }).toList(),
+        conversationHistory: _messages
+            .map(
+              (m) => {
+                'role': m['role'],
+                'content': m['content'],
+              },
+            )
+            .toList(),
+        mode: _activeIdeasMode,
       );
 
       if (response['success'] == true && response['ideas'] != null) {
@@ -454,7 +566,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
 
         // Add to canvas items in DB
         for (var idea in ideas) {
-          final colorHex = _getCategoryColor(idea['category']).value;
+          final colorHex = _getCategoryColor(idea['category']).toARGB32();
           await _dbHelper.addCanvasItem(
             sessionId: _currentSessionId!,
             title: idea['title'],
@@ -470,18 +582,156 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
           _canvasItems = canvasItems;
         });
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Extracted ${ideas.length} ideas to canvas!')),
         );
       }
     } catch (e) {
       debugPrint('[Extract Canvas] Error: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Extract error: $e')),
       );
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _generateDprFromCanvas({
+    List<Map<String, dynamic>>? canvasItems,
+  }) async {
+    final sourceItems = canvasItems ?? _canvasItems;
+    if (sourceItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Anchor ideas to canvas before generating DPR')),
+      );
+      return;
+    }
+
+    setState(() => _isGeneratingDpr = true);
+    try {
+      final response = await _dataService.generateDprFromCanvas(
+        userId: 'user_1',
+        canvasItems: sourceItems
+            .map(
+              (item) => {
+                'id': item['id'],
+                'title': item['title'],
+                'content': item['content'],
+                'category': item['category'],
+              },
+            )
+            .toList(),
+        userData: {
+          'persona': _currentPersona,
+          'mode': _activeIdeasMode,
+          'session_title': _sessionTitle,
+        },
+        mode: _activeIdeasMode,
+        businessIdea: sourceItems.first['title']?.toString(),
+      );
+
+      if (response['success'] == true || response['status'] == 'success') {
+        await _showDprPreview(response);
+        return;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('DPR generation failed: ${response['error'] ?? 'Unknown error'}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('DPR generation error: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingDpr = false);
+      }
+    }
+  }
+
+  Future<void> _showDprPreview(Map<String, dynamic> result) async {
+    final dpr = result['dpr'];
+    final modelUsed = result['model_used']?.toString();
+    String preview;
+
+    try {
+      preview = const JsonEncoder.withIndent('  ').convert(dpr);
+    } catch (_) {
+      preview = dpr?.toString() ?? 'No DPR content returned.';
+    }
+
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.description_outlined),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Generated DPR Preview',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                if (modelUsed != null && modelUsed.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Model: $modelUsed',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        preview,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Color _getCategoryColor(String category) {
@@ -518,9 +768,61 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0A0E0F) : Colors.grey[50],
       appBar: AppBar(
-        title: Text(_sessionTitle),
+        title: const Text('Ideas'),
         backgroundColor: WealthInColors.primary,
         actions: [
+          PopupMenuButton<String>(
+            icon: Icon(_modeIcon(_activeIdeasMode), color: Colors.white),
+            tooltip: 'Ideas mode',
+            onSelected: (modeId) {
+              setState(() {
+                _activeIdeasMode = modeId;
+                _lastVisualization = null;
+              });
+            },
+            itemBuilder: (context) => _ideasModes.map((mode) {
+              final id = mode['id']?.toString() ?? 'market_research';
+              final label = mode['label']?.toString() ?? id;
+              final description = mode['description']?.toString() ?? '';
+              final selected = id == _activeIdeasMode;
+              return PopupMenuItem<String>(
+                value: id,
+                child: Row(
+                  children: [
+                    Icon(
+                      _modeIcon(id),
+                      color: selected ? _modeColor(id) : null,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                          if (description.isNotEmpty)
+                            Text(
+                              description,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
           // Persona selector
           PopupMenuButton<String>(
             icon: Icon(
@@ -530,7 +832,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
             onSelected: (persona) {
               setState(() => _currentPersona = persona);
               if (_currentSessionId != null) {
-                _dbHelper.updateBrainstormSession(_currentSessionId!, persona: persona);
+                _dbHelper.updateBrainstormSession(
+                  _currentSessionId!,
+                  persona: persona,
+                );
               }
             },
             itemBuilder: (context) => _personas.entries.map((entry) {
@@ -552,7 +857,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
                         ),
                         Text(
                           entry.value['description'] as String,
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
                         ),
                       ],
                     ),
@@ -583,15 +891,18 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
                     return FadeTransition(
                       opacity: animation,
                       child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: _isCanvasVisible
-                              ? const Offset(0.1, 0)
-                              : const Offset(-0.1, 0),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                        )),
+                        position:
+                            Tween<Offset>(
+                              begin: _isCanvasVisible
+                                  ? const Offset(0.1, 0)
+                                  : const Offset(-0.1, 0),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
                         child: child,
                       ),
                     );
@@ -661,6 +972,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
   }
 
   Widget _buildChatPanel(bool isDark) {
+    final modeMeta =
+        _workflowModes[_activeWorkflowMode] ?? _workflowModes['input']!;
+
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF12171A) : Colors.white,
@@ -676,87 +990,117 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
             decoration: BoxDecoration(
               color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
               border: Border(
-                bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+                bottom: BorderSide(
+                  color: isDark ? Colors.white10 : Colors.black12,
+                ),
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  _isCritiqueMode ? Icons.psychology : Icons.chat_bubble_outline,
-                  color: _isCritiqueMode ? Colors.red : WealthInColors.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    _isCritiqueMode
-                        ? 'REFINERY: Finding Weak Points 🔍'
-                        : 'INPUT: Free Association',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: _isCritiqueMode ? Colors.red : null,
+                Row(
+                  children: [
+                    Icon(
+                      _modeIcon(_activeIdeasMode),
+                      color: _modeColor(_activeIdeasMode),
+                      size: 18,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (_isCritiqueMode) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red, width: 1),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ideas • ${_modeLabel(_activeIdeasMode)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _modeColor(_activeIdeasMode),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            modeMeta['label'] as String,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _personas['cynical_vc']!['icon'] as IconData,
-                          size: 14,
-                          color: Colors.red,
+                    if (_isCritiqueMode)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Cynical VC Active',
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.red, width: 1),
+                        ),
+                        child: const Text(
+                          'Refine active',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
                             color: Colors.red,
                           ),
                         ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _runCritique,
+                      icon: const Icon(Icons.content_cut, size: 16),
+                      label: const Text('Refine'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _extractToCanvas,
+                      icon: const Icon(Icons.push_pin_outlined, size: 16),
+                      label: const Text('Anchor'),
+                    ),
+                  ],
+                ),
+                if (_lastVisualization != null) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        if ((_lastVisualization?['score_label']?.toString() ?? '')
+                            .isNotEmpty)
+                          _buildVizChip(
+                            _lastVisualization!['score_label'].toString(),
+                            Icons.insights,
+                            isDark,
+                          ),
+                        ...((_lastVisualization?['metrics'] is List)
+                            ? (_lastVisualization!['metrics'] as List)
+                                .take(3)
+                                .map(
+                                  (metric) => _buildVizChip(
+                                    metric.toString(),
+                                    Icons.circle,
+                                    isDark,
+                                    tinyDot: true,
+                                  ),
+                                )
+                                .toList()
+                            : const <Widget>[]),
                       ],
                     ),
                   ),
                 ],
-                const Spacer(),
-                // Critique button with enhanced styling
-                Tooltip(
-                  message: '💡 PRO-TIP: Auto-switches to Cynical VC for brutal critique',
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _runCritique,
-                    icon: const Icon(Icons.content_cut, size: 16),
-                    label: const Text('REFINE'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.shade700,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      elevation: _isCritiqueMode ? 0 : 2,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Extract to canvas button
-                ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _extractToCanvas,
-                  icon: const Icon(Icons.push_pin, size: 16),
-                  label: const Text('ANCHOR'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: WealthInColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                ),
               ],
             ),
           ),
@@ -787,7 +1131,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(WealthInColors.primary),
+                      valueColor: AlwaysStoppedAnimation(
+                        WealthInColors.primary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -805,32 +1151,69 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1A1F23) : Colors.grey[100],
               border: Border(
-                top: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+                top: BorderSide(
+                  color: isDark ? Colors.white10 : Colors.black12,
+                ),
               ),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Type your raw thoughts here...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        decoration: InputDecoration(
+                          hintText: _activeWorkflowMode == 'refinery'
+                              ? 'Ask for stricter critique, assumptions, and failure points...'
+                              : _activeWorkflowMode == 'anchor'
+                              ? 'Ask what should be pinned to canvas as key decisions...'
+                              : 'Type your raw thoughts here...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: isDark
+                              ? Colors.white.withOpacity(0.05)
+                              : Colors.white,
+                        ),
+                        maxLines: null,
+                        onSubmitted: (_) => _sendMessage(),
                       ),
-                      filled: true,
-                      fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
                     ),
-                    maxLines: null,
-                    onSubmitted: (_) => _sendMessage(),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: _isLoading ? null : _sendMessage,
+                      icon: const Icon(Icons.send),
+                      color: WealthInColors.primary,
+                    ),
+                  ],
+                ),
+                if (_messages.isEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _starterPrompts.map((prompt) {
+                      return ActionChip(
+                        label: Text(
+                          prompt,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () {
+                          _messageController.text = prompt;
+                          _messageController.selection =
+                              TextSelection.fromPosition(
+                                TextPosition(
+                                  offset: _messageController.text.length,
+                                ),
+                              );
+                          setState(() => _activeWorkflowMode = 'input');
+                        },
+                      );
+                    }).toList(),
                   ),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  onPressed: _isLoading ? null : _sendMessage,
-                  icon: const Icon(Icons.send),
-                  color: WealthInColors.primary,
-                ),
+                ],
               ],
             ),
           ),
@@ -840,6 +1223,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
   }
 
   Widget _buildCanvasPanel(bool isDark) {
+    final showItemCount = MediaQuery.of(context).size.width > 460;
     return Container(
       color: isDark ? const Color(0xFF0F1419) : const Color(0xFFF5F7FA),
       child: Column(
@@ -850,30 +1234,83 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
             decoration: BoxDecoration(
               color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
               border: Border(
-                bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+                bottom: BorderSide(
+                  color: isDark ? Colors.white10 : Colors.black12,
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.dashboard_customize,
-                  color: WealthInColors.cyanGlow,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'CANVAS: Ideas That Survived',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '${_canvasItems.length} items',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 520;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.dashboard_customize,
+                          color: WealthInColors.cyanGlow,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Canvas',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (!compact && showItemCount)
+                          Text(
+                            '${_canvasItems.length} items',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (compact && showItemCount)
+                          Text(
+                            '${_canvasItems.length} items',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ElevatedButton.icon(
+                          onPressed: (_isGeneratingDpr || _canvasItems.isEmpty)
+                              ? null
+                              : () => _generateDprFromCanvas(),
+                          icon: _isGeneratingDpr
+                              ? const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.description_outlined, size: 14),
+                          label: const Text(
+                            'Generate DPR',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            backgroundColor: WealthInColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 
@@ -904,17 +1341,51 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 1.2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 1.2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                     itemCount: _canvasItems.length,
                     itemBuilder: (context, index) {
                       return _buildCanvasCard(_canvasItems[index], isDark);
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVizChip(
+    String text,
+    IconData icon,
+    bool isDark, {
+    bool tinyDot = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.black12,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: tinyDot ? 9 : 12,
+            color: tinyDot ? Colors.grey : WealthInColors.primary,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            text.replaceAll('_', ' '),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -931,18 +1402,20 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.4,
+          maxWidth: MediaQuery.of(context).size.width < 700
+              ? MediaQuery.of(context).size.width * 0.82
+              : MediaQuery.of(context).size.width * 0.4,
         ),
         decoration: BoxDecoration(
           color: isUser
               ? WealthInColors.primary.withOpacity(0.2)
               : (isCritique
-                  ? Colors.red.withOpacity(0.1)
-                  : (isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100])),
+                    ? Colors.red.withOpacity(0.1)
+                    : (isDark
+                          ? Colors.white.withOpacity(0.05)
+                          : Colors.grey[100])),
           borderRadius: BorderRadius.circular(12),
-          border: isCritique
-              ? Border.all(color: Colors.red, width: 2)
-              : null,
+          border: isCritique ? Border.all(color: Colors.red, width: 2) : null,
           boxShadow: isCritique
               ? [
                   BoxShadow(
@@ -991,9 +1464,12 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
               Row(
                 children: [
                   Icon(
-                    _personas[message['persona']]?['icon'] as IconData? ?? Icons.psychology,
+                    _personas[message['persona']]?['icon'] as IconData? ??
+                        Icons.psychology,
                     size: 14,
-                    color: _personas[message['persona']]?['color'] as Color? ?? Colors.blue,
+                    color:
+                        _personas[message['persona']]?['color'] as Color? ??
+                        Colors.blue,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -1001,12 +1477,15 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: _personas[message['persona']]?['color'] as Color? ?? Colors.blue,
+                      color:
+                          _personas[message['persona']]?['color'] as Color? ??
+                          Colors.blue,
                     ),
                   ),
                 ],
               ),
-            if (!isUser && message['persona'] != null) const SizedBox(height: 6),
+            if (!isUser && message['persona'] != null)
+              const SizedBox(height: 6),
             Text(
               message['content'],
               style: TextStyle(
@@ -1026,12 +1505,16 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
   Widget _buildCanvasCard(Map<String, dynamic> item, bool isDark) {
     final colorHex = item['color_hex'] as int?;
     final category = item['category'] as String? ?? 'idea';
-    final cardColor = colorHex != null ? Color(colorHex) : _getCategoryColor(category);
+    final cardColor = colorHex != null
+        ? Color(colorHex)
+        : _getCategoryColor(category);
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? cardColor.withOpacity(0.15) : cardColor.withOpacity(0.1),
+        color: isDark
+            ? cardColor.withOpacity(0.15)
+            : cardColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: cardColor.withOpacity(0.3)),
       ),
@@ -1057,10 +1540,22 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
               ),
               const Spacer(),
               IconButton(
+                icon: const Icon(Icons.description_outlined, size: 16),
+                tooltip: 'Generate DPR from this card',
+                onPressed: _isGeneratingDpr
+                    ? null
+                    : () => _generateDprFromCanvas(canvasItems: [item]),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
                 icon: const Icon(Icons.delete_outline, size: 16),
                 onPressed: () async {
                   await _dbHelper.deleteCanvasItem(item['id'] as int);
-                  final canvasItems = await _dbHelper.getCanvasItems(_currentSessionId!);
+                  final canvasItems = await _dbHelper.getCanvasItems(
+                    _currentSessionId!,
+                  );
                   setState(() => _canvasItems = canvasItems);
                 },
                 padding: EdgeInsets.zero,
@@ -1100,7 +1595,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
           Icon(
             _personas[_currentPersona]!['icon'] as IconData,
             size: 64,
-            color: (_personas[_currentPersona]!['color'] as Color).withOpacity(0.3),
+            color: (_personas[_currentPersona]!['color'] as Color).withOpacity(
+              0.3,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1112,11 +1609,18 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen> wit
             _personas[_currentPersona]!['description'] as String,
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
+          const SizedBox(height: 6),
+          Text(
+            'Mode: ${_modeLabel(_activeIdeasMode)}',
+            style: TextStyle(
+              fontSize: 11,
+              color: _modeColor(_activeIdeasMode),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 24),
           const Text(
-            '💡 Tip: Dump raw thoughts here.\n'
-            '🔍 Click REFINE to critique ideas.\n'
-            '📌 Click ANCHOR to pin survivors to canvas.',
+            'Input → Refine → Anchor',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, color: Colors.grey),
           ),

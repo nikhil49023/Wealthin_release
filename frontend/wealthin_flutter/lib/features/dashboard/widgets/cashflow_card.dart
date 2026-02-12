@@ -1,7 +1,7 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import '../../../main.dart' show authService;
 import '../../../core/theme/wealthin_theme.dart';
 import '../../../core/services/data_service.dart';
@@ -29,13 +29,28 @@ class _CashflowCardState extends State<CashflowCard> {
   List<CashflowPoint> _cashflowData = [];
   String _selectedPeriod = 'month';
 
+  double _sanitizeAmount(double value) => value.isFinite ? value : 0.0;
+
+  List<CashflowPoint> _sanitizeCashflow(List<CashflowPoint> points) {
+    return points
+        .map(
+          (point) => CashflowPoint(
+            date: point.date,
+            income: _sanitizeAmount(point.income),
+            expense: _sanitizeAmount(point.expense),
+            balance: _sanitizeAmount(point.balance),
+          ),
+        )
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
     if (widget.data != null) {
-      _totalIncome = widget.data!.totalIncome;
-      _totalExpenses = widget.data!.totalExpense;
-      _cashflowData = widget.data!.cashflowData;
+      _totalIncome = _sanitizeAmount(widget.data!.totalIncome);
+      _totalExpenses = _sanitizeAmount(widget.data!.totalExpense);
+      _cashflowData = _sanitizeCashflow(widget.data!.cashflowData);
       _isLoading = widget.isLoading;
     } else {
       _loadData();
@@ -47,9 +62,9 @@ class _CashflowCardState extends State<CashflowCard> {
     super.didUpdateWidget(oldWidget);
     if (widget.data != oldWidget.data && widget.data != null) {
       setState(() {
-        _totalIncome = widget.data!.totalIncome;
-        _totalExpenses = widget.data!.totalExpense;
-        _cashflowData = widget.data!.cashflowData;
+        _totalIncome = _sanitizeAmount(widget.data!.totalIncome);
+        _totalExpenses = _sanitizeAmount(widget.data!.totalExpense);
+        _cashflowData = _sanitizeCashflow(widget.data!.cashflowData);
         _isLoading = widget.isLoading;
       });
     }
@@ -58,7 +73,7 @@ class _CashflowCardState extends State<CashflowCard> {
   Future<void> _loadData() async {
     try {
       final userId = authService.currentUserId;
-      
+
       final now = DateTime.now();
       DateTime? startDate;
       DateTime? endDate = now;
@@ -79,9 +94,9 @@ class _CashflowCardState extends State<CashflowCard> {
 
       if (mounted && dashboard != null) {
         setState(() {
-          _totalIncome = dashboard.totalIncome;
-          _totalExpenses = dashboard.totalExpense;
-          _cashflowData = dashboard.cashflowData;
+          _totalIncome = _sanitizeAmount(dashboard.totalIncome);
+          _totalExpenses = _sanitizeAmount(dashboard.totalExpense);
+          _cashflowData = _sanitizeCashflow(dashboard.cashflowData);
           _isLoading = false;
         });
       } else if (mounted) {
@@ -97,9 +112,11 @@ class _CashflowCardState extends State<CashflowCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final netCashflow = _totalIncome - _totalExpenses;
-    final total = _totalIncome + _totalExpenses;
-    final incomePercentage = total > 0 ? _totalIncome / total : 0.5;
+    final safeIncome = _sanitizeAmount(_totalIncome);
+    final safeExpenses = _sanitizeAmount(_totalExpenses);
+    final netCashflow = safeIncome - safeExpenses;
+    final total = safeIncome + safeExpenses;
+    final incomePercentage = total > 0 ? safeIncome / total : 0.5;
 
     if (_isLoading) {
       return Card(
@@ -122,10 +139,13 @@ class _CashflowCardState extends State<CashflowCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header with period selector
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
@@ -169,7 +189,7 @@ class _CashflowCardState extends State<CashflowCard> {
                   _buildBarChartData(theme, isDark),
                 ),
               ).animate().fadeIn(delay: 100.ms),
-            
+
             const SizedBox(height: 16),
 
             // Cashflow Bar
@@ -185,7 +205,7 @@ class _CashflowCardState extends State<CashflowCard> {
                 Expanded(
                   child: _CashflowItem(
                     label: 'Income',
-                    amount: _totalIncome,
+                    amount: safeIncome,
                     color: WealthInColors.success,
                     icon: Icons.arrow_downward,
                     isDark: isDark,
@@ -199,7 +219,7 @@ class _CashflowCardState extends State<CashflowCard> {
                 Expanded(
                   child: _CashflowItem(
                     label: 'Expenses',
-                    amount: _totalExpenses,
+                    amount: safeExpenses,
                     color: WealthInColors.error,
                     icon: Icons.arrow_upward,
                     isDark: isDark,
@@ -212,8 +232,11 @@ class _CashflowCardState extends State<CashflowCard> {
             const SizedBox(height: 12),
 
             // Net Cashflow
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   'Net Cash Flow',
@@ -222,6 +245,7 @@ class _CashflowCardState extends State<CashflowCard> {
                   ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       netCashflow >= 0
@@ -249,7 +273,7 @@ class _CashflowCardState extends State<CashflowCard> {
             const SizedBox(height: 12),
 
             // Savings Rate
-            if (_totalIncome > 0 && netCashflow > 0)
+            if (safeIncome > 0 && netCashflow > 0)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -268,7 +292,7 @@ class _CashflowCardState extends State<CashflowCard> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'Savings Rate: ${(netCashflow / _totalIncome * 100).toStringAsFixed(1)}%',
+                      'Savings Rate: ${(netCashflow / safeIncome * 100).toStringAsFixed(1)}%',
                       style: const TextStyle(
                         color: WealthInColors.success,
                         fontWeight: FontWeight.w600,
@@ -279,7 +303,7 @@ class _CashflowCardState extends State<CashflowCard> {
               ).animate().fadeIn(delay: 400.ms),
 
             // Empty state message
-            if (_totalIncome == 0 && _totalExpenses == 0)
+            if (safeIncome == 0 && safeExpenses == 0)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -323,14 +347,33 @@ class _CashflowCardState extends State<CashflowCard> {
     final Map<String, Map<String, double>> groupedData = {};
 
     for (var point in _cashflowData) {
-      final dayKey = point.date.length >= 10 ? point.date.substring(8, 10) : point.date;
+      final dayKey = point.date.length >= 10
+          ? point.date.substring(8, 10)
+          : point.date;
       groupedData[dayKey] ??= {'income': 0, 'expense': 0};
 
-      // Separate income and expense based on transaction type or balance sign
-      if (point.balance > 0) {
-        groupedData[dayKey]!['income'] = groupedData[dayKey]!['income']! + point.balance.abs();
-      } else {
-        groupedData[dayKey]!['expense'] = groupedData[dayKey]!['expense']! + point.balance.abs();
+      final income = _sanitizeAmount(point.income).abs();
+      final expense = _sanitizeAmount(point.expense).abs();
+
+      if (income > 0) {
+        groupedData[dayKey]!['income'] =
+            groupedData[dayKey]!['income']! + income;
+      }
+      if (expense > 0) {
+        groupedData[dayKey]!['expense'] =
+            groupedData[dayKey]!['expense']! + expense;
+      }
+
+      // Fallback for legacy rows where only running balance is meaningful.
+      if (income == 0 && expense == 0) {
+        final balance = _sanitizeAmount(point.balance);
+        if (balance >= 0) {
+          groupedData[dayKey]!['income'] =
+              groupedData[dayKey]!['income']! + balance.abs();
+        } else {
+          groupedData[dayKey]!['expense'] =
+              groupedData[dayKey]!['expense']! + balance.abs();
+        }
       }
     }
 
@@ -358,19 +401,31 @@ class _CashflowCardState extends State<CashflowCard> {
       expenses = [0, 0, 0, 0, 0, 0, 0];
     } else {
       final entries = groupedData.entries.toList();
-      final displayEntries = entries.length > 7 ? entries.sublist(entries.length - 7) : entries;
+      final displayEntries = entries.length > 7
+          ? entries.sublist(entries.length - 7)
+          : entries;
       labels = displayEntries.map((e) => e.key).toList();
       incomes = displayEntries.map((e) => e.value['income']!).toList();
       expenses = displayEntries.map((e) => e.value['expense']!).toList();
     }
 
     // WealthIn brand colors for income and expense
-    const incomeColor = Color(0xFF2ECC71);  // Green (income)
-    const expenseColor = Color(0xFFE74C3C); // Red (expense) - clearer distinction
+    const incomeColor = Color(0xFF2ECC71); // Green (income)
+    const expenseColor = Color(
+      0xFFE74C3C,
+    ); // Red (expense) - clearer distinction
+    final allValues = [
+      ...incomes,
+      ...expenses,
+    ].map((value) => _sanitizeAmount(value)).toList();
+    final maxValue = allValues.isEmpty ? 0.0 : allValues.reduce(math.max);
+    final chartMaxY = maxValue > 0 ? maxValue * 1.2 : 1.0;
+    final chartInterval = chartMaxY / 4;
 
     return BarChartData(
       alignment: BarChartAlignment.spaceAround,
-      maxY: (incomes + expenses).reduce((a, b) => a > b ? a : b) * 1.2,
+      minY: 0,
+      maxY: chartMaxY,
       barTouchData: BarTouchData(
         touchTooltipData: BarTouchTooltipData(
           tooltipBgColor: isDark ? WealthInColors.blackCard : Colors.white,
@@ -391,7 +446,9 @@ class _CashflowCardState extends State<CashflowCard> {
       titlesData: FlTitlesData(
         show: true,
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
@@ -400,7 +457,9 @@ class _CashflowCardState extends State<CashflowCard> {
               return Text(
                 _formatAmount(value),
                 style: TextStyle(
-                  color: isDark ? WealthInColors.textSecondaryDark : Colors.grey[600],
+                  color: isDark
+                      ? WealthInColors.textSecondaryDark
+                      : Colors.grey[600],
                   fontSize: 10,
                 ),
               );
@@ -418,7 +477,9 @@ class _CashflowCardState extends State<CashflowCard> {
                   child: Text(
                     labels[idx],
                     style: TextStyle(
-                      color: isDark ? WealthInColors.textSecondaryDark : Colors.grey[600],
+                      color: isDark
+                          ? WealthInColors.textSecondaryDark
+                          : Colors.grey[600],
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
@@ -434,7 +495,7 @@ class _CashflowCardState extends State<CashflowCard> {
       gridData: FlGridData(
         show: true,
         drawVerticalLine: false,
-        horizontalInterval: (incomes + expenses).reduce((a, b) => a > b ? a : b) / 4,
+        horizontalInterval: chartInterval,
         getDrawingHorizontalLine: (value) => FlLine(
           color: isDark ? WealthInColors.blackBorder : Colors.grey[200]!,
           strokeWidth: 1,
@@ -445,16 +506,20 @@ class _CashflowCardState extends State<CashflowCard> {
           x: i,
           barRods: [
             BarChartRodData(
-              toY: incomes[i],
+              toY: math.max(0, _sanitizeAmount(incomes[i])),
               color: incomeColor,
               width: 10,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(4),
+              ),
             ),
             BarChartRodData(
-              toY: expenses[i],
+              toY: math.max(0, _sanitizeAmount(expenses[i])),
               color: expenseColor,
               width: 10,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(4),
+              ),
             ),
           ],
           barsSpace: 4,
@@ -465,14 +530,16 @@ class _CashflowCardState extends State<CashflowCard> {
 }
 
 String _formatAmount(double amount) {
-  if (amount >= 10000000) {
-    return '${(amount / 10000000).toStringAsFixed(2)}Cr';
-  } else if (amount >= 100000) {
-    return '${(amount / 100000).toStringAsFixed(2)}L';
-  } else if (amount >= 1000) {
-    return '${(amount / 1000).toStringAsFixed(1)}K';
+  if (!amount.isFinite) return '0';
+  final safeAmount = amount.abs();
+  if (safeAmount >= 10000000) {
+    return '${(safeAmount / 10000000).toStringAsFixed(2)}Cr';
+  } else if (safeAmount >= 100000) {
+    return '${(safeAmount / 100000).toStringAsFixed(2)}L';
+  } else if (safeAmount >= 1000) {
+    return '${(safeAmount / 1000).toStringAsFixed(1)}K';
   }
-  return amount.toStringAsFixed(0);
+  return safeAmount.toStringAsFixed(0);
 }
 
 /// Period selector chip group
@@ -578,6 +645,9 @@ class _CashflowBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeIncomePercentage = incomePercentage.isFinite
+        ? incomePercentage.clamp(0.0, 1.0).toDouble()
+        : 0.5;
     return SizedBox(
       height: 24,
       child: ClipRRect(
@@ -585,7 +655,7 @@ class _CashflowBar extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              flex: (incomePercentage * 100).toInt().clamp(1, 99),
+              flex: (safeIncomePercentage * 100).toInt().clamp(1, 99),
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -598,7 +668,7 @@ class _CashflowBar extends StatelessWidget {
               ),
             ),
             Expanded(
-              flex: ((1 - incomePercentage) * 100).toInt().clamp(1, 99),
+              flex: ((1 - safeIncomePercentage) * 100).toInt().clamp(1, 99),
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(

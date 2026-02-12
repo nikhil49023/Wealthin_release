@@ -1275,7 +1275,7 @@ _Just type or tap a suggestion below!_""",
                                 ),
                               ),
                               child: Text(
-                                priceStr.length > 12 ? '${priceStr.substring(0, 12)}' : priceStr,
+                                priceStr.length > 12 ? priceStr.substring(0, 12) : priceStr,
                                 style: TextStyle(
                                   color: WealthInColors.success,
                                   fontWeight: FontWeight.w700,

@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import '../../core/services/backend_config.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../../core/theme/wealthin_theme.dart';
 
 /// Document Generator Screen - Create professional financial documents
@@ -512,28 +511,7 @@ class _DocumentFormScreenState extends State<DocumentFormScreen> {
     try {
       // Prepare content based on template type
       final content = _prepareContent();
-
-      final response = await http.post(
-        Uri.parse('${backendConfig.baseUrl}/documents/generate'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'doc_type': widget.template.type,
-          'title': widget.template.name,
-          'content': content,
-          'user_info': {},
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['success'] == true) {
-          await _savePdf(json['pdf_base64'], json['filename']);
-        } else {
-          throw Exception('Generation failed');
-        }
-      } else {
-        throw Exception('Server error: ${response.statusCode}');
-      }
+      await _generatePdfLocally(content);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -548,6 +526,72 @@ class _DocumentFormScreenState extends State<DocumentFormScreen> {
         setState(() => _isGenerating = false);
       }
     }
+  }
+
+  Future<void> _generatePdfLocally(Map<String, dynamic> content) async {
+    final document = PdfDocument();
+    final page = document.pages.add();
+    var currentGraphics = page.graphics;
+    final pageSize = page.getClientSize();
+
+    final titleFont = PdfStandardFont(PdfFontFamily.helvetica, 20, style: PdfFontStyle.bold);
+    final sectionFont = PdfStandardFont(PdfFontFamily.helvetica, 12, style: PdfFontStyle.bold);
+    final bodyFont = PdfStandardFont(PdfFontFamily.helvetica, 11);
+
+    double y = 24;
+    currentGraphics.drawString(widget.template.name, titleFont, bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 30));
+    y += 34;
+    currentGraphics.drawString(
+      'Generated on: ${DateTime.now().toLocal()}',
+      PdfStandardFont(PdfFontFamily.helvetica, 9),
+      brush: PdfBrushes.gray,
+      bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 20),
+    );
+    y += 26;
+
+    void drawLine(String key, dynamic value) {
+      if (value == null) return;
+      final text = value.toString().trim();
+      if (text.isEmpty) return;
+      currentGraphics.drawString('$key:', sectionFont, bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 16));
+      y += 16;
+      currentGraphics.drawString(text, bodyFont, bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 40));
+      y += 28;
+    }
+
+    for (final entry in content.entries) {
+      if (entry.value is List || entry.value is Map) {
+        drawLine(entry.key, const JsonEncoder.withIndent('  ').convert(entry.value));
+      } else {
+        drawLine(entry.key, entry.value);
+      }
+      if (y > pageSize.height - 60) {
+        final newPage = document.pages.add();
+        currentGraphics = newPage.graphics;
+        y = 24;
+        currentGraphics.drawString(
+          widget.template.name,
+          titleFont,
+          bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 30),
+        );
+        y += 34;
+        currentGraphics.drawString(
+          'Continued...',
+          PdfStandardFont(PdfFontFamily.helvetica, 9),
+          brush: PdfBrushes.gray,
+          bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 20),
+        );
+        y += 26;
+      }
+    }
+
+    final bytes = await document.save();
+    document.dispose();
+
+    final filename =
+        '${widget.template.type}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final base64Data = base64Encode(bytes);
+    await _savePdf(base64Data, filename);
   }
 
   Map<String, dynamic> _prepareContent() {

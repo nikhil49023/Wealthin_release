@@ -106,35 +106,40 @@ class _FinancialOverviewCardState extends State<FinancialOverviewCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.primary.withValues(alpha: 0.8),
-                            AppTheme.primary,
-                          ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primary.withValues(alpha: 0.8),
+                              AppTheme.primary,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        borderRadius: BorderRadius.circular(10),
+                        child: const Icon(
+                          Icons.account_balance_wallet,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.account_balance_wallet,
-                        color: Colors.white,
-                        size: 20,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Financial Overview',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Financial Overview',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 IconButton(
                   onPressed: _loadData,
@@ -146,13 +151,24 @@ class _FinancialOverviewCardState extends State<FinancialOverviewCard> {
             const SizedBox(height: 20),
 
             // Overview Items
-            Row(
-              children: [
-                // Budgets
-                Expanded(
-                  child: _OverviewItem(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final columnCount = width >= 900
+                    ? 3
+                    : width >= 560
+                    ? 2
+                    : 1;
+                final itemWidth = columnCount == 1
+                    ? width
+                    : (width - (12 * (columnCount - 1))) / columnCount;
+
+                final cards = [
+                  _OverviewItem(
                     icon: Icons.pie_chart_rounded,
-                    iconColor: const Color(0xFF6C63FF), // Keep specific brand color or move to theme
+                    iconColor: const Color(
+                      0xFF6C63FF,
+                    ), // Keep specific brand color or move to theme
                     title: 'Budgets',
                     value: '₹${_formatAmount(totalBudgetSpent)}',
                     subtitle: 'of ₹${_formatAmount(totalBudgetLimit)}',
@@ -166,12 +182,7 @@ class _FinancialOverviewCardState extends State<FinancialOverviewCard> {
                         : AppTheme.incomeGreen,
                     onTap: () => _navigateTo(context, const BudgetsScreen()),
                   ).animate().fadeIn(delay: 100.ms),
-                ),
-                const SizedBox(width: 12),
-
-                // Goals
-                Expanded(
-                  child: _OverviewItem(
+                  _OverviewItem(
                     icon: Icons.flag_rounded,
                     iconColor: AppTheme.incomeGreen,
                     title: 'Goals',
@@ -183,12 +194,7 @@ class _FinancialOverviewCardState extends State<FinancialOverviewCard> {
                     progressColor: AppTheme.incomeGreen,
                     onTap: () => _navigateTo(context, const GoalsScreen()),
                   ).animate().fadeIn(delay: 200.ms),
-                ),
-                const SizedBox(width: 12),
-
-                // Upcoming Payments
-                Expanded(
-                  child: _OverviewItem(
+                  _OverviewItem(
                     icon: Icons.event_note_rounded,
                     iconColor: AppTheme.warning,
                     title: 'Upcoming',
@@ -201,8 +207,21 @@ class _FinancialOverviewCardState extends State<FinancialOverviewCard> {
                     onTap: () =>
                         _navigateTo(context, const ScheduledPaymentsScreen()),
                   ).animate().fadeIn(delay: 300.ms),
-                ),
-              ],
+                ];
+
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: cards
+                      .map(
+                        (card) => SizedBox(
+                          width: itemWidth.isFinite ? itemWidth : width,
+                          child: card,
+                        ),
+                      )
+                      .toList(),
+                );
+              },
             ),
             const SizedBox(height: 16),
 
@@ -284,7 +303,9 @@ class _OverviewItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: WealthInTheme.gray200.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: WealthInTheme.gray200.withValues(alpha: 0.5),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,6 +341,8 @@ class _OverviewItem extends StatelessWidget {
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Text(
@@ -327,6 +350,8 @@ class _OverviewItem extends StatelessWidget {
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Text(
@@ -335,6 +360,8 @@ class _OverviewItem extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 fontSize: 10,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             if (showProgress) ...[
               const SizedBox(height: 8),
@@ -412,7 +439,9 @@ class _UpcomingPaymentRow extends StatelessWidget {
                         ? 'Due tomorrow'
                         : 'Due in $daysUntil days',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: isUrgent ? AppTheme.warning : WealthInTheme.gray600,
+                      color: isUrgent
+                          ? AppTheme.warning
+                          : WealthInTheme.gray600,
                     ),
                   ),
                 ],

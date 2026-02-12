@@ -3,7 +3,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart' show authService;
 import '../../core/theme/app_theme.dart';
 import '../../core/services/data_service.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme/wealthin_theme.dart';
 
 /// Scheduled Payments Screen - Manage recurring payments and bills

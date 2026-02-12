@@ -7,7 +7,7 @@ import '../../core/services/pdf_report_service.dart';
 import 'widgets/health_score_gauge.dart';
 
 class FinancialHealthScreen extends StatefulWidget {
-  const FinancialHealthScreen({Key? key}) : super(key: key);
+  const FinancialHealthScreen({super.key});
 
   @override
   State<FinancialHealthScreen> createState() => _FinancialHealthScreenState();

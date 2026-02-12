@@ -7,10 +7,10 @@ class HealthScoreGauge extends StatelessWidget {
   final double size;
 
   const HealthScoreGauge({
-    Key? key,
+    super.key,
     required this.score,
     this.size = 200,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
