@@ -77,6 +77,7 @@ from services.idea_evaluator_service import idea_evaluator
 from services.mudra_dpr_service import mudra_engine, MudraDPRInput
 from services.email_service import email_service
 from services.dpr_generator import dpr_generator, get_dpr_template
+from services.dpr_scoring_service import dpr_scorer
 
 load_dotenv()
 
@@ -1995,6 +1996,55 @@ async def get_user_dprs(user_id: str, limit: int = 10):
             "count": len(dprs),
         }
     except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/dpr/score")
+async def score_dpr(data: dict):
+    """
+    Calculate completeness and quality score for DPR
+    Returns section-wise scores, overall readiness, and next steps
+    """
+    try:
+        dpr_data = data.get("dpr_data", {})
+        
+        if not dpr_data:
+            raise HTTPException(status_code=400, detail="dpr_data is required")
+
+        # Calculate overall score
+        score_result = dpr_scorer.calculate_overall_score(dpr_data)
+
+        return {
+            "success": True,
+            **score_result
+        }
+    except Exception as e:
+        logger.error(f"Error scoring DPR: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/dpr/score-section")
+async def score_dpr_section(data: dict):
+    """
+    Calculate score for a single DPR section
+    Returns completeness score, missing fields, and recommendations
+    """
+    try:
+        section_name = data.get("section_name", "")
+        section_data = data.get("section_data", {})
+        
+        if not section_name:
+            raise HTTPException(status_code=400, detail="section_name is required")
+
+        # Calculate section score
+        score_result = dpr_scorer.calculate_section_score(section_name, section_data)
+
+        return {
+            "success": True,
+            **score_result
+        }
+    except Exception as e:
+        logger.error(f"Error scoring DPR section: {e}")
         return {"success": False, "error": str(e)}
 
 
