@@ -131,6 +131,8 @@ class DatabaseService:
             
             await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id)')
             await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)')
+            await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category)')
+            await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON transactions(user_id, date)')
             await db.commit()
             print(f"✅ Transactions DB initialized at {TRANSACTIONS_DB_PATH}")
 

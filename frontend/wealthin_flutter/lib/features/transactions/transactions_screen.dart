@@ -1461,18 +1461,25 @@ class _TransactionTile extends StatelessWidget {
           style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.w500,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           '${transaction.category} • ${_formatDate(transaction.date)}${transaction.paymentMethod != null ? ' • ${transaction.paymentMethod}' : ''}',
           style: theme.textTheme.bodySmall,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: isSelectionMode
             ? null
-            : Text(
-                '${isIncome ? '+' : '-'}₹${transaction.amount.toStringAsFixed(0)}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '${isIncome ? '+' : '-'}₹${transaction.amount.toStringAsFixed(0)}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
       ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
@@ -10,6 +11,7 @@ import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/python_bridge_service.dart';
 import 'core/services/startup_permissions_service.dart';
+import 'core/services/contact_service.dart';
 import 'features/auth/auth_wrapper.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -36,6 +38,22 @@ final dataService = DataService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Global error boundary - catch all Flutter framework errors
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('🔴 Flutter Error: ${details.exception}');
+    debugPrint('Stack trace: ${details.stack}');
+    // TODO: Send to analytics/backend logging
+  };
+
+  // Catch errors outside Flutter (async errors, etc.)
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('🔴 Platform Error: $error');
+    debugPrint('Stack trace: $stack');
+    // TODO: Send to analytics/backend logging
+    return true;
+  };
 
   await _initializeSupabase();
 
@@ -107,6 +125,18 @@ Future<void> _initializeDeferredServices() async {
 
   await _runStartupTask('AI agent service', () async {
     await aiAgentService.initialize();
+  });
+
+  // Load contacts in background (non-blocking)
+  await _runStartupTask('contacts', () async {
+    final contactService = ContactService();
+    final hasPermission = await contactService.hasPermission();
+    if (hasPermission) {
+      await contactService.loadContacts();
+      debugPrint('[App] Contacts loaded: ${contactService.cacheSize} entries');
+    } else {
+      debugPrint('[App] Contacts permission not granted');
+    }
   });
 }
 

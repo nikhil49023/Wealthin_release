@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme/wealthin_theme.dart';
 
 /// Product Card with clickable link - Used for AI search results
@@ -104,12 +105,18 @@ class ProductCard extends StatelessWidget {
             if (imageUrl != null && imageUrl!.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(
-                  imageUrl!,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
                   height: 120,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildImagePlaceholder(theme),
+                  placeholder: (_, __) => Container(
+                    height: 120,
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                  errorWidget: (_, __, ___) => _buildImagePlaceholder(theme),
+                  memCacheHeight: 240,  // Cache at 2x height for quality
                 ),
               )
             else

@@ -47,6 +47,7 @@ from services.ncm_service import ncm_service
 from services.financial_health_service import financial_health_service
 from services.openai_brainstorm_service import openai_brainstorm_service
 from services.groq_openai_service import groq_openai_service
+from services.enhanced_sms_parser import enhanced_sms_parser
 from services.ideas_mode_service import (
     get_system_prompt as get_ideas_system_prompt,
     list_modes as list_ideas_modes,
@@ -2737,35 +2738,29 @@ from services.sms_parser_service import sms_parser
 @app.post("/transactions/parse-sms")
 async def parse_sms_batch(request: dict):
     """
-    Parse batch of SMS messages and extract transactions
-    Used for initial bulk import (last 30 days)
-    Returns transactions with confidence scores
+    Parse batch of SMS messages using enhanced parser with UPI support
+    Returns transactions with contact names (to be resolved on Flutter side)
     """
     try:
         sms_list = request.get('sms_list', [])
-        logger.info(f"Parsing {len(sms_list)} SMS messages")
+        logger.info(f"Parsing {len(sms_list)} SMS messages with enhanced parser")
 
-        # Parse all SMS with confidence scores
         results = []
         for sms in sms_list:
-            parsed, confidence = sms_parser.parse_sms_with_confidence(
+            parsed = enhanced_sms_parser.parse_sms(
                 sender=sms.get('sender', ''),
                 message=sms.get('message', ''),
-                timestamp=sms.get('timestamp')
+                timestamp=datetime.fromisoformat(sms.get('timestamp')) if sms.get('timestamp') else None
             )
             if parsed:
-                parsed['confidence'] = confidence
                 results.append(parsed)
-
-        # Calculate average confidence
-        avg_confidence = sum(r['confidence'] for r in results) / len(results) if results else 0.0
 
         return {
             'status': 'success',
             'count': len(results),
             'total_sms': len(sms_list),
-            'avg_confidence': round(avg_confidence, 2),
-            'transactions': results
+            'transactions': results,
+            'message': f'Parsed {len(results)} transactions from {len(sms_list)} SMS'
         }
     except Exception as e:
         logger.error(f"Error parsing SMS batch: {e}")
@@ -2775,24 +2770,21 @@ async def parse_sms_batch(request: dict):
 @app.post("/transactions/parse-sms-single")
 async def parse_sms_single(sms: dict):
     """
-    Parse single SMS message (for real-time sync)
-    Called when new SMS arrives
-    Returns transaction with confidence score
+    Parse single SMS using enhanced parser
+    Returns transaction with UPI details for contact resolution
     """
     try:
-        parsed, confidence = sms_parser.parse_sms_with_confidence(
+        parsed = enhanced_sms_parser.parse_sms(
             sender=sms.get('sender', ''),
             message=sms.get('message', ''),
-            timestamp=datetime.fromisoformat(sms.get('timestamp', datetime.now().isoformat()))
+            timestamp=datetime.fromisoformat(sms.get('timestamp')) if sms.get('timestamp') else None
         )
 
         if parsed:
-            parsed['confidence'] = confidence
-            logger.info(f"Parsed transaction: {parsed['description']} - ₹{parsed['amount']} (confidence: {confidence:.2f})")
+            logger.info(f"Parsed: {parsed['description']} - ₹{parsed['amount']} (confidence: {parsed.get('category_confidence', 0):.2f})")
             return {
                 'status': 'success',
                 'transaction': parsed,
-                'confidence': round(confidence, 2)
             }
         else:
             return {
@@ -2801,6 +2793,38 @@ async def parse_sms_single(sms: dict):
             }
     except Exception as e:
         logger.error(f"Error parsing single SMS: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/transactions/resolve-contact")
+async def resolve_contact_name(request: dict):
+    """
+    Resolve contact name from mobile number or UPI ID
+    Called from Flutter after contact lookup
+    Updates transaction with contact name
+    """
+    try:
+        transaction_id = request.get('transaction_id')
+        contact_name = request.get('contact_name')
+        user_id = request.get('user_id', 'default_user')
+
+        if not transaction_id or not contact_name:
+            raise HTTPException(status_code=400, detail="transaction_id and contact_name required")
+
+        # Update transaction in database
+        updated = await database_service.update_transaction(
+            transaction_id=transaction_id,
+            user_id=user_id,
+            updates={'merchant': contact_name}
+        )
+
+        if updated:
+            return {'status': 'success', 'message': f'Updated transaction with contact: {contact_name}'}
+        else:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+    except Exception as e:
+        logger.error(f"Error resolving contact: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

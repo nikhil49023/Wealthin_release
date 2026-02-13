@@ -93,7 +93,7 @@ class _FinancialHealthScreenState extends State<FinancialHealthScreen> {
                         physics: const NeverScrollableScrollPhysics(),
                         mainAxisSpacing: 16,
                         crossAxisSpacing: 16,
-                        childAspectRatio: 1.3,
+                        childAspectRatio: 1.0,
                         children: [
                           _buildMetricCard(
                             'Savings',
@@ -258,21 +258,25 @@ class _FinancialHealthScreenState extends State<FinancialHealthScreen> {
               ),
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           Text(
             title,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 10,
               color: Colors.white38,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(

@@ -656,12 +656,38 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   Future<void> _showDprPreview(Map<String, dynamic> result) async {
     final dpr = result['dpr'];
     final modelUsed = result['model_used']?.toString();
-    String preview;
 
-    try {
-      preview = const JsonEncoder.withIndent('  ').convert(dpr);
-    } catch (_) {
-      preview = dpr?.toString() ?? 'No DPR content returned.';
+    // Extract sections from the DPR structure
+    List<Map<String, dynamic>> sections = [];
+    Map<String, dynamic> metadata = {};
+
+    if (dpr is Map<String, dynamic>) {
+      metadata = (dpr['metadata'] as Map<String, dynamic>?) ?? {};
+      final rawSections = dpr['sections'];
+      if (rawSections is List) {
+        for (final s in rawSections) {
+          if (s is Map<String, dynamic>) {
+            sections.add(s);
+          }
+        }
+      }
+      // If no sections key, treat the top-level keys as sections
+      if (sections.isEmpty) {
+        for (final entry in dpr.entries) {
+          if (entry.key == 'metadata') continue;
+          if (entry.value is Map) {
+            sections.add({
+              'title': entry.key.replaceAll('_', ' ').toUpperCase(),
+              'content': entry.value,
+            });
+          } else if (entry.value is String) {
+            sections.add({
+              'title': entry.key.replaceAll('_', ' ').toUpperCase(),
+              'content': {'text': entry.value},
+            });
+          }
+        }
+      }
     }
 
     if (!mounted) return;
@@ -669,66 +695,285 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.description_outlined),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Generated DPR Preview',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                if (modelUsed != null && modelUsed.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      'Model: $modelUsed',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).textTheme.bodySmall?.color,
-                      ),
-                    ),
-                  ),
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final completeness = metadata['completeness_pct']?.toString();
+        final status = metadata['status']?.toString();
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return SafeArea(
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        preview,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                      ),
+                      color: Colors.grey[400],
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: WealthInColors.primary.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.description_outlined,
+                                color: WealthInColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Detailed Project Report',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                  if (status != null && status.isNotEmpty)
+                                    Text(
+                                      status,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: status.contains('Ready')
+                                            ? Colors.green
+                                            : Colors.orange,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (completeness != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: WealthInColors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '$completeness%',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: WealthInColors.primary,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                        if (modelUsed != null && modelUsed.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(
+                              children: [
+                                Icon(Icons.smart_toy_outlined,
+                                    size: 14, color: Colors.grey[500]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'AI Model: $modelUsed',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey[300]),
+                  // Sections list
+                  Expanded(
+                    child: sections.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: SelectableText(
+                                dpr?.toString() ?? 'No DPR content returned.',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: sections.length,
+                            itemBuilder: (context, index) {
+                              final section = sections[index];
+                              final sectionTitle =
+                                  (section['title'] ?? 'Section ${index + 1}')
+                                      .toString();
+                              final content =
+                                  section['content'] as Map<String, dynamic>? ??
+                                      {};
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.05)
+                                      : Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white12
+                                        : Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Section header
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: WealthInColors.primary
+                                            .withOpacity(0.08),
+                                        borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(14),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            '${index + 1}.',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: WealthInColors.primary,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              sectionTitle,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Section content key-value pairs
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: content.entries.map((e) {
+                                          final label = e.key
+                                              .replaceAll('_', ' ')
+                                              .split(' ')
+                                              .map((w) => w.isNotEmpty
+                                                  ? '${w[0].toUpperCase()}${w.substring(1)}'
+                                                  : '')
+                                              .join(' ');
+
+                                          String valueStr;
+                                          if (e.value is Map) {
+                                            valueStr = (e.value as Map)
+                                                .entries
+                                                .map((me) =>
+                                                    '${me.key}: ${me.value}')
+                                                .join('\n');
+                                          } else if (e.value is List) {
+                                            valueStr = (e.value as List)
+                                                .map((v) => '• $v')
+                                                .join('\n');
+                                          } else {
+                                            valueStr = e.value?.toString() ??
+                                                'Not specified';
+                                          }
+
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 12),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  label,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDark
+                                                        ? Colors.white54
+                                                        : Colors.grey[600],
+                                                    letterSpacing: 0.3,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 3),
+                                                SelectableText(
+                                                  valueStr.isEmpty
+                                                      ? '—'
+                                                      : valueStr,
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    height: 1.4,
+                                                    color: valueStr.isEmpty ||
+                                                            valueStr ==
+                                                                'Not specified'
+                                                        ? Colors.grey
+                                                        : null,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

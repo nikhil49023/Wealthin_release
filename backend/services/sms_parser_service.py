@@ -31,6 +31,10 @@ class SMSTransactionParser:
             'FEDERALBK', 'ILOANBK', 'ABORIG',
             'PAYTM', 'PHONEPE', 'GPAY', 'CRED',
             'IDFCFIRST', 'BAJFINANCE', 'RBLBANK',
+            # UPI / wallet senders
+            'UPIAXIS', 'UPIBOB', 'UPISBI', 'UPIHDF',
+            'JUPITERMF', 'SLICE', 'FIBANK', 'NIYO',
+            'JUSPAY', 'RAZRPAY', 'AIRTEL',
         ]
 
         # Transaction type keywords
@@ -38,7 +42,8 @@ class SMSTransactionParser:
             'debited', 'debit', 'paid', 'withdrawn', 'spent',
             'purchase', 'purchased', 'sent', 'transferred to',
             'charged', 'txn at', 'txn of', 'pos txn', 'upi txn',
-            'transaction at',
+            'transaction at', 'sent to', 'transfer to',
+            'money sent', 'payment of', 'upi-',
         ]
 
         self.credit_keywords = [
@@ -60,7 +65,9 @@ class SMSTransactionParser:
             any(kw in msg_lower for kw in self.credit_keywords) or
             # Also check word-boundary "dr"/"cr" patterns
             bool(re.search(r'\bdr\b', msg_lower)) or
-            bool(re.search(r'\bcr\b', msg_lower))
+            bool(re.search(r'\bcr\b', msg_lower)) or
+            # UPI transaction patterns
+            bool(re.search(r'upitxn|upi[-/]|upi\s+txn|upi\s+ref', msg_lower))
         )
 
         # Check for amount pattern
@@ -188,9 +195,13 @@ class SMSTransactionParser:
         # Strategy 1: Look for amount right next to debit/credit keywords
         # e.g. "debited by Rs.500", "credited with Rs.1000", "paid Rs.250"
         contextual_patterns = [
-            r'(?:debited|debit|paid|withdrawn|spent|purchased|sent|charged)\s*(?:by\s*|for\s*|of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            r'(?:debited|debit|paid|withdrawn|spent|purchased|sent|charged|transferred)\s*(?:by\s*|for\s*|of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
             r'(?:credited|received|deposited|refund)\s*(?:by\s*|with\s*|of\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
-            r'(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)\s*(?:has been\s*)?(?:debited|credited|paid|withdrawn|received|deposited)',
+            r'(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)\s*(?:has been\s*)?(?:debited|credited|paid|withdrawn|received|deposited|transferred|sent)',
+            # UPI specific: "UPI-Rs.500" / "UPI txn Rs.250"
+            r'upi[-/\s](?:txn\s*)?(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)',
+            # "sent Rs.500 to" / "transfer Rs.300 to"
+            r'(?:sent|transfer)\s*(?:rs\.?\s*|inr\s*|₹\s*)([\d,]+(?:\.\d{1,2})?)\s*(?:to|from)',
         ]
 
         for pattern in contextual_patterns:
@@ -278,14 +289,17 @@ class SMSTransactionParser:
     def _extract_description(self, text: str) -> str:
         """Extract merchant/transaction description"""
         # Words that should not be treated as merchant names
-        skip_words = {'your', 'my', 'the', 'this', 'his', 'her', 'their', 'our', 'a/c', 'account'}
+        skip_words = {'your', 'my', 'the', 'this', 'his', 'her', 'their', 'our', 'a/c', 'account',
+                       'bank', 'dear', 'customer', 'user', 'sir', 'madam'}
 
         patterns = [
+            r'(?:paid to|sent to|transferred to)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\s+via|\.|$)',
+            r'(?:received from|credited from)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\.|$)',
             r'(?:at|to|from)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\s+a/c|\.|$)',
-            r'(?:paid to|sent to)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\.|$)',
-            r'(?:received from)\s+([A-Za-z0-9][A-Za-z0-9\s&\-\.]+?)(?:\s+on|\s+ref|\.|$)',
-            r'(?:UPI/)([\w\s@\-\.]+?)(?:/|$)',
+            # UPI patterns: "UPI/CRED/name" or "UPI-name@upi"
+            r'(?:UPI[/\-])([\w\s@\-\.]+?)(?:/|\s+ref|\s+on|\.|$)',
             r'(?:VPA[:\s-])([\w@\.]+)',
+            r'(?:UPITXN[:\s])([\w@\.]+)',
             r'(?:for\s+)([\w\s&\-\.]+?)(?:\s+on|\s+at|\s+ref|\.|$)',
         ]
 
@@ -294,10 +308,14 @@ class SMSTransactionParser:
             if match:
                 desc = match.group(1).strip()
                 desc = re.sub(r'\s+', ' ', desc)
+                # Clean up UPI IDs: remove @upi, @ybl, @paytm, etc.
+                desc = re.sub(r'@[a-zA-Z]+$', '', desc).strip()
+                # Remove trailing UPI reference numbers
+                desc = re.sub(r'\d{10,}$', '', desc).strip()
                 # Skip if description is just a common word (not a merchant name)
                 if desc.lower() in skip_words:
                     continue
-                if len(desc) > 3:
+                if len(desc) > 2:
                     return desc
 
         # Fallback: Extract first capitalized phrase
@@ -356,14 +374,25 @@ class SMSTransactionParser:
         return None
 
     def _extract_date(self, text: str) -> Optional[datetime]:
-        """Extract transaction date if present"""
+        """Extract transaction date if present, including relative terms"""
         current_year = datetime.now().year
+        today = datetime.now()
+
+        # Handle relative date terms first
+        text_lower = text.lower()
+        if 'today' in text_lower:
+            return today.replace(hour=0, minute=0, second=0, microsecond=0)
+        if 'yesterday' in text_lower:
+            from datetime import timedelta
+            return (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
         patterns = [
             (r'(\d{1,2})-(\w{3})-(\d{2,4})', '%d-%b-%y'),  # 12-Jan-26
             (r'(\d{1,2})/(\d{1,2})/(\d{2,4})', None),     # 12/01/26 (custom)
+            (r'(\d{2})-(\d{2})-(\d{2,4})', None),         # 12-01-2026 (dd-mm-yyyy)
             (r'(\d{1,2})\s+(\w{3})', None),               # 12 Jan (custom)
             (r'on\s+(\d{1,2})-(\d{1,2})-(\d{2,4})', None), # on 12-01-2026
+            (r'on\s+(\d{1,2})\s+(\w{3})\s*(\d{2,4})?', None), # on 12 Jan 2026
         ]
 
         for pattern_tuple in patterns:
@@ -388,16 +417,21 @@ class SMSTransactionParser:
                         return parsed
                     else:
                         groups = match.groups()
-                        if len(groups) == 2 and groups[1].isalpha():
+                        if len(groups) >= 2 and groups[1].isalpha():
                             day = int(groups[0])
                             month_abbr = groups[1][:3].title()
-                            date_str = f"{day} {month_abbr} {current_year}"
+                            year = current_year
+                            if len(groups) > 2 and groups[2]:
+                                year = int(groups[2])
+                                if year < 100:
+                                    year = year + 2000 if year <= 50 else year + 1900
+                            date_str = f"{day} {month_abbr} {year}"
                             parsed = datetime.strptime(date_str, '%d %b %Y')
                             return parsed
                         elif len(groups) >= 2:
                             day = int(groups[0])
                             month = int(groups[1])
-                            year = int(groups[2]) if len(groups) > 2 else current_year
+                            year = int(groups[2]) if len(groups) > 2 and groups[2] else current_year
                             if year < 100:
                                 year = year + 2000 if year <= 50 else year + 1900
                             return datetime(year, month, day)

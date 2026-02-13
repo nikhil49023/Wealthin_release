@@ -276,61 +276,66 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               ..setEntry(3, 2, 0.002) // Perspective
               ..rotateY(_logoRotateY.value + continuousRotateY)
               ..rotateX(_logoRotateX.value + continuousRotateX),
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(32),
-                boxShadow: [
-                  // Primary glow - Gold/Amber
-                  BoxShadow(
-                    color: const Color(0xFFD4AF37).withOpacity(
-                      0.4 * _logoGlow.value,
-                    ),
-                    blurRadius: 50,
-                    spreadRadius: 15,
-                  ),
-                  // Secondary glow - Navy accent
-                  BoxShadow(
-                    color: const Color(0xFF4B7BEC).withOpacity(
-                      0.3 * _logoGlow.value,
-                    ),
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
-                  // Subtle shadow for depth
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: Container(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final logoSize = (MediaQuery.of(context).size.width * 0.35).clamp(100.0, 160.0);
+                return Container(
+                  width: logoSize,
+                  height: logoSize,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF1E3A5F).withOpacity(0.9), // Dark navy
-                        const Color(0xFF0D1B2A).withOpacity(0.95), // Deeper navy
-                      ],
-                    ),
-                    border: Border.all(
-                      color: const Color(0xFFD4AF37).withOpacity(0.3),
-                      width: 1.5,
-                    ),
                     borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      // Primary glow - Gold/Amber
+                      BoxShadow(
+                        color: const Color(0xFFD4AF37).withOpacity(
+                          0.4 * _logoGlow.value,
+                        ),
+                        blurRadius: 50,
+                        spreadRadius: 15,
+                      ),
+                      // Secondary glow - Navy accent
+                      BoxShadow(
+                        color: const Color(0xFF4B7BEC).withOpacity(
+                          0.3 * _logoGlow.value,
+                        ),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                      // Subtle shadow for depth
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                  child: Image.asset(
-                    'assets/wealthin_logo.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _buildFallbackLogo(),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(32),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF1E3A5F).withOpacity(0.9), // Dark navy
+                            const Color(0xFF0D1B2A).withOpacity(0.95), // Deeper navy
+                          ],
+                        ),
+                        border: Border.all(
+                          color: const Color(0xFFD4AF37).withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(32),
+                      ),
+                      child: Image.asset(
+                        'assets/wealthin_logo.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildFallbackLogo(),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         );
@@ -414,11 +419,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     return AnimatedBuilder(
       animation: _mainController,
       builder: (context, child) {
+        final progressWidth = (MediaQuery.of(context).size.width * 0.5).clamp(150.0, 220.0);
         return Column(
           children: [
             // Progress bar container
             Container(
-              width: 200,
+              width: progressWidth,
               height: 4,
               decoration: BoxDecoration(
                 color: const Color(0xFF1E3A5F).withOpacity(0.5),

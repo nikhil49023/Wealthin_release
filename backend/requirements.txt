@@ -28,6 +28,9 @@ duckduckgo-search>=3.8.0  # Privacy-respecting search engine
 pymupdf>=1.20.0  # Advanced PDF + OCR support
 Pillow>=9.0.0  # Image processing for OCR
 
+# PDF Generation
+reportlab>=4.0.0  # Professional PDF generation for DPR reports
+
 # Financial Calculations
 numpy>=1.21.0  # Numerical calculations
 requests
