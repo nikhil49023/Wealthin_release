@@ -1278,6 +1278,132 @@ def _template_with_defaults() -> Dict[str, Any]:
     return template_response.get("template", {})
 
 
+@app.post("/brainstorm/generate-dpr-section")
+async def generate_dpr_section(data: dict):
+    """
+    Generate a single DPR section for progressive building
+    
+    Sections: executive_summary, promoter_profile, market_analysis, 
+              technical_aspects, financial_projections, cost_of_project,
+              profitability, risk_analysis, compliance
+    """
+    try:
+        section_name = data.get("section_name", "")
+        canvas_items = data.get("canvas_items", [])
+        user_data = data.get("user_data", {})
+        user_id = data.get("user_id", "default_user")
+        existing_sections = data.get("existing_sections", {})
+        business_idea = data.get("business_idea", "")
+        
+        if not section_name:
+            raise HTTPException(status_code=400, detail="section_name is required")
+        
+        logger.info(f"Generating DPR section: {section_name} for user {user_id}")
+        
+        # Section-specific prompts
+        section_prompts = {
+            "executive_summary": "Executive Summary: business name, nature, MSME category, project cost, loan requirement, employment, revenue projection, break-even",
+            "promoter_profile": "Promoter Profile: name, qualifications, experience, Udyam number, PAN, GST, contact details",
+            "market_analysis": "Market Analysis: TAM/SAM/SOM, target market, competitors, pricing strategy, competitive advantage",
+            "technical_aspects": "Technical Aspects: production process, technology, quality standards, capacity, implementation timeline",
+            "financial_projections": "5-Year Financial Projections: revenue, operating costs, profits, cash flow, growth assumptions",
+            "cost_of_project": "Project Costs: land/building, machinery, working capital, funding sources (loan + equity)",
+            "profitability": "Profitability Metrics: DSCR, break-even, payback period, ROI",
+            "risk_analysis": "Risk Analysis: market, operational, financial risks and mitigation strategies",
+            "compliance": "Compliance Requirements: licenses, registrations, environmental clearances, timelines",
+        }
+        
+        if section_name not in section_prompts:
+            raise HTTPException(status_code=400, detail=f"Invalid section_name. Must be one of: {', '.join(section_prompts.keys())}")
+        
+        # Build context
+        canvas_text = "\n".join([item.get("content", "") for item in canvas_items]) if canvas_items else ""
+        context_parts = [f"Business Idea: {business_idea}"] if business_idea else []
+        if canvas_text:
+            context_parts.append(f"Canvas Data:\n{canvas_text}")
+        if existing_sections:
+            context_parts.append(f"Existing Sections:\n{json.dumps(existing_sections, indent=2)}")
+        if user_data:
+            context_parts.append(f"User Data:\n{json.dumps(user_data, indent=2)}")
+        
+        context = "\n\n".join(context_parts)
+        
+        prompt = f"""
+Generate ONLY the "{section_name.replace('_', ' ').title()}" section for a bank-ready DPR.
+
+Requirements:
+{section_prompts[section_name]}
+
+Context:
+{context}
+
+Instructions:
+1. Follow RBI/SIDBI DPR format
+2. Use INR (₹) for all financial values
+3. Provide realistic estimates based on context
+4. Return as structured JSON with clear field names
+5. Be consistent with existing sections
+6. Include all mandatory fields for this section
+
+Return ONLY valid JSON for this section, no markdown or extra text.
+"""
+        
+        # Use strategic_planner mode for DPR sections
+        response = await groq_openai_service.generate_completion(
+            prompt=prompt,
+            mode="strategic_planner",
+            temperature=0.3,  # Lower for more consistent DPR output
+        )
+        
+        # Try to parse as JSON, fallback to text
+        try:
+            section_data = json.loads(response)
+        except json.JSONDecodeError:
+            section_data = {"raw_content": response}
+        
+        return {
+            "status": "success",
+            "section_name": section_name,
+            "section_data": section_data,
+            "progress": f"{len(existing_sections) + 1}/9 sections",
+            "next_section": _get_next_dpr_section(section_name),
+            "metadata": {
+                "generated_on": datetime.now().isoformat(),
+                "user_id": user_id,
+                "model_used": groq_openai_service.last_model_used
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"DPR section generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _get_next_dpr_section(current_section: str) -> Optional[str]:
+    """Helper to suggest next section in DPR flow"""
+    section_order = [
+        "executive_summary",
+        "promoter_profile",
+        "market_analysis",
+        "technical_aspects",
+        "financial_projections",
+        "cost_of_project",
+        "profitability",
+        "risk_analysis",
+        "compliance",
+    ]
+    
+    try:
+        current_index = section_order.index(current_section)
+        if current_index < len(section_order) - 1:
+            return section_order[current_index + 1]
+    except ValueError:
+        pass
+    
+    return None
+
+
+
 def _merge_with_template(template: Any, generated: Any) -> Any:
     if isinstance(template, dict) and isinstance(generated, dict):
         merged = {}
