@@ -32,32 +32,25 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   bool _isLoading = false;
   bool _isCritiqueMode = false;
   String _activeWorkflowMode = 'input';
-  String _activeIdeasMode = 'market_research';
+  String _activeIdeasMode = 'strategic_planner';
   List<Map<String, dynamic>> _ideasModes = const [
     {
-      'id': 'financial_planner',
-      'label': 'Financial Planner',
-      'description': 'Cashflow and tax-aware planning',
+      'id': 'strategic_planner',
+      'label': 'Strategic Planner',
+      'icon': '🎯',
+      'description': 'Business strategy, market analysis, DPR prep',
     },
     {
-      'id': 'market_research',
-      'label': 'Market Research',
-      'description': 'Demand, competition, and viability',
+      'id': 'financial_architect',
+      'label': 'Financial Architect',
+      'icon': '💰',
+      'description': '5-year projections, budgeting, funding',
     },
     {
-      'id': 'career_advisor',
-      'label': 'Career Advisor',
-      'description': 'CV critique and role-fit strategy',
-    },
-    {
-      'id': 'investment_analyst',
-      'label': 'Investment Analyst',
-      'description': 'Risk-return and allocation insights',
-    },
-    {
-      'id': 'life_planning',
-      'label': 'Life Planning',
-      'description': 'Goals, milestones, and timelines',
+      'id': 'execution_coach',
+      'label': 'Execution Coach',
+      'icon': '🚀',
+      'description': 'Implementation, milestones, risk mitigation',
     },
   ];
   Map<String, dynamic>? _lastVisualization;
@@ -140,6 +133,13 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
     switch (modeId) {
       case 'financial_planner':
         return Icons.account_balance_wallet_outlined;
+      case 'strategic_planner':
+        return Icons.track_changes;
+      case 'financial_architect':
+        return Icons.architecture;
+      case 'execution_coach':
+        return Icons.rocket_launch;
+      // Legacy mode support
       case 'career_advisor':
         return Icons.badge_outlined;
       case 'investment_analyst':
@@ -153,6 +153,13 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   Color _modeColor(String modeId) {
     switch (modeId) {
+      case 'strategic_planner':
+        return Colors.orange;
+      case 'financial_architect':
+        return Colors.green;
+      case 'execution_coach':
+        return Colors.blue;
+      // Legacy mode support
       case 'financial_planner':
         return Colors.green;
       case 'career_advisor':
@@ -169,9 +176,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   String _modeLabel(String modeId) {
     final mode = _ideasModes.firstWhere(
       (m) => (m['id']?.toString() ?? '') == modeId,
-      orElse: () => const {'label': 'Market Research'},
+      orElse: () => const {'label': 'Strategic Planner'},
     );
-    return mode['label']?.toString() ?? 'Market Research';
+    return mode['label']?.toString() ?? 'Strategic Planner';
   }
 
   // UI state
@@ -300,7 +307,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
           (m) => (m['id']?.toString() ?? '') == _activeIdeasMode,
         );
         if (!exists) {
-          _activeIdeasMode = _ideasModes.first['id']?.toString() ?? 'market_research';
+          _activeIdeasMode = _ideasModes.first['id']?.toString() ?? 'strategic_planner';
         }
       });
     } catch (e) {
@@ -1026,7 +1033,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
               });
             },
             itemBuilder: (context) => _ideasModes.map((mode) {
-              final id = mode['id']?.toString() ?? 'market_research';
+              final id = mode['id']?.toString() ?? 'strategic_planner';
               final label = mode['label']?.toString() ?? id;
               final description = mode['description']?.toString() ?? '';
               final selected = id == _activeIdeasMode;
