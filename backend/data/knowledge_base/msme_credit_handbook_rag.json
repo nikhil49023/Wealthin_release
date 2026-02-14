@@ -1,0 +1,108 @@
+{
+  "source": {
+    "title": "Know Your Lender, Grow Your Business",
+    "publisher": "Ministry of MSME, Government of India",
+    "document_path": "/home/nikhil/Documents/6140702.pdf",
+    "notes": "Curated local RAG chunks from Sections 1, 5, 8, 9, 10 and Annexure-B"
+  },
+  "chunks": [
+    {
+      "id": "pmmy_scheme",
+      "title": "PMMY (MUDRA) eligibility and slabs",
+      "section": "Section 10.1 (Page 35)",
+      "tags": ["pmmy", "mudra", "loan", "micro", "startup", "expansion"],
+      "content": "PMMY supports income-generating micro enterprises in manufacturing, trading and services with loans up to Rs 20 lakh. Categories: Shishu up to Rs 50,000; Kishor above Rs 50,000 up to Rs 5 lakh; Tarun above Rs 5 lakh up to Rs 10 lakh; Tarun Plus above Rs 10 lakh up to Rs 20 lakh for entrepreneurs who successfully repaid Tarun."
+    },
+    {
+      "id": "pmegp_scheme",
+      "title": "PMEGP new enterprise rules",
+      "section": "Section 10.2 (Page 35)",
+      "tags": ["pmegp", "subsidy", "new", "manufacturing", "services", "kvic"],
+      "content": "PMEGP is a credit-linked subsidy scheme for setting up new micro enterprises. Maximum project cost: Rs 50 lakh for manufacturing and Rs 20 lakh for services. Subsidy range: 15% to 35%. No collateral for loans up to Rs 10 lakh. EDP training is mandatory."
+    },
+    {
+      "id": "pm_vishwakarma_scheme",
+      "title": "PM Vishwakarma artisan support",
+      "section": "Section 10.3 (Pages 35-36)",
+      "tags": ["vishwakarma", "artisan", "craft", "credit", "training", "toolkit"],
+      "content": "PM Vishwakarma provides holistic support to traditional artisans and craftspeople: certificate/ID, skill training, toolkit incentive and collateral-free credit support in two tranches, with digital enablement and marketing support."
+    },
+    {
+      "id": "nulm_scheme",
+      "title": "NULM urban self-employment financing",
+      "section": "Section 10.4 (Page 36)",
+      "tags": ["nulm", "urban", "self-employment", "shg", "loan"],
+      "content": "NULM supports urban poor individuals and SHGs for micro-enterprises. Individuals can avail up to Rs 2 lakh, SHGs up to Rs 10 lakh. Loans up to Rs 10 lakh are collateral-free."
+    },
+    {
+      "id": "nrlm_scheme",
+      "title": "NRLM rural women SHG financing",
+      "section": "Section 10.5 (Page 36)",
+      "tags": ["nrlm", "rural", "women", "shg", "collateral-free"],
+      "content": "NRLM promotes rural financial inclusion through women-led SHGs, providing revolving funds, interest subvention and collateral-free loans up to Rs 10 lakh."
+    },
+    {
+      "id": "mse_gift_scheme",
+      "title": "MSE-GIFT green transition support",
+      "section": "Section 10.6 (Page 36)",
+      "tags": ["mse-gift", "green", "clean energy", "interest subvention", "term loan"],
+      "content": "MSE-GIFT promotes adoption of green technologies in MSEs with 2% interest subvention on term loans up to Rs 2 crore and credit guarantee support up to 75% of eligible loans."
+    },
+    {
+      "id": "mse_spice_scheme",
+      "title": "MSE-SPICE circular economy subsidy",
+      "section": "Section 10.7 (Page 36)",
+      "tags": ["mse-spice", "circular economy", "waste management", "subsidy", "epr"],
+      "content": "MSE-SPICE offers capital subsidy for circular economy/waste management projects: 25% of plant and machinery investment or Rs 12.5 lakh, whichever is lower, for projects up to Rs 50 lakh. Focus sectors include plastic, rubber and e-waste."
+    },
+    {
+      "id": "gst_sahay_product",
+      "title": "GST Sahay invoice-based financing",
+      "section": "Section 9.3 (Page 34)",
+      "tags": ["gst sahay", "working capital", "invoice financing", "gst", "udyam"],
+      "content": "GST Sahay enables collateral-free invoice-based financing for GST-registered and Udyam-registered micro and small enterprises. It supports purchase and sales invoice financing with fast digital disbursal."
+    },
+    {
+      "id": "psb_59_minutes",
+      "title": "PSB Loans in 59 Minutes portal",
+      "section": "Section 9.2 (Page 33)",
+      "tags": ["psb", "59 minutes", "digital lending", "loan portal", "eligibility"],
+      "content": "PSB Loans in 59 Minutes provides digital in-principle approvals and lender matching for credit facilities ranging from Rs 1 lakh to Rs 5 crore through banks and NBFCs."
+    },
+    {
+      "id": "credit_guarantee_cgtmse",
+      "title": "CGTMSE/credit guarantee support",
+      "section": "Section 1.3 (Page 16)",
+      "tags": ["cgtmse", "credit guarantee", "collateral-free", "mse", "guarantee cover"],
+      "content": "Credit guarantee regimes support lending to MSMEs. CGTMSE enables collateral-free credit access for underserved MSE segments with guarantee cover support. CGSS supports DPIIT-recognized startups with guarantee cover."
+    },
+    {
+      "id": "collateral_free_norm",
+      "title": "Collateral-free norms for MSME loans",
+      "section": "Section 1.1 (Page 15) and Annexure-B",
+      "tags": ["collateral", "rbi", "msme", "loan limit", "pmegp"],
+      "content": "As per RBI guidance, banks should not insist on collateral security for MSE loans up to Rs 10 lakh. For PMEGP units, collateral-free lending up to Rs 10 lakh is advised. With strong track record, banks may extend collateral-free loans up to Rs 25 lakh with due approval."
+    },
+    {
+      "id": "loan_documents_annexure_b",
+      "title": "Core loan documentation and statutory checklist",
+      "section": "Annexure-B (Pages 58-62)",
+      "tags": ["documents", "pan", "aadhaar", "gst", "itr", "project report", "audit"],
+      "content": "Typical documents include PAN and Aadhaar, Udyam registration, GST certificate/returns, income tax returns, bank statements, business address proof and financial statements. For higher exposure, lenders require projected financials, audited balance sheets and detailed project reports."
+    },
+    {
+      "id": "kfs_apr_rights",
+      "title": "Key Fact Statement (KFS), APR and borrower rights",
+      "section": "Sections 5.1 and 5.4 (Pages 25-27)",
+      "tags": ["kfs", "apr", "charges", "borrower rights", "disclosure"],
+      "content": "Regulated entities must provide KFS to borrowers in understandable language with APR computation and amortisation schedule. Charges not disclosed in KFS should not be imposed without explicit borrower consent."
+    },
+    {
+      "id": "npa_risk",
+      "title": "NPA trigger and consequences",
+      "section": "Section 8 (Page 32)",
+      "tags": ["npa", "default", "repayment", "credit score", "compliance"],
+      "content": "A loan generally becomes NPA when principal or interest remains overdue for more than 90 days. NPA classification reduces borrower credit profile and can affect future access to credit-linked schemes and lower-cost borrowing."
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+# Core dependencies with Chaquopy wheels
+# NOTE: pandas, numpy, python-dotenv were removed as they are NOT used
+# in flutter_bridge.py and added ~35MB to the APK
+requests
+pypdf

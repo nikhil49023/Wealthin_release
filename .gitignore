@@ -1,0 +1,61 @@
+# SDKs and Tools
+flutter/
+jdk-17/
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Environment
+.env
+.env.*
+!.env.*.example
+backend/.env
+backend/.env.*
+!backend/.env.*.example
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Gemini/AI tool directories
+.gemini/
+.cursor/
+.aider/
+
+# Build artifacts
+build/
+.dart_tool/
+frontend/wealthin_flutter/build/
+frontend/wealthin_flutter/android/build/
+frontend/wealthin_flutter/.gradle/
+
+# Gradle
+.gradle/
+**/gradle-wrapper.jar
+**/.gradle/
+
+# Binary artifacts — NEVER commit these
+*.apk
+*.aab
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime artifacts
+*.log
+*.pid
+backend/*.log
+backend/*.pid
+
+# Backup files
+*.bak
+*.old
+*.backup
+*~
+
+# Release APKs (use GitHub Releases instead)
+releases/**/*.apk
+releases/**/*.aab
