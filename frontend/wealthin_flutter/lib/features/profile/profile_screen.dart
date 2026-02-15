@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wealthin_flutter/core/theme/app_theme.dart';
+import 'package:wealthin_flutter/core/theme/wealthin_theme.dart';
 import 'package:wealthin_flutter/core/providers/locale_provider.dart';
 import 'package:wealthin_flutter/core/services/python_bridge_service.dart';
 import 'package:wealthin_flutter/main.dart' show themeModeNotifier, authService;

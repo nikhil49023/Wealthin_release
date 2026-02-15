@@ -54,6 +54,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _selectedOccupation;
   
   @override
+  void initState() {
+    super.initState();
+    _prefillFromFirebaseUser();
+  }
+
+  /// Pre-fill name fields from Google/Firebase user profile
+  void _prefillFromFirebaseUser() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final displayName = user.displayName ?? '';
+    if (displayName.isNotEmpty) {
+      final parts = displayName.split(' ');
+      _firstNameController.text = parts.first;
+      if (parts.length > 1) {
+        _lastNameController.text = parts.sublist(1).join(' ');
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     _firstNameController.dispose();

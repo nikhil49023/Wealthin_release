@@ -189,7 +189,7 @@ class _FinancialHealthScreenState extends State<FinancialHealthScreen> {
                               final filePath = await pdfReportService.generateHealthReport(
                                 healthScore: _healthScore!,
                                 dashboardData: null,
-                                userName: authService.currentUser?.userMetadata?['display_name'] as String? ?? 'User',
+                                userName: authService.currentUser?.displayName ?? 'User',
                               );
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
