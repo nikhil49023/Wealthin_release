@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/wealthin_theme.dart';
 
 /// Onboarding Screen - Collects user profile information
@@ -19,7 +20,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
   
   // Form controllers
-  final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _occupationController = TextEditingController();
@@ -91,6 +91,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     
     // Mark onboarding complete
     await prefs.setBool('onboarding_complete', true);
+
+    // Save to Supabase if user is logged in
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final profileData = {
+          'id': user.id,
+          'first_name': _firstNameController.text.trim(),
+          'last_name': _lastNameController.text.trim(),
+          'occupation': _selectedOccupation ?? '',
+          'annual_income': double.tryParse(_annualIncomeController.text.trim()) ?? 0,
+          'family_adults': _adults,
+          'family_children': _children,
+          'has_business': _hasBusiness,
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+
+        if (_hasBusiness) {
+          profileData.addAll({
+            'business_name': _businessNameController.text.trim(),
+            'business_type': _businessTypeController.text.trim(),
+            'business_contact': _businessContactController.text.trim(),
+            'business_location': _businessLocationController.text.trim(),
+            'business_description': _businessDescriptionController.text.trim(),
+            'share_business_info': _shareBusinessInfo,
+          });
+        }
+
+        await Supabase.instance.client.from('profiles').upsert(profileData);
+        debugPrint('Profile saved to Supabase');
+      }
+    } catch (e) {
+      debugPrint('Error saving profile to Supabase: $e');
+      // Continue anyway as local storage is primary for now
+    }
   }
   
   void _nextPage() {
@@ -270,8 +305,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _buildFeatureCard(
             theme,
             Icons.business_rounded,
-            'Business Growth',
-            'Promote your business to other WealthIn users',
+            'Business & Career Growth',
+            'Promote your business or find job opportunities',
           ).animate().fadeIn(delay: 700.ms).slideX(begin: -0.1),
         ],
       ),

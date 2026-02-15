@@ -107,14 +107,14 @@ def generate_ai_analysis(financial_data_json: str) -> str:
         data = json.loads(financial_data_json) if isinstance(financial_data_json, str) else financial_data_json
         
         # Build the analysis prompt with user's actual financial data
-        prompt = f"""Analyze this Indian user's financial data and provide actionable insights.
+        prompt = f"""Analyze this Indian user's financial data. Be encouraging — focus on what's working AND how to improve.
 
-## Financial Data
+## Financial Snapshot
 - Monthly Income: ₹{data.get('income', 0):,.0f}
 - Monthly Expenses: ₹{data.get('expenses', 0):,.0f}
 - Net Savings: ₹{data.get('savings', 0):,.0f}
 - Savings Rate: {data.get('savings_rate', 0):.1f}%
-- Health Score: {data.get('health_score', 0):.0f}/100
+- Current Health Score: {data.get('health_score', 0):.0f}/100
 
 ## Category-wise Spending
 {data.get('category_breakdown', 'No data')}
@@ -125,34 +125,68 @@ def generate_ai_analysis(financial_data_json: str) -> str:
 ## Savings Goals
 {data.get('goal_info', 'No goals set')}
 
-## Instructions
-Provide a structured analysis in this EXACT format (use markdown):
+## Top Merchants / Frequent Transactions
+{data.get('top_merchants', 'No merchant data')}
 
-### 📊 Financial Performance
-Brief 2-line assessment of overall financial health.
+## Month-over-Month Trend
+{data.get('monthly_trend', 'No trend data available')}
 
-### 💡 Key Insights
-• [Insight 1 based on spending patterns]
-• [Insight 2 based on savings rate]
-• [Insight 3 based on budget adherence]
+## Instructions — Follow This Format EXACTLY
 
-### ⚠️ Risk Alerts
-• [Any concerning spending patterns or budget overruns]
+### 📊 How You're Doing
+Start with encouragement. Mention 1-2 things the user is doing well before any critique.
+Then give a clear 3-line assessment: score interpretation, spending discipline, and trajectory.
 
-### ✅ Action Items
-1. [Most impactful action the user should take]
-2. [Second priority action]
-3. [Third action]
+### 🔍 Where Your Money Goes
+Analyze the top 3-4 spending categories:
+• Are they proportional to income? Flag any that are unusually high.
+• Mention specific merchants if they appear frequently.
+• Identify subscriptions or recurring small charges that add up.
 
-### 🎯 Monthly Targets
-• Savings Target: ₹[amount] (aim for [X]% savings rate)
-• Top category to reduce: [category] by ₹[amount]
+### ✅ What's Going Right
+List 2-3 positives — things the user should KEEP doing. E.g.:
+• "Your savings rate of X% is above the national average of 15%"
+• "You have active savings goals — that's a great discipline"
+• "Your debt-to-income ratio is healthy"
 
-Keep it concise, specific with actual ₹ amounts from the data. Be encouraging but honest.
-"""
+### ⚠️ What Needs Attention
+List 2-3 areas that need improvement, but frame each one POSITIVELY with a fix:
+• Instead of: "You spend too much on Food"
+• Say: "Food spending is ₹X/month (Y% of income). Reducing by ₹Z/month would boost your savings rate to W%. Consider meal prepping or local tiffin services from MSME vendors."
+
+### 🏭 Save with Local MSMEs
+Look at the user's spending categories and suggest where they could save by switching to local MSME/small business alternatives:
+• Food/Groceries → Local kirana stores, community buying groups
+• Services → Local registered service providers via UDYAM directory
+• Shopping → Local artisans, cooperative stores
+• Repairs/Maintenance → Registered MSME workshops
+
+For each suggestion, explain the potential savings in ₹ and mention "You can search for registered MSMEs near you using the Udyam directory" — this helps both the user and local enterprises.
+
+### 🗺️ Your Improvement Roadmap
+
+**Month 1 (Quick Wins):**
+• [Specific action with ₹ amount] — Expected impact: +N points on health score
+• [Second quick action]
+
+**Month 2-3 (Build Habits):**
+• [Action like starting SIP, setting up auto-save]
+• [Budget adjustments with exact ₹ targets]
+
+**Month 4-6 (Level Up):**
+• [Investment actions, emergency fund milestone]
+• [Score projection: "By month 6, your score could reach X/100"]
+
+### 🎯 Score Projection
+- Current Score: {data.get('health_score', 0):.0f}/100
+- 3-Month Target: [realistic number]/100
+- 6-Month Target: [realistic number]/100
+- Next Tier: [e.g., "Moving from Fair (52) to Good (65+)"]
+
+IMPORTANT: Use ONLY the data provided. Never make up numbers. Be encouraging and specific — use actual ₹ amounts. Use Indian context (UPI, SIP, RD, FD, PPF, ELSS, kirana, tiffin, MSME)."""
 
         messages = [
-            {"role": "system", "content": "You are WealthIn AI, a financial analyst for Indian users. Provide concise, data-driven analysis with specific amounts. Use markdown formatting."},
+            {"role": "system", "content": "You are WealthIn AI, a warm and encouraging financial analyst for Indian users. Your job is to make users feel good about their progress while giving specific, actionable improvements. Format using markdown. Never fabricate data — only use the numbers provided."},
             {"role": "user", "content": prompt}
         ]
         
@@ -473,6 +507,35 @@ AVAILABLE_TOOLS = [
         "name": "get_dpr_template",
         "description": "Get an empty DPR template with all required fields for bank loan applications.",
         "parameters": {}
+    },
+    {
+        "name": "search_msme_directory",
+        "description": "Search the Government of India UDYAM MSME directory for registered enterprises by State and District. Returns enterprise name, address, activities/services, pincode and registration date. Use this when user asks about local businesses, vendors, service providers, or registered MSMEs in a specific area.",
+        "parameters": {
+            "state": "str - Indian state name in UPPERCASE (e.g., 'MAHARASHTRA', 'KARNATAKA', 'TAMIL NADU')",
+            "district": "str - District name in UPPERCASE (e.g., 'PUNE', 'BANGALORE', 'CHENNAI')",
+            "limit": "int - Number of results to return (default: 10, max: 10)"
+        }
+    },
+    {
+        "name": "search_jobs",
+        "description": "Search for job opportunities based on role, location, and skills. Searches across major Indian job platforms like LinkedIn, Naukri, Indeed, Foundit.",
+        "parameters": {
+            "role": "str - Job role (e.g., 'Python Developer', 'Digital Marketer')",
+            "location": "str - Location (e.g., 'Bangalore', 'Remote', 'Mumbai')",
+            "skills": "str - Optional key skills to include in search",
+            "experience_level": "str - Optional experience level (e.g., 'Freshers', 'Mid-level', 'Senior')"
+        }
+    },
+    {
+        "name": "get_career_advice",
+        "description": "Get career growth advice, salary insights, or interview preparation tips for a specific role or career transition.",
+        "parameters": {
+            "current_role": "str - Current job role or 'Student' / 'Fresher'",
+            "target_role": "str - Desired next role or job title",
+            "industry": "str - Industry (e.g., 'IT', 'Finance', 'Healthcare', 'Marketing')",
+            "query_type": "str - Type of advice: 'growth_path', 'salary_insight', or 'interview_prep'"
+        }
     }
 ]
 
@@ -536,6 +599,11 @@ def execute_tool(tool_name: str, args_json: str) -> str:
             # DPR Generator Tools
             "generate_dpr": generate_dpr,
             "get_dpr_template": get_dpr_template,
+            # Government MSME Directory
+            "search_msme_directory": search_msme_directory,
+            # Job & Career Tools
+            "search_jobs": search_jobs,
+            "get_career_advice": get_career_advice,
         }
         
         # Route ALL search-related tools to unified web_search
@@ -785,6 +853,46 @@ def detect_subscriptions(transactions: List[Dict]) -> str:
         "annual_projection": round(monthly_cost * 12, 2),
         "message": f"Found {len(subscriptions)} subscriptions totaling ₹{monthly_cost:,.0f}/month"
     })
+
+
+# ==================== JOB & CAREER TOOLS ====================
+
+def search_jobs(role: str, location: str, skills: str = "", experience_level: str = "") -> str:
+    """
+    Search for job opportunities using web search with job-platform-targeted queries.
+    Searches across LinkedIn, Naukri, Indeed, and Foundit for the Indian job market.
+    """
+    query_parts = [f'"{role}"', f'"{location}"']
+    if skills:
+        query_parts.append(skills)
+    if experience_level:
+        query_parts.append(f'"{experience_level}"')
+    
+    base_query = " ".join(query_parts)
+    search_query = f"{base_query} jobs (site:linkedin.com/jobs OR site:naukri.com OR site:indeed.co.in OR site:foundit.in)"
+    
+    return execute_web_search(search_query)
+
+
+def get_career_advice(current_role: str, target_role: str, industry: str, query_type: str) -> str:
+    """
+    Get career growth advice, salary insights, or interview preparation tips.
+    Routes to targeted web searches based on the query type.
+    """
+    if query_type == 'salary_insight':
+        return execute_web_search(
+            f"average salary for {target_role} in {industry} India {datetime.now().year}"
+        )
+    
+    elif query_type == 'interview_prep':
+        return execute_web_search(
+            f"interview questions for {target_role} {industry} India"
+        )
+    
+    else:  # growth_path or general
+        return execute_web_search(
+            f"career path from {current_role} to {target_role} in {industry} India"
+        )
 
 
 def _normalize_merchant_for_subscription(name: str) -> str:
@@ -1520,86 +1628,194 @@ DPR_STRUCTURE = [
 
 
 def generate_dpr(project_data: Dict[str, Any]) -> str:
-    """Generate a complete DPR from project data."""
+    """Generate a DPR with section-by-section gating.
+    Each section is only 'unlocked' when ALL its required fields are provided
+    with real, non-empty, non-zero values.
+    Returns section-level status so the AI knows which sections to ask about next.
+    """
+    
+    # Each tuple: (data_key, title, required_fields_list)
+    # A section is LOCKED if any required field is missing/empty/zero
+    section_schema = [
+        ("executive_summary", "1. Executive Summary", [
+            "business_name", "nature_of_business", "msme_category",
+            "project_cost", "loan_required",
+        ]),
+        ("promoter_profile", "2. Promoter Profile & Background", [
+            "promoter_name", "qualification", "experience_years",
+            "udyam_number", "pan",
+        ]),
+        ("market_analysis", "3. Business Description & Market Analysis", [
+            "product_description", "target_market",
+            "competitive_advantage", "pricing_strategy",
+        ]),
+        ("technical", "4. Technical Aspects & Production Process", [
+            "process_description", "raw_materials",
+            "plant_capacity", "manpower_required",
+        ]),
+        ("financial_projections", "5. Financial Projections", [
+            "year_1", "year_2", "year_3",
+        ]),
+        ("cost_of_project", "6. Cost of Project & Means of Finance", [
+            "total_project_cost", "term_loan",
+            "promoter_contribution",
+        ]),
+        ("profitability", "7. Profitability & Break-Even Analysis", [
+            "dscr", "break_even_revenue", "payback_period_years",
+        ]),
+        ("risk_analysis", "8. Risk Analysis & Mitigation", [
+            "key_risks", "mitigation_strategies",
+        ]),
+        ("compliance", "9. Statutory Compliance & Approvals", [
+            "udyam_registration", "gst_registration",
+        ]),
+    ]
+    
+    def _is_filled(value):
+        """Check if a field has real, non-placeholder content."""
+        if value is None:
+            return False
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped or stripped in ("", "Pending", "N/A", "TBD", "UDYAM-XX-00-0000000", "0"):
+                return False
+            return True
+        if isinstance(value, (int, float)):
+            return value > 0
+        if isinstance(value, dict):
+            # For nested dicts (like year_1: {revenue: X, costs: Y}), 
+            # at least one sub-field must have data
+            return any(_is_filled(v) for v in value.values())
+        if isinstance(value, list):
+            return len(value) > 0
+        return bool(value)
+    
     dpr = {
         "metadata": {
             "generated_on": datetime.now().isoformat(),
             "version": "1.0",
             "format": "Standardized Banking Format (MSME)",
         },
-        "sections": []
+        "unlocked_sections": [],
+        "section_status": [],
     }
     
-    # Process each section
-    section_data = [
-        ("executive_summary", "1. Executive Summary", ["business_name", "nature_of_business", "msme_category", "project_cost", "loan_required", "dscr"]),
-        ("promoter_profile", "2. Promoter Profile", ["promoter_name", "qualification", "udyam_number", "pan", "gst_number"]),
-        ("market_analysis", "3. Market Analysis", ["target_market", "tam", "sam", "som", "competitors", "competitive_advantage"]),
-        ("financial_projections", "5. Financial Projections", ["year_1", "year_2", "year_3", "year_4", "year_5"]),
-        ("cost_of_project", "6. Cost of Project", ["land_building", "plant_machinery", "working_capital_margin", "term_loan", "subsidy"]),
-        ("profitability", "7. Profitability", ["dscr", "current_ratio", "break_even_revenue", "payback_period_years"]),
-        ("compliance", "9. Compliance", ["udyam_registration", "gst_registration", "msme_schemes"]),
-    ]
+    total_sections = len(section_schema)
+    unlocked_count = 0
+    next_section_to_ask = None
     
-    total_fields = 0
-    filled_fields = 0
-    
-    for key, title, fields in section_data:
+    for key, title, required_fields in section_schema:
         section_content = project_data.get(key, {})
-        section = {"title": title, "content": section_content}
-        dpr["sections"].append(section)
+        if not isinstance(section_content, dict):
+            section_content = {}
         
-        for field in fields:
-            total_fields += 1
-            if section_content.get(field):
-                filled_fields += 1
+        # Check each required field
+        filled = []
+        missing = []
+        for field in required_fields:
+            if _is_filled(section_content.get(field)):
+                filled.append(field)
+            else:
+                missing.append(field)
+        
+        is_unlocked = len(missing) == 0
+        completeness = (len(filled) / len(required_fields) * 100) if required_fields else 100
+        
+        status_entry = {
+            "section": title,
+            "status": "✅ Unlocked" if is_unlocked else "🔒 Locked",
+            "completeness_pct": round(completeness, 1),
+            "filled_fields": filled,
+            "missing_fields": missing,
+        }
+        dpr["section_status"].append(status_entry)
+        
+        if is_unlocked:
+            unlocked_count += 1
+            dpr["unlocked_sections"].append({
+                "title": title,
+                "content": section_content,
+            })
+        elif next_section_to_ask is None:
+            # First locked section → this is what the AI should ask about next
+            next_section_to_ask = {
+                "section": title,
+                "missing_fields": missing,
+                "hint": f"Ask the user for: {', '.join(f.replace('_', ' ').title() for f in missing)}",
+            }
     
-    # Calculate completeness
-    completeness = (filled_fields / total_fields * 100) if total_fields > 0 else 0
-    dpr["metadata"]["completeness_pct"] = round(completeness, 1)
-    dpr["metadata"]["status"] = "Ready for Submission" if completeness >= 80 else "Draft - Requires More Data"
+    # Overall status
+    overall_pct = (unlocked_count / total_sections * 100) if total_sections > 0 else 0
+    dpr["metadata"]["overall_completeness_pct"] = round(overall_pct, 1)
+    dpr["metadata"]["unlocked_count"] = unlocked_count
+    dpr["metadata"]["total_sections"] = total_sections
     dpr["metadata"]["sections_structure"] = DPR_STRUCTURE
     
-    return json.dumps({"success": True, "dpr": dpr})
+    if overall_pct >= 100:
+        dpr["metadata"]["status"] = "✅ Ready for Submission"
+    elif overall_pct >= 60:
+        dpr["metadata"]["status"] = "🟡 Partially Complete — More sections needed"
+    else:
+        dpr["metadata"]["status"] = "🔒 Draft — Keep providing data to unlock sections"
+    
+    result = {"success": True, "dpr": dpr}
+    
+    if next_section_to_ask:
+        result["next_section"] = next_section_to_ask
+    
+    return json.dumps(result)
 
 
 def get_dpr_template() -> str:
-    """Get empty DPR template with all required fields."""
+    """Get empty DPR template with all required fields per section.
+    Fields marked with * are REQUIRED to unlock that section.
+    """
     template = {
         "executive_summary": {
-            "business_name": "", "nature_of_business": "", "msme_category": "Micro/Small/Medium",
-            "project_cost": 0, "loan_required": 0, "promoter_contribution": 0,
-            "expected_employment": 0, "projected_revenue_year1": 0, "break_even_months": 0, "dscr": 0,
+            "business_name*": "", "nature_of_business*": "", "msme_category*": "Micro/Small/Medium",
+            "project_cost*": 0, "loan_required*": 0,
+            "promoter_contribution": 0, "expected_employment": 0,
+            "projected_revenue_year1": 0,
         },
         "promoter_profile": {
-            "promoter_name": "", "qualification": "", "experience_years": 0,
-            "udyam_number": "UDYAM-XX-00-0000000", "pan": "", "gst_number": "", "address": "",
+            "promoter_name*": "", "qualification*": "", "experience_years*": 0,
+            "udyam_number*": "", "pan*": "",
+            "gst_number": "", "address": "",
         },
         "market_analysis": {
-            "product_description": "", "target_market": "", "tam": 0, "sam": 0, "som": 0,
-            "competitors": [], "competitive_advantage": "", "pricing_strategy": "",
+            "product_description*": "", "target_market*": "",
+            "competitive_advantage*": "", "pricing_strategy*": "",
+            "tam": 0, "sam": 0, "som": 0, "competitors": [],
+        },
+        "technical": {
+            "process_description*": "", "raw_materials*": "",
+            "plant_capacity*": "", "manpower_required*": 0,
+            "technology_used": "", "quality_standards": "",
         },
         "financial_projections": {
-            "year_1": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
-            "year_2": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
-            "year_3": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "year_1*": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "year_2*": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
+            "year_3*": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
             "year_4": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
             "year_5": {"revenue": 0, "operating_costs": 0, "net_profit": 0},
             "growth_rate": 15,
         },
         "cost_of_project": {
+            "total_project_cost*": 0, "term_loan*": 0, "promoter_contribution*": 0,
             "land_building": 0, "plant_machinery": 0, "furniture_fixtures": 0,
-            "preliminary_expenses": 0, "working_capital_margin": 0, "contingency": 0,
-            "total_project_cost": 0, "term_loan": 0, "working_capital_loan": 0,
-            "subsidy": 0, "promoter_contribution": 0,
+            "working_capital_margin": 0, "subsidy": 0,
         },
         "profitability": {
-            "dscr": 0, "current_ratio": 0, "gross_profit_margin": 0, "net_profit_margin": 0,
-            "break_even_revenue": 0, "break_even_months": 0, "payback_period_years": 0, "roe": 0,
+            "dscr*": 0, "break_even_revenue*": 0, "payback_period_years*": 0,
+            "current_ratio": 0, "gross_profit_margin": 0, "net_profit_margin": 0,
+        },
+        "risk_analysis": {
+            "key_risks*": [], "mitigation_strategies*": [],
+            "insurance_coverage": "",
         },
         "compliance": {
-            "udyam_registration": "Pending", "gst_registration": "Pending",
-            "trade_license": "Pending", "pollution_noc": "Not Required",
+            "udyam_registration*": "", "gst_registration*": "",
+            "trade_license": "", "pollution_noc": "",
             "msme_schemes": ["PMEGP", "Stand-Up India", "Mudra", "ZED"],
         },
     }
@@ -1608,7 +1824,12 @@ def get_dpr_template() -> str:
         "success": True,
         "template": template,
         "sections": DPR_STRUCTURE,
-        "instructions": "Fill in the template and call generate_dpr() with the completed data.",
+        "instructions": (
+            "DPR sections are LOCKED by default. "
+            "Each section unlocks only when ALL its required fields (* marked) have real data. "
+            "Collect data from the user ONE SECTION AT A TIME. "
+            "Call generate_dpr() with the collected data — it will show which sections are unlocked and which still need data."
+        ),
     })
 
 
@@ -1890,6 +2111,131 @@ _zoho_access_token = None
 def set_api_key(api_key: str) -> str:
     """Legacy: Set Sarvam API key."""
     return set_config(json.dumps({"sarvam_api_key": api_key}))
+
+
+
+def search_msme_directory(state: str, district: str, limit: int = 10) -> str:
+    """
+    Search the Government of India UDYAM MSME directory.
+    Uses data.gov.in API to find registered enterprises by State and District.
+    """
+    global _gov_msme_api_key
+    
+    try:
+        api_key = _gov_msme_api_key or "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b"
+        limit = min(int(limit or 10), 10)
+        
+        # Build API URL with filters
+        base_url = "https://api.data.gov.in/resource/8b68ae56-84cf-4728-a0a6-1be11028dea7"
+        params = {
+            "api-key": api_key,
+            "format": "json",
+            "limit": str(limit),
+            "offset": "0",
+            "filters[State]": state.upper().strip(),
+            "filters[District]": district.upper().strip(),
+        }
+        
+        query_string = urllib.parse.urlencode(params)
+        url = f"{base_url}?{query_string}"
+        
+        # Make HTTPS request
+        ctx = ssl.create_unverified_context()
+        req = urllib.request.Request(url, headers={"User-Agent": "WealthIn/2.0"})
+        
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        
+        records = data.get("records", [])
+        total = data.get("total", 0)
+        
+        if not records:
+            return json.dumps({
+                "success": True,
+                "enterprises": [],
+                "total": 0,
+                "state": state.upper(),
+                "district": district.upper(),
+                "message": f"No registered MSMEs found in {district}, {state}. Try a different district or check the spelling."
+            })
+        
+        # Parse and format enterprises
+        enterprises = []
+        for rec in records:
+            # Parse activities JSON
+            activities_raw = rec.get("Activities", "[]")
+            services = []
+            nic_codes = []
+            try:
+                activities = json.loads(activities_raw) if isinstance(activities_raw, str) else activities_raw
+                if isinstance(activities, list):
+                    for act in activities:
+                        desc = act.get("Description", "")
+                        nic = act.get("NicCode", act.get("Nic2Digit", ""))
+                        if desc:
+                            services.append(desc[:120] + ("..." if len(desc) > 120 else ""))
+                        if nic:
+                            nic_codes.append(str(nic))
+            except:
+                services = [activities_raw[:120] if activities_raw else "Not specified"]
+            
+            pincode = str(rec.get("Pincode", "")).replace(".0", "")
+            mobile = rec.get("MobileNo", rec.get("Mobile", rec.get("ContactNo", "")))
+            email = rec.get("Email", rec.get("EmailId", ""))
+            msme_category = rec.get("MSMEDICategory", rec.get("Category", rec.get("EnterpriseType", "")))
+            org_type = rec.get("OrganisationType", rec.get("TypeOfOrganisation", ""))
+            
+            enterprise = {
+                "name": rec.get("EnterpriseName", "Unknown"),
+                "state": rec.get("State", state.upper()),
+                "district": rec.get("District", district.upper()),
+                "address": rec.get("CommunicationAddress", "Not available"),
+                "pincode": pincode,
+                "services": services,
+                "nic_codes": nic_codes,
+                "registration_date": rec.get("RegistrationDate", ""),
+                "contact": str(mobile) if mobile else "Not listed",
+                "email": str(email) if email else "Not listed",
+                "category": str(msme_category) if msme_category else "MSME",
+                "organization_type": str(org_type) if org_type else "",
+            }
+            
+            # Build a clean display text for the AI to format nicely
+            svc_text = ", ".join(services[:3]) if services else "Various services"
+            display = f"**{enterprise['name']}**\n"
+            display += f"• Services: {svc_text}\n"
+            display += f"• Address: {enterprise['address']}, {pincode}\n"
+            if mobile and str(mobile) != "":
+                display += f"• Contact: {mobile}\n"
+            if email and str(email) != "":
+                display += f"• Email: {email}\n"
+            display += f"• Category: {enterprise['category']} | Registered: {enterprise['registration_date']}"
+            enterprise["display_text"] = display
+            
+            enterprises.append(enterprise)
+        
+        return json.dumps({
+            "success": True,
+            "enterprises": enterprises,
+            "total": total,
+            "showing": len(enterprises),
+            "state": state.upper(),
+            "district": district.upper(),
+            "source": "UDYAM Registration Portal, Ministry of MSME, Government of India",
+            "message": f"Found {total:,} registered MSMEs in {district}, {state}. Showing top {len(enterprises)}."
+        })
+        
+    except urllib.error.HTTPError as e:
+        return json.dumps({
+            "success": False,
+            "error": f"Government API error: {e.code} - {e.reason}",
+            "hint": "Check if the state/district names are correct and in UPPERCASE"
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": f"MSME directory search failed: {str(e)}"
+        })
 
 
 def execute_web_search(query: str) -> str:
@@ -2769,7 +3115,15 @@ Output ONLY this JSON when you need data:
                 final_response = "I found some information but couldn't format it properly. Please try a more specific query."
         
         if not final_response:
-            final_response = "I couldn't process your request. Please try again with a different query."
+            # Fallback: If we have tool results but no formatted answer, usage that
+            if all_tool_results:
+                try:
+                    last_res = all_tool_results[-1]['result']
+                    final_response = json.dumps(last_res, indent=2)
+                except:
+                    final_response = "I completed the action but couldn't summarize it."
+            else:
+                final_response = "I couldn't process your request. Please try again with a different query."
         
         # Determine if action was taken
         action_taken = len(all_tool_results) > 0
@@ -3269,10 +3623,42 @@ def _build_react_system_prompt(user_context: Dict[str, Any] = None) -> str:
     if user_context and 'financial_profile' in str(user_context):
         financial_profile = str(user_context.get('financial_profile', ''))
     
-    prompt = f"""You are WealthIn AI, a personalized financial advisor for Indian users.
-You have access to the user's complete financial data including transactions, budgets, savings goals, and spending patterns.
+    prompt = f"""You are WealthIn Business Planner — a strict, focused business financial planning assistant for Indian MSMEs and entrepreneurs.
 
-## YOUR TOOLS (ALL AVAILABLE)
+## YOUR SCOPE (STRICTLY BUSINESS ONLY)
+You ONLY help with:
+✅ DPR (Detailed Project Report) drafting — section by section
+✅ MSME/MUDRA/PMEGP/Stand-Up India scheme eligibility & applications
+✅ Business loan calculations (EMI, DSCR, working capital)
+✅ GST rates, compliance, invoicing queries
+✅ Business cashflow planning & projections
+✅ Break-even analysis & profitability calculations
+✅ Business budgeting & cost optimization
+✅ MSME directory search (finding registered enterprises)
+✅ Business risk assessment & mitigation
+✅ Market analysis & competitive positioning
+
+## WHAT YOU DO NOT DO (POLITELY REDIRECT)
+❌ Personal investment advice (SIP, mutual funds, stocks) → Say: "I'm your business planner! For personal investments, check the Analysis tab."
+❌ Shopping or purchase advice → Say: "I focus on business planning. For purchase decisions, try the Analysis section."
+❌ Career guidance or job search → Say: "I specialize in business planning. For career advice, try external job portals."
+❌ General knowledge or trivia → Say: "I'm built for business planning — ask me about DPR, MSME schemes, or business financials!"
+❌ Personal budgeting → Say: "I help with business budgets. For personal budgets, check the Budget section in the app."
+
+If ANY message is outside your scope, respond with a SHORT one-liner redirect and suggest a relevant business topic instead.
+
+## YOUR PERSONALITY
+- Professional but approachable. Like a trusted CA/business consultant.
+- ASK QUESTIONS before giving advice. Never assume the business type, scale, or financial details.
+- Use Indian business context: MSME categories, Udyam registration, GST, TDS, DSCR, etc.
+
+## ANTI-HALLUCINATION RULES (CRITICAL)
+1. **NEVER make up numbers, interest rates, scheme criteria, or GST rates.** Use `web_search` to verify.
+2. **For DPR drafts**: NEVER fill in fields with made-up data. Ask the user for every value.
+3. **For govt schemes**: ALWAYS verify eligibility criteria using `web_search` — schemes change frequently.
+4. **Always caveat**: "Verify this with your CA/chartered accountant before filing."
+
+## YOUR TOOLS
 {tool_list}
 
 ## HOW TO CALL A TOOL
@@ -3281,65 +3667,43 @@ Output ONLY this JSON when you need to search, calculate, or take action:
 {{"tool_call": {{"name": "tool_name", "arguments": {{"param1": "value1"}}}}}}
 ```
 
-## EXAMPLES
-User: "Best phone under 20000"
-Response: ```json
-{{"tool_call": {{"name": "web_search", "arguments": {{"query": "best smartphone under 20000 India 2024"}}}}}}
-```
+## DPR DRAFTING FLOW (SECTION-BY-SECTION UNLOCK)
+When user wants to create a DPR:
+1. FIRST ask: "Let's build your DPR step by step. Each section unlocks only when ALL its required fields are filled."
+2. Start with **Section 1: Executive Summary** — ask for: business name, nature of business, MSME category, project cost, loan required.
+3. When one section is complete, move to the NEXT locked section. Use the `next_section` hint from `generate_dpr` results.
+4. **NEVER generate a DPR with empty/placeholder/made-up data.** Each section stays 🔒 LOCKED until the user provides real values.
+5. After each user response, call `generate_dpr` with all data collected so far — it returns section-by-section status (✅ Unlocked / 🔒 Locked).
+6. Show the user progress: "3/9 sections unlocked ✅ — next: Market Analysis"
+7. For complex sections (Financial Projections, Profitability), help calculate values from raw numbers the user provides.
 
-User: "Calculate SIP of 5000 for 10 years"
-Response: ```json
-{{"tool_call": {{"name": "calculate_sip", "arguments": {{"monthly_investment": 5000, "annual_rate": 12, "years": 10}}}}}}
-```
+## BUSINESS ANALYSIS
+You have access to the user's FINANCIAL PROFILE including spending trends. Use this to:
 
-User: "Am I eligible for PMEGP with 15 lakh project?"
-Response: ```json
-{{"tool_call": {{"name": "check_pmegp_eligibility", "arguments": {{"project_cost": 1500000, "sector": "service", "location": "urban", "category": "general"}}}}}}
-```
+1. **Business expense patterns**: Identify business-related spending from transaction data
+2. **Cashflow advice**: If the user runs a business, analyze their income vs expenses for cash runway
+3. **Loan readiness**: Based on DSCR, savings rate, and debt ratio — advise on loan eligibility
+4. **MSME scheme matching**: Proactively suggest relevant govt schemes based on business type and size
+5. **Trend-Aware Advice**: Use the Notable Trends section:
+   - **Recurring payments**: Identify business subscriptions (SaaS, rent, EMIs)
+   - **Expense hikes**: Flag business cost increases and suggest optimization
+   - **Top merchants**: Identify vendor concentration risk
 
-User: "What's my DSCR if I earn 12L and pay 3L interest + 2L principal?"
-Response: ```json
-{{"tool_call": {{"name": "calculate_dscr", "arguments": {{"net_operating_income": 1200000, "annual_interest": 300000, "annual_principal": 200000}}}}}}
-```
-
-## RESPONSE STYLE - CRITICAL
-1. **Keep responses SHORT**: 3-5 sentences maximum. No lengthy explanations.
-2. **Be conversational**: Talk like a friendly advisor, not a textbook.
-3. **Use bullet points**: For lists of 3+ items, use • bullets.
-4. **Numbers matter**: Always include specific amounts in ₹.
-5. **ALWAYS end with a follow-up question** like:
-   - "Would you like me to calculate the EMI for this?"
-   - "Should I set this up as a savings goal?"
-   - "Want me to search for better options?"
-   - "Should I check your eligibility for any govt schemes?"
-   - "Should I create a budget for this category?"
-
-## FINANCIAL ANALYSIS & PERSONALIZED ADVICE
-You have access to the user's COMPLETE FINANCIAL PROFILE. Use this to give personalized advice:
-
-1. **Purchase Decisions**: Check savings rate & disposable income before advising.
-   - If savings rate < 10%: Strongly recommend EMI or delaying purchase
-   - If savings rate > 30%: Cash purchase is fine for most items
-   
-2. **EMI Calculations**: Always calculate EMI when suggesting it using `calculate_emi`
-
-3. **Budget Impact**: Use actual budget data to explain how a purchase affects spending
-
-4. **Govt Schemes**: When user discusses MSME/business, proactively check `check_pmegp_eligibility` or `check_standup_india_eligibility`
-
-5. **Market Analysis**: Use `calculate_tam_sam_som` for business market sizing
-
-6. **Loan Readiness**: Use `calculate_dscr` to check if business can handle debt
-
-7. **Scenario Planning**: Use `run_sensitivity_analysis`, `run_scenario_comparison`, `run_cash_runway_analysis` for business projections
+## RESPONSE STYLE
+1. **Keep responses SHORT**: 3-5 sentences max. Use • bullets for lists.
+2. **Use ₹ for amounts**: Always in Indian Rupees.
+3. **ALWAYS end with a business-relevant follow-up question**:
+   - "What's your projected monthly revenue?"
+   - "Do you have your Udyam registration number?"
+   - "Shall I check your PMEGP/Mudra eligibility?"
+4. **NEVER give responses longer than 5 lines without bullet points**
 
 ## CRITICAL RULES
-1. The "query" parameter must be a SIMPLE search string
-2. Keep queries short and specific
-3. After tool results, give a BRIEF summary with key points
-4. Use ₹ for Indian Rupees
-5. **NEVER give responses longer than 5 sentences without bullet points**
-6. **ALWAYS end with a follow-up question to continue the conversation**
+1. **BUSINESS ONLY** — reject personal/non-business queries with a polite one-liner
+2. **ASK before you ASSUME** — always clarify business details first
+3. **Never hallucinate** — when in doubt, use `web_search`
+4. Tool "query" parameter must be a SIMPLE search string
+5. After tool results, give a BRIEF summary with key business insights
 
 """
     

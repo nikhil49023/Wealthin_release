@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
@@ -18,7 +17,6 @@ import 'features/dashboard/dashboard_screen.dart';
 import 'features/finance/finance_hub_screen.dart';
 import 'features/ai_hub/ai_hub_screen.dart';
 import 'features/brainstorm/enhanced_brainstorm_screen.dart';
-import 'features/onboarding/onboarding_screen.dart';
 import 'core/services/ai_agent_service.dart';
 import 'core/services/data_service.dart';
 import 'core/config/secrets.dart';
@@ -178,40 +176,10 @@ class WealthInApp extends StatefulWidget {
 
 class _WealthInAppState extends State<WealthInApp> {
   bool _showSplash = true;
-  bool _showOnboarding = false;
-  bool _checkingOnboarding = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkOnboardingStatus();
-  }
-
-  Future<void> _checkOnboardingStatus() async {
-    var onboardingComplete = false;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
-    } catch (error) {
-      debugPrint('[App] Failed to read onboarding status: $error');
-    }
-
-    if (mounted) {
-      setState(() {
-        _showOnboarding = !onboardingComplete;
-        _checkingOnboarding = false;
-      });
-    }
-  }
 
   void _onSplashComplete() {
     if (!mounted) return;
     setState(() => _showSplash = false);
-  }
-
-  void _onOnboardingComplete() {
-    if (!mounted) return;
-    setState(() => _showOnboarding = false);
   }
 
   @override
@@ -247,18 +215,7 @@ class _WealthInAppState extends State<WealthInApp> {
       return SplashScreen(onComplete: _onSplashComplete);
     }
 
-    // Still checking onboarding status
-    if (_checkingOnboarding) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // Show onboarding for first-time users
-    if (_showOnboarding) {
-      return OnboardingScreen(onComplete: _onOnboardingComplete);
-    }
-
+    // AuthWrapper handles: Login → Onboarding (if needed) → Main App
     return const AuthWrapper(
       child: MainNavigationShell(),
     );

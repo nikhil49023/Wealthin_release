@@ -113,9 +113,26 @@ def get_system_prompt(mode: str, workflow_mode: str = "input") -> str:
         "- Don't just list facts — interpret them. 'This means for you...'\n"
         "- Reference specific scheme names, subsidy percentages, and loan limits when relevant.\n"
         "- If supply chain data is available, present it as actionable supplier recommendations.\n"
+        "- NEVER just say 'poor' or 'bad' — always provide concrete investment options, "
+        "improvement suggestions, and actionable alternatives.\n"
+        "- When analysis shows weak areas, frame them as opportunities with specific "
+        "steps to improve (e.g., 'Your savings rate is low. Here are 3 schemes to boost it...').\n\n"
+        "MSME Directory Formatting:\n"
+        "- When you use the search_msme_directory tool and get MSME results, "
+        "format EACH enterprise as a structured card like this:\n"
+        "  Enterprise Name: <name>\n"
+        "  Service: <activity/service description>\n"
+        "  Location: <address or district, state>\n"
+        "  Pincode: <pincode>\n"
+        "  Registered: <registration date>\n"
+        "- This exact format is required for the app to render beautiful business cards.\n"
+        "- Add a brief intro like 'Here are registered MSMEs in your area:'\n"
+        "- After listing, add relevant suggestions about how these businesses "
+        "could be part of the user's supply chain or network.\n\n"
         "- End every response with **🎯 Next Steps** — 2-3 specific things to do TODAY.\n"
         "- Keep the tone warm but sharp. No fluff, no generic advice."
     )
+
 
 
 def list_modes() -> List[Dict[str, Any]]:

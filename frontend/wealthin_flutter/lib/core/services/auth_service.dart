@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -48,6 +49,48 @@ class AuthService extends ChangeNotifier {
       throw _handleSupabaseError(e);
     } catch (e) {
       throw 'An unexpected error occurred: $e';
+    }
+  }
+
+  /// Sign in with Google
+  Future<AuthResponse> signInWithGoogle() async {
+    try {
+      // 1. Web Client ID (since we are using Supabase which uses the web client ID for verification)
+      // Check your Supabase Dashboard > Authentication > Google for the correct Client ID
+      const webClientId =
+          '1078484188114-a6f3og38fjt1kofil6vecatbauhrmpmq.apps.googleusercontent.com';
+
+      // 2. Perform Google Sign-In
+      // For Android, we use the google-services.json and standard integration
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: webClientId,
+      );
+
+      final googleUser = await googleSignIn.signIn();
+      final googleAuth = await googleUser?.authentication;
+      final accessToken = googleAuth?.accessToken;
+      final idToken = googleAuth?.idToken;
+
+      if (accessToken == null) {
+        throw 'No Access Token found.';
+      }
+
+      if (idToken == null) {
+        throw 'No ID Token found.';
+      }
+
+      // 3. Authenticate with Supabase using the ID Token
+      final response = await Supabase.instance.client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+
+      return response;
+    } on AuthException catch (e) {
+      throw _handleSupabaseError(e);
+    } catch (e) {
+      throw 'Google Sign In failed: $e';
     }
   }
 

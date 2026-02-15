@@ -490,6 +490,8 @@ class PythonBridgeService {
     required String categoryBreakdown,
     required String budgetInfo,
     required String goalInfo,
+    String topMerchants = 'No merchant data',
+    String monthlyTrend = 'No trend data available',
   }) async {
     try {
       final dataJson = jsonEncode({
@@ -501,6 +503,8 @@ class PythonBridgeService {
         'category_breakdown': categoryBreakdown,
         'budget_info': budgetInfo,
         'goal_info': goalInfo,
+        'top_merchants': topMerchants,
+        'monthly_trend': monthlyTrend,
       });
 
       // Use _callPython with the standard routing

@@ -1453,6 +1453,43 @@ class DataService {
             return '  - $name: ₹${saved.toStringAsFixed(0)} / ₹${target.toStringAsFixed(0)}';
           }).join('\n');
 
+          // Aggregate top merchants from recent transactions
+          final recentTx = await databaseHelper.getTransactions(limit: 200);
+          final merchantTotals = <String, double>{};
+          final merchantCounts = <String, int>{};
+          for (final tx in recentTx) {
+            final desc = tx['description']?.toString() ?? '';
+            final type = tx['type']?.toString() ?? 'expense';
+            if (desc.isEmpty || type == 'income' || type == 'credit') continue;
+            final amt = (tx['amount'] as num?)?.toDouble() ?? 0;
+            merchantTotals[desc] = (merchantTotals[desc] ?? 0) + amt;
+            merchantCounts[desc] = (merchantCounts[desc] ?? 0) + 1;
+          }
+          final sortedMerchants = merchantTotals.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+          String topMerchants = sortedMerchants.take(8).map((e) =>
+            '  - ${e.key}: ₹${e.value.toStringAsFixed(0)} (${merchantCounts[e.key]} txns)'
+          ).join('\n');
+
+          // Build monthly trend (last 3 months)
+          String monthlyTrend = '';
+          try {
+            for (int i = 2; i >= 0; i--) {
+              final mStart = DateTime(now.year, now.month - i, 1);
+              final mEnd = (i == 0) ? now : DateTime(now.year, now.month - i + 1, 0);
+              final mSummary = await databaseHelper.getTransactionSummary(
+                startDate: mStart.toIso8601String(),
+                endDate: mEnd.toIso8601String(),
+              );
+              final mIncome = (mSummary?['total_income'] as num?)?.toDouble() ?? 0;
+              final mExpense = (mSummary?['total_expenses'] as num?)?.toDouble() ?? 0;
+              final mLabel = '${mStart.month}/${mStart.year}';
+              monthlyTrend += '  - $mLabel: Income ₹${mIncome.toStringAsFixed(0)}, Expense ₹${mExpense.toStringAsFixed(0)}\n';
+            }
+          } catch (e) {
+            debugPrint('[HealthScore] Monthly trend error: $e');
+          }
+
           final aiResult = await pythonBridge.generateAiAnalysis(
             income: income,
             expenses: expense,
@@ -1462,6 +1499,8 @@ class DataService {
             categoryBreakdown: catBreak.isEmpty ? 'No spending data' : catBreak,
             budgetInfo: budgetStr.isEmpty ? 'No budgets set' : budgetStr,
             goalInfo: goalStr.isEmpty ? 'No goals set' : goalStr,
+            topMerchants: topMerchants.isEmpty ? 'No merchant data' : topMerchants,
+            monthlyTrend: monthlyTrend.isEmpty ? 'No trend data available' : monthlyTrend,
           );
 
           if (aiResult['success'] == true && aiResult['analysis'] != null) {
@@ -1825,6 +1864,8 @@ class DataService {
         final now = DateTime.now();
         final startOfMonth = DateTime(now.year, now.month, 1);
         final threeMonthsAgo = DateTime(now.year, now.month - 3, 1);
+        final twoMonthsAgo = DateTime(now.year, now.month - 2, 1);
+        final lastMonthStart = DateTime(now.year, now.month - 1, 1);
 
         // === CURRENT MONTH DATA ===
         final incomeExpense = await databaseHelper.getTransactionSummary(
@@ -1896,6 +1937,150 @@ class DataService {
             .map((e) => "  - ${e.key}: ₹${e.value.toStringAsFixed(0)}")
             .join('\n');
 
+        // === TOP MERCHANTS BY FREQUENCY & AMOUNT ===
+        String merchantInfo = '';
+        try {
+          final recentTxns = await databaseHelper.getTransactions(
+            limit: 200,
+            startDate: threeMonthsAgo.toIso8601String(),
+            type: 'debit',
+          );
+          
+          // Group by merchant/description
+          final merchantMap = <String, Map<String, dynamic>>{};
+          for (var tx in recentTxns) {
+            final merchant = tx['description']?.toString() ?? tx['merchant']?.toString() ?? 'Unknown';
+            final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
+            if (merchant.isEmpty || merchant == 'Unknown') continue;
+            
+            if (!merchantMap.containsKey(merchant)) {
+              merchantMap[merchant] = {'total': 0.0, 'count': 0, 'amounts': <double>[]};
+            }
+            merchantMap[merchant]!['total'] = (merchantMap[merchant]!['total'] as double) + amount;
+            merchantMap[merchant]!['count'] = (merchantMap[merchant]!['count'] as int) + 1;
+            (merchantMap[merchant]!['amounts'] as List<double>).add(amount);
+          }
+          
+          // Top merchants by total spend
+          var sortedMerchants = merchantMap.entries.toList()
+            ..sort((a, b) => (b.value['total'] as double).compareTo(a.value['total'] as double));
+          
+          merchantInfo = sortedMerchants.take(6).map((e) {
+            final count = e.value['count'] as int;
+            final total = e.value['total'] as double;
+            return '  - ${e.key}: ₹${total.toStringAsFixed(0)} ($count transactions)';
+          }).join('\n');
+
+          // === RECURRING PAYMENTS (same merchant, similar amount, 2+ months) ===
+          String recurringInfo = '';
+          final recurringMerchants = merchantMap.entries.where((e) {
+            final count = e.value['count'] as int;
+            if (count < 2) return false;
+            final amounts = e.value['amounts'] as List<double>;
+            if (amounts.length < 2) return false;
+            // Check if amounts are similar (within 15% of each other)
+            final avgAmt = amounts.reduce((a, b) => a + b) / amounts.length;
+            return amounts.every((a) => (a - avgAmt).abs() / avgAmt < 0.15);
+          }).toList();
+
+          if (recurringMerchants.isNotEmpty) {
+            recurringInfo = recurringMerchants.take(5).map((e) {
+              final amounts = e.value['amounts'] as List<double>;
+              final avgAmt = amounts.reduce((a, b) => a + b) / amounts.length;
+              return '  - ${e.key}: ~₹${avgAmt.toStringAsFixed(0)}/occurrence (${amounts.length} times in 3 months)';
+            }).join('\n');
+          }
+
+          // === MONTH-OVER-MONTH EXPENSE HIKES ===
+          String hikeInfo = '';
+          try {
+            final lastMonthBreakdown = await databaseHelper.getCategoryBreakdown(
+              startDate: lastMonthStart.toIso8601String(),
+              endDate: startOfMonth.toIso8601String(),
+            );
+            final twoMonthsAgoBreakdown = await databaseHelper.getCategoryBreakdown(
+              startDate: twoMonthsAgo.toIso8601String(),
+              endDate: lastMonthStart.toIso8601String(),
+            );
+
+            final hikes = <String>[];
+            for (var cat in lastMonthBreakdown.keys) {
+              final lastSpend = lastMonthBreakdown[cat] ?? 0;
+              final prevSpend = twoMonthsAgoBreakdown[cat] ?? 0;
+              if (prevSpend > 0 && lastSpend > prevSpend) {
+                final hikePct = ((lastSpend - prevSpend) / prevSpend * 100);
+                if (hikePct >= 30) {
+                  hikes.add('  - $cat: ₹${prevSpend.toStringAsFixed(0)} → ₹${lastSpend.toStringAsFixed(0)} (+${hikePct.toStringAsFixed(0)}%)');
+                }
+              }
+            }
+            if (hikes.isNotEmpty) {
+              hikeInfo = hikes.take(4).join('\n');
+            }
+          } catch (_) {}
+
+          // === TRANSACTION FREQUENCY ===
+          String frequencyInfo = '';
+          try {
+            final daysSinceStart = now.difference(startOfMonth).inDays + 1;
+            final currentMonthTxns = await databaseHelper.getTransactions(
+              limit: 500,
+              startDate: startOfMonth.toIso8601String(),
+            );
+            final txnCount = currentMonthTxns.length;
+            final avgPerDay = txnCount / daysSinceStart;
+            frequencyInfo = '${txnCount} transactions this month (avg ${avgPerDay.toStringAsFixed(1)}/day)';
+          } catch (_) {}
+
+          // === LARGEST SINGLE TRANSACTIONS ===
+          String largestTxnInfo = '';
+          try {
+            final largeTxns = await databaseHelper.getTransactions(
+              limit: 3,
+              startDate: startOfMonth.toIso8601String(),
+              type: 'debit',
+            );
+            // Sort by amount descending in-memory
+            largeTxns.sort((a, b) {
+              final amtA = (a['amount'] as num?)?.toDouble() ?? 0;
+              final amtB = (b['amount'] as num?)?.toDouble() ?? 0;
+              return amtB.compareTo(amtA);
+            });
+            largestTxnInfo = largeTxns.take(3).map((tx) {
+              final desc = tx['description']?.toString() ?? tx['merchant']?.toString() ?? 'Unknown';
+              final amt = (tx['amount'] as num?)?.toDouble() ?? 0;
+              final cat = tx['category']?.toString() ?? '';
+              return '  - ₹${amt.toStringAsFixed(0)} at $desc${cat.isNotEmpty ? ' ($cat)' : ''}';
+            }).join('\n');
+          } catch (_) {}
+
+          // Assemble notable trends section
+          final trendsBuffer = StringBuffer();
+          if (merchantInfo.isNotEmpty) {
+            trendsBuffer.writeln('**Top Merchants (3 months):');
+            trendsBuffer.writeln(merchantInfo);
+          }
+          if (recurringInfo.isNotEmpty) {
+            trendsBuffer.writeln('\n**Likely Recurring Payments:**');
+            trendsBuffer.writeln(recurringInfo);
+          }
+          if (hikeInfo.isNotEmpty) {
+            trendsBuffer.writeln('\n**Expense Hikes (vs previous month, 30%+ increases):**');
+            trendsBuffer.writeln(hikeInfo);
+          }
+          if (frequencyInfo.isNotEmpty) {
+            trendsBuffer.writeln('\n**Transaction Frequency:** $frequencyInfo');
+          }
+          if (largestTxnInfo.isNotEmpty) {
+            trendsBuffer.writeln('\n**Largest Transactions This Month:**');
+            trendsBuffer.writeln(largestTxnInfo);
+          }
+
+          merchantInfo = trendsBuffer.toString();
+        } catch (e) {
+          debugPrint('Error building merchant trends: $e');
+        }
+
         // === FINANCIAL HEALTH INDICATORS ===
         String financialHealth = 'Needs Attention';
         String emiRecommendation =
@@ -1953,6 +2138,9 @@ ${budgetInfo.isEmpty ? '  - No budgets set' : budgetInfo}
 ${goalInfo.isEmpty ? '  - No active goals' : goalInfo}
 **Top Spending Categories:**
 ${topCats.isEmpty ? '  - No data' : topCats}
+
+**Notable Trends & Patterns:**
+${merchantInfo.isEmpty ? '  - Insufficient transaction history for trends' : merchantInfo}
 
 **AI Purchase Advice:**
 $emiRecommendation

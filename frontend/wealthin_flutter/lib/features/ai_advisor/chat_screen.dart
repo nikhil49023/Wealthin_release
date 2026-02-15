@@ -42,17 +42,18 @@ class _ChatScreenState extends State<ChatScreen> {
   void _addWelcomeMessage() {
     _sessionMessages.add(
       ChatMessage(
-        text: """**Your AI Financial Planner**
+        text: """**Welcome to Business Planner 🏢**
 
-I can help you with:
+I'm your AI business financial planning assistant — built for Indian MSMEs & entrepreneurs.
 
-• **Plan Investments** - SIP, mutual funds, schemes
-• **Compare Vendors** - Best platforms & providers
-• **Budget & Goals** - Smart savings roadmaps
-• **Calculate** - SIP, EMI, compound interest
-• **Search** - Products, hotels, financial news
+I can help you:
+• **Draft a DPR** — section by section, bank-ready format
+• **Check Govt Schemes** — PMEGP, Mudra, Stand-Up India eligibility
+• **Business Loans** — EMI, DSCR & working capital calculations
+• **GST & Compliance** — rates, filing, invoicing queries
+• **Cashflow & Profitability** — break-even, projections, risk analysis
 
-_Tap a suggestion below or ask me anything._""",
+_Tell me about your business idea or ask about a scheme — let's get started!_""",
         isUser: false,
         timestamp: DateTime.now(),
       ),
@@ -279,15 +280,19 @@ _Tap a suggestion below or ask me anything._""",
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: isDark
           ? WealthInColors.black
           : WealthInColors.background,
       appBar: _buildAppBar(theme, isDark),
-      body: Column(
-        children: [
-          Expanded(child: _buildChatArea(theme, isDark)),
-          _buildInputArea(theme, isDark),
-        ],
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(child: _buildChatArea(theme, isDark)),
+            _buildInputArea(theme, isDark),
+          ],
+        ),
       ),
     );
   }
@@ -533,6 +538,7 @@ _Tap a suggestion below or ask me anything._""",
         child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: isUser
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
@@ -610,7 +616,9 @@ _Tap a suggestion below or ask me anything._""",
                   ),
                 ],
               ),
-              child: _buildRichText(message.text, isUser, theme, isDark),
+              child: SelectionArea(
+                child: _buildRichText(message.text, isUser, theme, isDark),
+              ),
             ),
             // Product Cards for Shopping Results
             if (!isUser && _isShoppingAction(message.actionType) && message.actionData != null)
@@ -766,11 +774,35 @@ _Tap a suggestion below or ask me anything._""",
         continue;
       }
       
+      // Tip / callout boxes (→ Tip: or 💡)
+      if (line.startsWith('→ ') || line.toLowerCase().startsWith('tip:') || line.startsWith('💡')) {
+        final tipText = line.replaceAll(RegExp(r'^[→💡]\s*'), '').replaceAll(RegExp(r'^[Tt]ip:\s*'), '').trim();
+        widgets.add(_buildTipCallout(tipText, theme, isDark, accentColor));
+        continue;
+      }
+      
       // Bullet points with emerald dot
-      if (line.startsWith('• ') || line.startsWith('- ') || line.startsWith('→ ')) {
+      if (line.startsWith('• ') || line.startsWith('- ')) {
         final bulletText = line.substring(2).trim();
         widgets.add(_buildBulletPoint(bulletText, baseColor, accentColor, theme, isDark));
         continue;
+      }
+      
+      // Highlight card for key metric lines (contain ₹ amount AND percentage)
+      if (_isHighlightLine(line)) {
+        widgets.add(_buildHighlightCard(line, theme, isDark, accentColor));
+        continue;
+      }
+      
+      // MSME business card detection: lines with "Name:"/"Enterprise:" patterns
+      if (_isMsmeCardLine(line, i, lines)) {
+        final cardLines = _collectMsmeCardLines(i, lines);
+        if (cardLines.isNotEmpty) {
+          widgets.add(_buildMsmeCard(cardLines, theme, isDark, accentColor));
+          // Skip the lines we consumed
+          i += cardLines.length - 1;
+          continue;
+        }
       }
       
       // Regular text
@@ -781,6 +813,11 @@ _Tap a suggestion below or ask me anything._""",
     }
     flushRoadmap();
     
+    if (widgets.isEmpty) {
+      return Text(cleanText, style: theme.textTheme.bodyMedium?.copyWith(
+        color: baseColor, height: 1.5,
+      ));
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -788,30 +825,42 @@ _Tap a suggestion below or ask me anything._""",
     );
   }
 
-  /// Premium section header with icon and accent underline
-  Widget _buildSectionHeader(String text, ThemeData theme, bool isDark, Color accent, bool hasTopPadding) {
-    final icon = _getSectionIcon(text);
-    return Padding(
-      padding: EdgeInsets.only(top: hasTopPadding ? 14 : 0, bottom: 6),
+  /// Check if a line is a highlight-worthy metric (₹ amount + score/projection)
+  bool _isHighlightLine(String line) {
+    final hasAmount = line.contains('₹');
+    final hasScore = RegExp(r'\d+/100|score|target|projection', caseSensitive: false).hasMatch(line);
+    // Only highlight if it's a standalone metric line, not a bullet or header
+    return hasAmount && hasScore && !line.startsWith('•') && !line.startsWith('-');
+  }
+
+  /// Premium highlight card for key metrics
+  Widget _buildHighlightCard(String text, ThemeData theme, bool isDark, Color accent) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            accent.withValues(alpha: isDark ? 0.12 : 0.06),
+            accent.withValues(alpha: isDark ? 0.04 : 0.02),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accent.withValues(alpha: isDark ? 0.25 : 0.15),
+        ),
+      ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, size: 14, color: accent),
-          ),
-          const SizedBox(width: 8),
+          Icon(Icons.insights_rounded, size: 18, color: accent),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
-              ),
+            child: _buildFormattedText(
+              text.replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'\1'),
+              isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+              theme,
             ),
           ),
         ],
@@ -819,10 +868,86 @@ _Tap a suggestion below or ask me anything._""",
     );
   }
 
+  /// Tip / callout box with warm accent
+  Widget _buildTipCallout(String text, ThemeData theme, bool isDark, Color accent) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7).withValues(alpha: isDark ? 0.12 : 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFBBF24).withValues(alpha: isDark ? 0.3 : 0.4),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_rounded, size: 16,
+            color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _buildFormattedText(
+              text,
+              isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+              theme,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Premium section header with gradient background and icon
+  Widget _buildSectionHeader(String text, ThemeData theme, bool isDark, Color accent, bool hasTopPadding) {
+    final icon = _getSectionIcon(text);
+    return Padding(
+      padding: EdgeInsets.only(top: hasTopPadding ? 16 : 0, bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              accent.withValues(alpha: isDark ? 0.15 : 0.08),
+              accent.withValues(alpha: 0.0),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          border: Border(left: BorderSide(color: accent, width: 3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, size: 14, color: accent),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Get contextual icon for section headers
   IconData _getSectionIcon(String header) {
     final h = header.toLowerCase();
-    if (h.contains('roadmap') || h.contains('step') || h.contains('plan')) return Icons.route_outlined;
+    if (h.contains('roadmap') || h.contains('step') || h.contains('plan') || h.contains('improvement')) return Icons.route_outlined;
     if (h.contains('vendor') || h.contains('platform') || h.contains('provider')) return Icons.storefront_outlined;
     if (h.contains('scheme') || h.contains('government') || h.contains('yojana')) return Icons.account_balance_outlined;
     if (h.contains('invest') || h.contains('mutual') || h.contains('sip') || h.contains('fund')) return Icons.trending_up_outlined;
@@ -831,9 +956,13 @@ _Tap a suggestion below or ask me anything._""",
     if (h.contains('tax') || h.contains('deduction')) return Icons.receipt_long_outlined;
     if (h.contains('loan') || h.contains('emi') || h.contains('credit')) return Icons.credit_score_outlined;
     if (h.contains('tip') || h.contains('advice') || h.contains('suggest')) return Icons.lightbulb_outline;
-    if (h.contains('warning') || h.contains('risk') || h.contains('caution')) return Icons.warning_amber_outlined;
-    if (h.contains('benefit') || h.contains('advantage') || h.contains('pro')) return Icons.star_outline;
+    if (h.contains('warning') || h.contains('risk') || h.contains('caution') || h.contains('attention')) return Icons.warning_amber_outlined;
+    if (h.contains('benefit') || h.contains('advantage') || h.contains('pro') || h.contains('right')) return Icons.star_outline;
     if (h.contains('how') || h.contains('process') || h.contains('apply')) return Icons.checklist_outlined;
+    if (h.contains('score') || h.contains('projection') || h.contains('target')) return Icons.analytics_outlined;
+    if (h.contains('msme') || h.contains('local') || h.contains('enterprise')) return Icons.store_outlined;
+    if (h.contains('money') || h.contains('spending') || h.contains('where')) return Icons.pie_chart_outline;
+    if (h.contains('doing') || h.contains('performance') || h.contains('summary')) return Icons.assessment_outlined;
     return Icons.label_outline;
   }
 
@@ -949,6 +1078,310 @@ _Tap a suggestion below or ask me anything._""",
         }),
       ),
     );
+  }
+
+  /// Detect if a line is the start of an MSME business card entry
+  bool _isMsmeCardLine(String line, int index, List<String> lines) {
+    final lower = line.toLowerCase();
+    // Check for "Name:" or "Enterprise:" at start of line, or numbered item with enterprise info
+    if (lower.contains('enterprise:') || lower.contains('enterprise name:')) return true;
+    
+    // Check if this line has a name-like pattern and following lines have address/service
+    if (RegExp(r'^\d+[\.\)]\s*\*?\*?[A-Z]').hasMatch(line)) {
+      // Look ahead for service/address/location lines
+      for (int j = index + 1; j < lines.length && j <= index + 5; j++) {
+        final nextLower = lines[j].toLowerCase().trim();
+        if (nextLower.contains('address:') || nextLower.contains('service:') || 
+            nextLower.contains('location:') || nextLower.contains('pincode:') ||
+            nextLower.contains('contact:') || nextLower.contains('activities:') ||
+            nextLower.contains('district:') || nextLower.contains('registered:')) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Collect consecutive lines that belong to an MSME card
+  List<String> _collectMsmeCardLines(int startIndex, List<String> lines) {
+    final collected = <String>[];
+    collected.add(lines[startIndex].trim());
+    
+    for (int j = startIndex + 1; j < lines.length; j++) {
+      final line = lines[j].trim();
+      if (line.isEmpty) break;
+      
+      final lower = line.toLowerCase();
+      // Continue collecting if line contains card-related info
+      if (lower.contains('address:') || lower.contains('service:') || 
+          lower.contains('location:') || lower.contains('pincode:') ||
+          lower.contains('contact:') || lower.contains('activities:') ||
+          lower.contains('district:') || lower.contains('state:') ||
+          lower.contains('registered:') || lower.contains('registration') ||
+          lower.contains('email:') || lower.contains('category:') ||
+          lower.contains('phone:') || lower.contains('mobile:') ||
+          lower.startsWith('- ') || lower.startsWith('• ')) {
+        collected.add(line);
+      } else {
+        break;
+      }
+    }
+    
+    return collected.length >= 2 ? collected : [];
+  }
+
+  /// Build a premium MSME business card
+  Widget _buildMsmeCard(List<String> cardLines, ThemeData theme, bool isDark, Color accent) {
+    // Parse card data from lines
+    String name = '';
+    String services = '';
+    String address = '';
+    String pincode = '';
+    String district = '';
+    String state = '';
+    String regDate = '';
+    String contact = '';
+    String email = '';
+    String category = '';
+    
+    for (final line in cardLines) {
+      final lower = line.toLowerCase();
+      if (name.isEmpty && (lower.contains('enterprise:') || lower.contains('enterprise name:') || lower.contains('name:'))) {
+        name = _extractValue(line, ['enterprise name:', 'enterprise:', 'name:']);
+      } else if (name.isEmpty && RegExp(r'^\d+[\.\)]\s*').hasMatch(line)) {
+        // Numbered entry - extract the name part
+        name = line.replaceAll(RegExp(r'^\d+[\.\)]\s*'), '').replaceAll(RegExp(r'\*+'), '').trim();
+      } else if (lower.contains('service:') || lower.contains('activities:') || lower.contains('activity:')) {
+        services = _extractValue(line, ['services:', 'service:', 'activities:', 'activity:']);
+      } else if (lower.contains('address:') || lower.contains('location:')) {
+        address = _extractValue(line, ['address:', 'location:']);
+      } else if (lower.contains('pincode:') || lower.contains('pin:')) {
+        pincode = _extractValue(line, ['pincode:', 'pin:']);
+      } else if (lower.contains('district:')) {
+        district = _extractValue(line, ['district:']);
+      } else if (lower.contains('state:')) {
+        state = _extractValue(line, ['state:']);
+      } else if (lower.contains('registered:') || lower.contains('registration')) {
+        regDate = _extractValue(line, ['registered:', 'registration date:', 'registration:']);
+      } else if (lower.contains('contact:') || lower.contains('phone:') || lower.contains('mobile:')) {
+        contact = _extractValue(line, ['contact:', 'phone:', 'mobile:']);
+      } else if (lower.contains('email:')) {
+        email = _extractValue(line, ['email:']);
+      } else if (lower.contains('category:') && category.isEmpty) {
+        category = _extractValue(line, ['category:']);
+      } else if (services.isEmpty && (line.startsWith('- ') || line.startsWith('• '))) {
+        services = line.substring(2).trim();
+      }
+    }
+    
+    // Build location string
+    String location = '';
+    if (district.isNotEmpty && state.isNotEmpty) {
+      location = '$district, $state';
+    } else if (address.isNotEmpty) {
+      location = address;
+    }
+    if (pincode.isNotEmpty && !location.contains(pincode)) {
+      location += location.isNotEmpty ? ' - $pincode' : pincode;
+    }
+    
+    if (name.isEmpty) name = cardLines.first.replaceAll(RegExp(r'^\d+[\.\)]\s*'), '').trim();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? WealthInColors.blackCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: isDark ? 0.08 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with enterprise name and verified badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accent.withValues(alpha: isDark ? 0.15 : 0.08),
+                  accent.withValues(alpha: 0.02),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.store_rounded, size: 18, color: accent),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // UDYAM verified badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: accent.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_rounded, size: 12, color: accent),
+                      const SizedBox(width: 3),
+                      Text(
+                        'UDYAM',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: accent,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Details
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (services.isNotEmpty)
+                  _buildMsmeDetailRow(
+                    Icons.handyman_outlined,
+                    'Service',
+                    services,
+                    isDark,
+                    theme,
+                    accent,
+                  ),
+                if (location.isNotEmpty)
+                  _buildMsmeDetailRow(
+                    Icons.location_on_outlined,
+                    'Location',
+                    location,
+                    isDark,
+                    theme,
+                    accent,
+                  ),
+                if (contact.isNotEmpty)
+                  _buildMsmeDetailRow(
+                    Icons.phone_outlined,
+                    'Contact',
+                    contact,
+                    isDark,
+                    theme,
+                    accent,
+                  ),
+                if (email.isNotEmpty)
+                  _buildMsmeDetailRow(
+                    Icons.email_outlined,
+                    'Email',
+                    email,
+                    isDark,
+                    theme,
+                    accent,
+                  ),
+                if (category.isNotEmpty)
+                  _buildMsmeDetailRow(
+                    Icons.badge_outlined,
+                    'Category',
+                    category,
+                    isDark,
+                    theme,
+                    accent,
+                  ),
+                if (regDate.isNotEmpty)
+                  _buildMsmeDetailRow(
+                    Icons.calendar_today_outlined,
+                    'Registered',
+                    regDate,
+                    isDark,
+                    theme,
+                    accent,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Detail row for MSME card
+  Widget _buildMsmeDetailRow(IconData icon, String label, String value, bool isDark, ThemeData theme, Color accent) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: accent.withValues(alpha: 0.7)),
+          const SizedBox(width: 8),
+          Text(
+            '$label: ',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isDark ? WealthInColors.textPrimaryDark : WealthInColors.textPrimary,
+                fontSize: 11,
+                height: 1.3,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Extract value after a label from a line
+  String _extractValue(String line, List<String> labels) {
+    for (final label in labels) {
+      final idx = line.toLowerCase().indexOf(label);
+      if (idx != -1) {
+        return line.substring(idx + label.length).trim().replaceAll(RegExp(r'^\*+|\*+$'), '');
+      }
+    }
+    return line.replaceAll(RegExp(r'^\*+|\*+$'), '').trim();
   }
 
   /// Sanitize AI response - remove unnecessary characters and clean formatting
@@ -1308,7 +1741,7 @@ _Tap a suggestion below or ask me anything._""",
     
     return Container(
       margin: const EdgeInsets.only(top: 12),
-      height: isShopping ? 200 : 160, // Taller for shopping results
+      constraints: BoxConstraints(maxHeight: isShopping ? 200 : 160),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: displayResults.length,
@@ -1746,7 +2179,7 @@ _Tap a suggestion below or ask me anything._""",
         left: 16,
         right: 16,
         top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        bottom: MediaQuery.of(context).viewPadding.bottom + 8,
       ),
       decoration: BoxDecoration(
         color: isDark ? WealthInColors.black : WealthInColors.white,

@@ -1654,47 +1654,44 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
           const SizedBox(height: 24),
 
-          // Breakdown Grid
+          // Clean Pass/Fail Checklist
           if (_healthScore != null)
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 2.5,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+            Column(
               children: [
-                _buildScoreFactor(
-                  'Savings (30%)',
+                _buildScoreCheckItem(
+                  'Savings Rate',
                   _healthScore!.breakdown['savings'] ?? 0,
                   30,
-                  Icons.savings,
-                  const Color(0xFF4CAF50),
+                  Icons.savings_outlined,
                   isDark,
+                  'Save 20%+ of income',
                 ),
-                _buildScoreFactor(
-                  'Debt (30%)',
+                const SizedBox(height: 8),
+                _buildScoreCheckItem(
+                  'Debt Management',
                   _healthScore!.breakdown['debt'] ?? 0,
-                  30,
-                  Icons.account_balance_wallet,
-                  const Color(0xFFF44336),
+                  25,
+                  Icons.account_balance_wallet_outlined,
                   isDark,
+                  'Keep debt below 35% of income',
                 ),
-                _buildScoreFactor(
-                  'Liquidity (20%)',
+                const SizedBox(height: 8),
+                _buildScoreCheckItem(
+                  'Emergency Fund',
                   _healthScore!.breakdown['liquidity'] ?? 0,
-                  20,
-                  Icons.water_drop,
-                  const Color(0xFF2196F3),
+                  25,
+                  Icons.shield_outlined,
                   isDark,
+                  '6 months expenses saved',
                 ),
-                _buildScoreFactor(
-                  'Invest (20%)',
+                const SizedBox(height: 8),
+                _buildScoreCheckItem(
+                  'Goal Progress',
                   _healthScore!.breakdown['investment'] ?? 0,
                   20,
-                  Icons.trending_up,
-                  const Color(0xFF9C27B0),
+                  Icons.flag_outlined,
                   isDark,
+                  'On track with savings goals',
                 ),
               ],
             ),
@@ -1719,7 +1716,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                         insight,
                         style: TextStyle(
                           fontSize: 12,
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -1733,57 +1730,107 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  Widget _buildScoreFactor(
+  Widget _buildScoreCheckItem(
     String label,
     double score,
     double maxScore,
     IconData icon,
-    Color color,
     bool isDark,
+    String tip,
   ) {
     if (score.isNaN) score = 0;
-    // Determine progress bar value
-    double progress = (score / maxScore).clamp(0.0, 1.0);
+    final progress = (score / maxScore).clamp(0.0, 1.0);
+    final passed = progress >= 0.5;
+    final statusColor = passed
+        ? const Color(0xFF10B981)
+        : (progress >= 0.25 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.15 : 0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: statusColor.withValues(alpha: isDark ? 0.10 : 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: statusColor.withValues(alpha: isDark ? 0.25 : 0.15),
+          width: 1,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white70 : Colors.black87,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+          // Status icon
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              passed ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+              color: statusColor,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Label and progress
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      passed ? 'Passed' : 'Needs Work',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: color.withOpacity(0.2),
-            color: color,
-            minHeight: 4,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${score.toStringAsFixed(1)} / $maxScore pts',
-            style: TextStyle(fontSize: 10, color: color),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: statusColor.withValues(alpha: 0.15),
+                    color: statusColor,
+                    minHeight: 5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      tip,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                      ),
+                    ),
+                    Text(
+                      '${score.toStringAsFixed(0)}/${maxScore.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),

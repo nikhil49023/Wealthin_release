@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../main.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
 import 'login_screen.dart';
+import '../onboarding/onboarding_screen.dart';
 
 /// Auth Wrapper that checks authentication status and shows login or main app
 /// Uses Supabase Auth via AuthService (ChangeNotifier)
@@ -23,9 +26,30 @@ class _AuthWrapperState extends State<AuthWrapper> {
       builder: (context, _) {
         final user = authService.currentUser;
 
-        // If user is logged in, show main app
+        // If user is logged in, show main app or onboarding
         if (user != null) {
-          return widget.child;
+          return FutureBuilder<bool>(
+            future: _checkOnboardingComplete(),
+            builder: (context, snapshot) {
+              // Show loading while checking onboarding status
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return _buildLoadingScreen(context, 'Setting up your vault...');
+              }
+
+              final onboardingComplete = snapshot.data ?? false;
+              
+              if (onboardingComplete) {
+                return widget.child;
+              } else {
+                return OnboardingScreen(
+                  onComplete: () {
+                    // Force rebuild to re-check status
+                    setState(() {});
+                  },
+                );
+              }
+            },
+          );
         }
 
         // Otherwise show login screen
@@ -36,6 +60,36 @@ class _AuthWrapperState extends State<AuthWrapper> {
         );
       },
     );
+  }
+
+  Future<bool> _checkOnboardingComplete() async {
+    // 1. Check local storage first (fastest)
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('onboarding_complete') ?? false) {
+      return true;
+    }
+
+    // 2. If not found locally, check Supabase profile
+    try {
+      final user = authService.currentUser;
+      if (user != null) {
+        final response = await Supabase.instance.client
+            .from('profiles')
+            .select('has_completed_onboarding')
+            .eq('id', user.id)
+            .maybeSingle();
+            
+        if (response != null && response['has_completed_onboarding'] == true) {
+          // Sync back to local storage
+          await prefs.setBool('onboarding_complete', true);
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking onboarding status: $e');
+    }
+
+    return false;
   }
 
 
