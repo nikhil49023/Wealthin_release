@@ -414,9 +414,9 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 24),
 
+            const SizedBox(height: 24),
+
             // Divider with "or"
-            // REMOVED GOOGLE SIGN IN TEMPORARILY AS SUPABASE SETUP IS SIMPLER FOR NOW
-            /* 
             Row(
               children: [
                 Expanded(child: Divider(color: Colors.grey[300])),
@@ -431,12 +431,65 @@ class _LoginScreenState extends State<LoginScreen>
               ],
             ),
             const SizedBox(height: 24),
-            */
 
+            // Google Sign In Button
+            OutlinedButton(
+              onPressed: _isLoading || _isGoogleLoading ? null : _handleGoogleLogin,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: BorderSide(color: Colors.grey[300]!),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                backgroundColor: Colors.white,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _isGoogleLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const _GoogleLogo(),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A202C),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await authService.signInWithGoogle();
+      if (mounted) {
+        widget.onLoginSuccess();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
 

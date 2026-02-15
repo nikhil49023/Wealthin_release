@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/wealthin_theme.dart';
 
 /// Onboarding Screen - Collects user profile information
@@ -92,12 +93,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // Mark onboarding complete
     await prefs.setBool('onboarding_complete', true);
 
-    // Save to Supabase if user is logged in
+    // Save to Firestore if user is logged in
     try {
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         final profileData = {
-          'id': user.id,
           'first_name': _firstNameController.text.trim(),
           'last_name': _lastNameController.text.trim(),
           'occupation': _selectedOccupation ?? '',
@@ -105,7 +105,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'family_adults': _adults,
           'family_children': _children,
           'has_business': _hasBusiness,
-          'updated_at': DateTime.now().toIso8601String(),
+          'has_completed_onboarding': true,
+          'updated_at': FieldValue.serverTimestamp(),
         };
 
         if (_hasBusiness) {
@@ -119,11 +120,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           });
         }
 
-        await Supabase.instance.client.from('profiles').upsert(profileData);
-        debugPrint('Profile saved to Supabase');
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set(profileData, SetOptions(merge: true));
+        debugPrint('Profile saved to Firestore');
       }
     } catch (e) {
-      debugPrint('Error saving profile to Supabase: $e');
+      debugPrint('Error saving profile to Firestore: $e');
       // Continue anyway as local storage is primary for now
     }
   }

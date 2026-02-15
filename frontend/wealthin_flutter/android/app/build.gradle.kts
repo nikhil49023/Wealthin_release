@@ -6,6 +6,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.chaquo.python")
+    id("com.google.gms.google-services")
 }
 
 apply(from = "chaquopy.gradle")
@@ -88,4 +89,12 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Import the Firebase BoM — manages all Firebase library versions
+    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+
+    // Firebase Analytics (version managed by BoM)
+    implementation("com.google.firebase:firebase-analytics")
 }

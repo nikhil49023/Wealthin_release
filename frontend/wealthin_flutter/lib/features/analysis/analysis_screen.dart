@@ -276,8 +276,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         healthScore: _healthScore!,
         dashboardData: _data,
         userName:
-            authService.currentUser?.userMetadata?['display_name'] as String? ??
-            'User',
+            authService.currentUser?.displayName ?? 'User',
         categoryBreakdown: categoryBreakdown,
       );
       if (mounted) {

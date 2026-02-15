@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService extends ChangeNotifier {
   User? _user;
-  StreamSubscription<AuthState>? _authStateSubscription;
+  StreamSubscription<User?>? _authStateSubscription;
   User? get currentUser => _user;
   bool get isAuthenticated => _user != null;
 
@@ -16,99 +16,88 @@ class AuthService extends ChangeNotifier {
 
   void _initialize() {
     try {
-      final client = Supabase.instance.client;
-      final session = client.auth.currentSession;
-      _user = session?.user;
+      final auth = FirebaseAuth.instance;
+      _user = auth.currentUser;
 
       // Listen to auth state changes
-      _authStateSubscription = client.auth.onAuthStateChange.listen((data) {
-        _user = data.session?.user;
+      _authStateSubscription = auth.authStateChanges().listen((User? user) {
+        _user = user;
         notifyListeners();
         debugPrint('[AuthService] User changed: ${_user?.email}');
       });
     } catch (error) {
       debugPrint(
-        '[AuthService] Supabase is unavailable during startup: $error',
+        '[AuthService] Firebase is unavailable during startup: $error',
       );
       _user = null;
     }
   }
 
   /// Sign in with email and password
-  Future<AuthResponse> signInWithEmail({
+  Future<UserCredential> signInWithEmail({
     required String email,
     required String password,
   }) async {
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      return response;
-    } on AuthException catch (e) {
-      throw _handleSupabaseError(e);
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleFirebaseError(e);
     } catch (e) {
       throw 'An unexpected error occurred: $e';
     }
   }
 
   /// Sign in with Google
-  Future<AuthResponse> signInWithGoogle() async {
+  Future<UserCredential> signInWithGoogle() async {
     try {
-      // 1. Web Client ID (since we are using Supabase which uses the web client ID for verification)
-      // Check your Supabase Dashboard > Authentication > Google for the correct Client ID
-      const webClientId =
-          '1078484188114-a6f3og38fjt1kofil6vecatbauhrmpmq.apps.googleusercontent.com';
-
-      // 2. Perform Google Sign-In
-      // For Android, we use the google-services.json and standard integration
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        serverClientId: webClientId,
-      );
-
+      final GoogleSignIn googleSignIn = GoogleSignIn();
       final googleUser = await googleSignIn.signIn();
-      final googleAuth = await googleUser?.authentication;
-      final accessToken = googleAuth?.accessToken;
-      final idToken = googleAuth?.idToken;
 
-      if (accessToken == null) {
-        throw 'No Access Token found.';
+      if (googleUser == null) {
+        throw 'Google Sign In was cancelled';
       }
 
-      if (idToken == null) {
-        throw 'No ID Token found.';
-      }
-
-      // 3. Authenticate with Supabase using the ID Token
-      final response = await Supabase.instance.client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
 
-      return response;
-    } on AuthException catch (e) {
-      throw _handleSupabaseError(e);
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleFirebaseError(e);
     } catch (e) {
       throw 'Google Sign In failed: $e';
     }
   }
 
   /// Register with email and password
-  Future<AuthResponse> registerWithEmail({
+  Future<UserCredential> registerWithEmail({
     required String email,
     required String password,
     String? displayName,
   }) async {
     try {
-      final response = await Supabase.instance.client.auth.signUp(
+      final credential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
-        data: displayName != null ? {'display_name': displayName} : null,
       );
-      return response;
-    } on AuthException catch (e) {
-      throw _handleSupabaseError(e);
+
+      // Update display name if provided
+      if (displayName != null && credential.user != null) {
+        await credential.user!.updateDisplayName(displayName);
+      }
+
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleFirebaseError(e);
     } catch (e) {
       throw 'An unexpected error occurred: $e';
     }
@@ -117,7 +106,8 @@ class AuthService extends ChangeNotifier {
   /// Sign out
   Future<void> signOut() async {
     try {
-      await Supabase.instance.client.auth.signOut();
+      await FirebaseAuth.instance.signOut();
+      await GoogleSignIn().signOut();
       _user = null;
       notifyListeners();
     } catch (e) {
@@ -128,9 +118,9 @@ class AuthService extends ChangeNotifier {
   /// Send password reset email
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
-    } on AuthException catch (e) {
-      throw _handleSupabaseError(e);
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw _handleFirebaseError(e);
     }
   }
 
@@ -140,18 +130,28 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Get current user ID safely
-  String get currentUserId => currentUser?.id ?? 'anonymous';
+  String get currentUserId => currentUser?.uid ?? 'anonymous';
 
-  // Helper code to map Supabase errors to user-friendly messages
-  String _handleSupabaseError(AuthException e) {
-    // Supabase error messages are generally readable, but we can customize
-    if (e.message.contains('Invalid login credentials')) {
-      return 'Invalid email or password';
+  // Helper to map Firebase errors to user-friendly messages
+  String _handleFirebaseError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+        return 'No account found with this email';
+      case 'wrong-password':
+        return 'Invalid email or password';
+      case 'invalid-credential':
+        return 'Invalid email or password';
+      case 'email-already-in-use':
+        return 'An account already exists with this email';
+      case 'weak-password':
+        return 'Password is too weak';
+      case 'invalid-email':
+        return 'Invalid email address';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later';
+      default:
+        return e.message ?? 'An authentication error occurred';
     }
-    if (e.message.contains('User already registered')) {
-      return 'An account already exists with this email';
-    }
-    return e.message;
   }
 
   @override

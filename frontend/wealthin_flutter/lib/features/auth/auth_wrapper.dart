@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../main.dart';
 import '../../core/theme/app_theme.dart';
@@ -8,7 +8,7 @@ import 'login_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 
 /// Auth Wrapper that checks authentication status and shows login or main app
-/// Uses Supabase Auth via AuthService (ChangeNotifier)
+/// Uses Firebase Auth via AuthService (ChangeNotifier)
 class AuthWrapper extends StatefulWidget {
   final Widget child;
 
@@ -69,17 +69,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return true;
     }
 
-    // 2. If not found locally, check Supabase profile
+    // 2. If not found locally, check Firestore profile
     try {
       final user = authService.currentUser;
       if (user != null) {
-        final response = await Supabase.instance.client
-            .from('profiles')
-            .select('has_completed_onboarding')
-            .eq('id', user.id)
-            .maybeSingle();
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
             
-        if (response != null && response['has_completed_onboarding'] == true) {
+        if (doc.exists && doc.data()?['has_completed_onboarding'] == true) {
           // Sync back to local storage
           await prefs.setBool('onboarding_complete', true);
           return true;

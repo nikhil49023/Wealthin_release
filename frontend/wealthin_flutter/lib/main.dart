@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, kIsWeb;
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
@@ -23,7 +23,7 @@ import 'core/config/secrets.dart';
 import 'core/utils/responsive_utils.dart';
 import 'features/analysis/analysis_screen.dart';
 
-/// Global auth service for Supabase authentication
+/// Global auth service for Firebase authentication
 late final AuthService authService;
 
 /// Global theme mode notifier
@@ -55,7 +55,7 @@ void main() async {
     return true;
   };
 
-  await _initializeSupabase();
+  await _initializeFirebase();
 
   // Initialize auth service
   authService = AuthService();
@@ -78,16 +78,14 @@ void _scheduleDeferredServicesInitialization() {
   });
 }
 
-Future<void> _initializeSupabase() async {
+Future<void> _initializeFirebase() async {
   try {
-    await Supabase.initialize(
-      url: 'https://sguzpnegfmeuczgsmtgl.supabase.co',
-      anonKey: 'sb_publishable_ee1UuOOs0ruoqtmdqbRCEg__ls-kja4',
-    ).timeout(const Duration(seconds: 8));
+    await Firebase.initializeApp().timeout(const Duration(seconds: 8));
+    debugPrint('[App] ✓ Firebase initialized');
   } on TimeoutException {
-    debugPrint('[App] ⚠ Supabase initialization timed out.');
+    debugPrint('[App] ⚠ Firebase initialization timed out.');
   } catch (error, stackTrace) {
-    debugPrint('[App] ⚠ Supabase initialization failed: $error');
+    debugPrint('[App] ⚠ Firebase initialization failed: $error');
     debugPrint('$stackTrace');
   }
 }

@@ -4,7 +4,7 @@ import '../../main.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
 
-/// Premium Register Screen with Supabase Auth - Simple single-step form
+/// Premium Register Screen with Firebase Auth - Simple single-step form
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onRegisterSuccess;
 
@@ -50,7 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         displayName: _nameController.text.trim(),
       );
 
-      // Supabase sends email verification automatically if configured
+      // Firebase sends email verification automatically if configured
       // await authService.sendEmailVerification();
 
 
@@ -350,6 +350,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 16),
 
+            const SizedBox(height: 24),
+
+            // Divider with "or"
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey[300])),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'or',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey[300])),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Google Sign Up Button
+            OutlinedButton(
+              onPressed: _isLoading ? null : _handleGoogleRegister,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: BorderSide(color: Colors.grey[300]!),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                backgroundColor: Colors.white,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  _GoogleLogo(),
+                  SizedBox(width: 12),
+                  Text(
+                    'Sign up with Google',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A202C),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // Terms and conditions
             Text(
               'By creating an account, you agree to our Terms of Service and Privacy Policy',
@@ -364,4 +411,107 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     ).animate().fadeIn().slideY(begin: 0.1, end: 0);
   }
+
+  Future<void> _handleGoogleRegister() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await authService.signInWithGoogle();
+      if (mounted) {
+        widget.onRegisterSuccess();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 }
+
+/// Google logo using custom paint for reliability
+class _GoogleLogo extends StatelessWidget {
+  const _GoogleLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(24, 24),
+      painter: _GoogleLogoPainter(),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double s = size.width / 24;
+
+    // Google G logo colors
+    final Paint bluePaint = Paint()..color = const Color(0xFF4285F4);
+    final Paint greenPaint = Paint()..color = const Color(0xFF34A853);
+    final Paint yellowPaint = Paint()..color = const Color(0xFFFBBC05);
+    final Paint redPaint = Paint()..color = const Color(0xFFEA4335);
+
+    // Blue arc (right side)
+    final Path bluePath = Path()
+      ..moveTo(23.5 * s, 12.27 * s)
+      ..cubicTo(23.5 * s, 11.48 * s, 23.42 * s, 10.73 * s, 23.29 * s, 10 * s)
+      ..lineTo(12 * s, 10 * s)
+      ..lineTo(12 * s, 14.51 * s)
+      ..lineTo(18.47 * s, 14.51 * s)
+      ..cubicTo(18.21 * s, 15.99 * s, 17.35 * s, 17.25 * s, 16.08 * s, 18.1 * s)
+      ..lineTo(16.08 * s, 21.09 * s)
+      ..lineTo(19.94 * s, 21.09 * s)
+      ..cubicTo(22.21 * s, 19 * s, 23.5 * s, 15.93 * s, 23.5 * s, 12.27 * s)
+      ..close();
+    canvas.drawPath(bluePath, bluePaint);
+
+    // Green arc (bottom right)
+    final Path greenPath = Path()
+      ..moveTo(12 * s, 24 * s)
+      ..cubicTo(15.24 * s, 24 * s, 17.95 * s, 22.92 * s, 19.94 * s, 21.09 * s)
+      ..lineTo(16.08 * s, 18.1 * s)
+      ..cubicTo(15 * s, 18.82 * s, 13.62 * s, 19.25 * s, 12 * s, 19.25 * s)
+      ..cubicTo(8.87 * s, 19.25 * s, 6.22 * s, 17.14 * s, 5.27 * s, 14.29 * s)
+      ..lineTo(1.29 * s, 14.29 * s)
+      ..lineTo(1.29 * s, 17.38 * s)
+      ..cubicTo(3.26 * s, 21.3 * s, 7.31 * s, 24 * s, 12 * s, 24 * s)
+      ..close();
+    canvas.drawPath(greenPath, greenPaint);
+
+    // Yellow arc (bottom left)
+    final Path yellowPath = Path()
+      ..moveTo(5.27 * s, 14.29 * s)
+      ..cubicTo(5.02 * s, 13.57 * s, 4.88 * s, 12.8 * s, 4.88 * s, 12 * s)
+      ..cubicTo(4.88 * s, 11.2 * s, 5.02 * s, 10.43 * s, 5.27 * s, 9.71 * s)
+      ..lineTo(5.27 * s, 6.62 * s)
+      ..lineTo(1.29 * s, 6.62 * s)
+      ..cubicTo(0.47 * s, 8.24 * s, 0 * s, 10.06 * s, 0 * s, 12 * s)
+      ..cubicTo(0 * s, 13.94 * s, 0.47 * s, 15.76 * s, 1.29 * s, 17.38 * s)
+      ..lineTo(5.27 * s, 14.29 * s)
+      ..close();
+    canvas.drawPath(yellowPath, yellowPaint);
+
+    // Red arc (top)
+    final Path redPath = Path()
+      ..moveTo(12 * s, 4.75 * s)
+      ..cubicTo(13.77 * s, 4.75 * s, 15.35 * s, 5.36 * s, 16.6 * s, 6.55 * s)
+      ..lineTo(20 * s, 3.15 * s)
+      ..cubicTo(17.95 * s, 1.19 * s, 15.24 * s, 0 * s, 12 * s, 0 * s)
+      ..cubicTo(7.31 * s, 0 * s, 3.26 * s, 2.7 * s, 1.29 * s, 6.62 * s)
+      ..lineTo(5.27 * s, 9.71 * s)
+      ..cubicTo(6.22 * s, 6.86 * s, 8.87 * s, 4.75 * s, 12 * s, 4.75 * s)
+      ..close();
+    canvas.drawPath(redPath, redPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+

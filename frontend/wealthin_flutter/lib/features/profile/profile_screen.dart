@@ -18,8 +18,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   // Mock user data - TODO: Replace with Auth
-  String _userName = 'Nikhil';
-  final String _userEmail = 'nikhil@wealthin.app';
+  String _userName = '';
+  String _userEmail = '';
   bool _isLoading = true;
 
   @override
@@ -30,21 +30,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     try {
-      // Use real user data if available via Auth
-      if (authService.currentUser != null) {
-        final user = authService.currentUser!;
-        final metadata = user.userMetadata;
-        _userName =
-            metadata?['display_name'] ?? metadata?['full_name'] ?? 'User';
-        // _userEmail is final, so we can't update it easily here without removing final or using setState aggressively differently
-        // But the error was about displayName getter.
+      final user = authService.currentUser;
+      if (user != null) {
+        setState(() {
+          _userName = user.displayName ?? 'WealthIn Member';
+          _userEmail = user.email ?? '';
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
       }
-
-      // Mock profile data
-      await Future.delayed(const Duration(milliseconds: 300));
-      setState(() {
-        _isLoading = false;
-      });
     } catch (e) {
       debugPrint('Error loading profile: $e');
       if (mounted) setState(() => _isLoading = false);
@@ -73,41 +70,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   // Profile Header
-                  Card(
+                  Container(
+                    decoration: WealthInTheme.elevatedCardDecoration(context),
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: theme.colorScheme.primary,
-                            child: Text(
-                              _userName[0].toUpperCase(),
-                              style: theme.textTheme.headlineLarge?.copyWith(
-                                color: Colors.white,
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.emerald,
+                                  AppTheme.emerald.withValues(alpha: 0.7),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.emerald.withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                _userName.isNotEmpty
+                                    ? _userName[0].toUpperCase()
+                                    : 'W',
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _userName,
+                            _userName.isNotEmpty ? _userName : 'Welcome',
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1A202C),
                             ),
                           ),
+                          const SizedBox(height: 4),
                           Text(
                             _userEmail,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.6,
-                              ),
+                              color: WealthInTheme.gray600,
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: () => _showEditProfileDialog(context),
-                            icon: const Icon(Icons.edit),
-                            label: const Text('Edit Profile'),
+                          const SizedBox(height: 20),
+                          Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primary.withValues(alpha: 0.1),
+                                  Colors.white,
+                                ],
+                              ),
+                              border: Border.all(
+                                color: AppTheme.primary.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: TextButton.icon(
+                              onPressed: () => _showEditProfileDialog(context),
+                              icon: const Icon(Icons.edit_outlined,
+                                  size: 18, color: AppTheme.primary),
+                              label: const Text(
+                                'Edit Profile',
+                                style: TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -448,10 +498,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                // Clear sign-out
                 Navigator.pop(context); // Close dialog
 
-                // Show signing out message
+                // Show signing out indicator
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Row(
@@ -470,34 +519,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text('Signing out...'),
                       ],
                     ),
+                    duration: Duration(seconds: 2),
                   ),
                 );
 
-                // Simulate sign-out delay
-                await Future.delayed(const Duration(milliseconds: 500));
-
-                // In the future, this will call:
-                // await AuthService().signOut();
-                // Or: await GoogleSignIn().signOut();
-
-                // Navigate to home and show success
-                if (context.mounted) {
-                  // Close current screen
-                  Navigator.of(context).pop();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Row(
-                        children: [
-                          Icon(Icons.check_circle, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text('Signed out successfully!'),
-                        ],
+                try {
+                  // Actually sign out from Firebase + Google
+                  await authService.signOut();
+                  // AuthWrapper listens to auth state changes and will
+                  // automatically navigate back to the login screen.
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Sign out failed: $e'),
+                        backgroundColor: Colors.red,
                       ),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                    );
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
