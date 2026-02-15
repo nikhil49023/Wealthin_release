@@ -1,7 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:open_file/open_file.dart';
 import '../../core/services/data_service.dart';
+import '../../core/services/gamification_service.dart';
 import '../../core/services/pdf_report_service.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/wealthin_theme.dart';
@@ -35,14 +37,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   // Animation controller for AI analyzing animation
   late AnimationController _pulseController;
 
-  // Gamification state
-  int _userLevel = 1;
-  int _totalXP = 0;
-  int _xpToNextLevel = 100;
-  int _milestonesAchieved = 0;
-  int _totalMilestones = 14;
-  List<Map<String, dynamic>> _milestones = [];
-  List<Map<String, dynamic>> _newlyAchieved = [];
+  // Gamification state (powered by GamificationService)
+  final GamificationService _gamification = GamificationService.instance;
+  List<AchievementState> _achievementStates = [];
+  List<AchievementState> _newlyUnlocked = [];
+  AchievementCategory? _selectedAchievementCategory;
 
   // Cooldown state
   bool _canAnalyze = true;
@@ -77,6 +76,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     try {
       final userId = authService.currentUserId;
 
+      // Step 0: Initialize gamification engine
+      await _gamification.init();
+
       // Step 1: Quick load - fetch milestones first (has cached analysis data)
       final milestonesData = await _dataService.getMilestones(userId);
 
@@ -90,20 +92,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       // Check if we have cached results (previous analysis exists)
       _hasCachedResults = _lastAnalysisDate != null;
 
-      if (mounted) {
-        setState(() {
-          _userLevel = (milestonesData['level'] as num?)?.toInt() ?? 1;
-          _totalXP = (milestonesData['total_xp'] as num?)?.toInt() ?? 0;
-          _xpToNextLevel = (milestonesData['xp_to_next_level'] as num?)?.toInt() ?? 100;
-          _milestonesAchieved = (milestonesData['milestones_achieved'] as num?)?.toInt() ?? 0;
-          _totalMilestones = (milestonesData['total_milestones'] as num?)?.toInt() ?? 14;
-          _milestones = List<Map<String, dynamic>>.from(milestonesData['milestones'] ?? []);
-        });
-      }
-
       // Step 2: Fetch dashboard and health score
       if (_canAnalyze && !_hasCachedResults) {
-        // First analysis - show AI analyzing animation
         if (mounted) {
           setState(() {
             _isAnalyzing = true;
@@ -112,25 +102,57 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         }
       }
 
-      // Parallel fetch: dashboard and health score
+      // Parallel fetch: dashboard, health score, transactions, budgets, goals
       final results = await Future.wait([
         _dataService.getDashboard(userId),
         _dataService.getHealthScore(userId),
+        _dataService.getTransactions(userId),
+        _dataService.getBudgets(userId),
+        _dataService.getGoals(userId),
       ]);
 
       final dashData = results[0] as DashboardData?;
       final healthData = results[1] as HealthScore?;
+      final transactions = results[2] as List<TransactionModel>? ?? [];
+      final budgets = results[3] as List<BudgetModel>? ?? [];
+      final goals = results[4] as List<GoalModel>? ?? [];
+
+      // Step 3: Compute gamification stats from real data
+      final completedGoals = goals.where((g) => g.status == 'completed').length;
+      final userStats = UserStats(
+        transactionCount: transactions.length,
+        savingsRate: dashData?.savingsRate ?? 0,
+        goalsCreated: goals.length,
+        goalsCompleted: completedGoals,
+        budgetsCreated: budgets.length,
+        monthsUnderBudget: _gamification.stats.monthsUnderBudget,
+        ideasEvaluated: _gamification.stats.ideasEvaluated,
+        dprsCreated: _gamification.stats.dprsCreated,
+        currentStreak: _dataService.currentStreak.value,
+        healthScore: healthData?.totalScore ?? 0,
+        pdfsExported: _gamification.stats.pdfsExported,
+        analysesRun: _gamification.stats.analysesRun,
+      );
+
+      final newlyUnlocked = await _gamification.updateStats(userStats);
+      _achievementStates = _gamification.getAllAchievementStates();
 
       if (mounted) {
         setState(() {
           _data = dashData;
           _healthScore = healthData;
+          _newlyUnlocked = newlyUnlocked;
           _isLoading = false;
           _isAnalyzing = false;
         });
       }
 
-      // Step 3: Save snapshot in background only if cooldown has passed
+      // Show celebration for newly unlocked achievements
+      if (newlyUnlocked.isNotEmpty && mounted) {
+        _showAchievementCelebrations(newlyUnlocked);
+      }
+
+      // Step 4: Save snapshot in background only if cooldown has passed
       if (_canAnalyze && dashData != null) {
         _saveSnapshotInBackground(userId, dashData, healthData);
       }
@@ -145,6 +167,44 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     }
   }
 
+  /// Show celebration snackbars for newly unlocked achievements
+  Future<void> _showAchievementCelebrations(List<AchievementState> achievements) async {
+    for (final a in achievements) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Text(a.definition.tier.emoji, style: const TextStyle(fontSize: 24)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${a.definition.name} Unlocked!',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    Text(
+                      '+${a.definition.xpReward} XP • ${a.definition.tier.label}',
+                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Color(a.definition.tier.gradientColors[0]),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      await Future.delayed(const Duration(seconds: 2));
+    }
+  }
+
   /// Save a snapshot in background to track progress and check milestones
   Future<void> _saveSnapshotInBackground(
     String userId,
@@ -154,7 +214,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     if (data == null) return;
 
     try {
-      final result = await _dataService.saveAnalysisSnapshot(
+      // Increment analyses_run counter
+      await _gamification.incrementStat('analyses_run');
+
+      await _dataService.saveAnalysisSnapshot(
         userId: userId,
         totalIncome: data.totalIncome,
         totalExpense: data.totalExpense,
@@ -167,38 +230,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         currentStreak: _dataService.currentStreak.value,
       );
 
-      final newMilestones = List<Map<String, dynamic>>.from(
-        result['newly_achieved_milestones'] ?? [],
-      );
-      if (newMilestones.isNotEmpty && mounted) {
+      // Refresh achievement states after stat update
+      if (mounted) {
         setState(() {
-          _newlyAchieved = newMilestones;
-          _userLevel = (result['user_level'] as num?)?.toInt() ?? _userLevel;
-          _totalXP = (result['total_xp'] as num?)?.toInt() ?? _totalXP;
+          _achievementStates = _gamification.getAllAchievementStates();
         });
-        // Show celebration for new milestones
-        for (final m in newMilestones) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Text('🎉 ', style: TextStyle(fontSize: 20)),
-                    Expanded(
-                      child: Text(
-                        '${m['name']} unlocked! +${m['xp_reward']} XP',
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: WealthInTheme.emeraldDark,
-                duration: const Duration(seconds: 4),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-            await Future.delayed(const Duration(seconds: 2));
-          }
-        }
       }
     } catch (e) {
       debugPrint('[Analysis] Snapshot save error (non-critical): $e');
@@ -405,8 +441,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   _buildMetricsGrid(theme).animate().fadeIn(delay: 100.ms),
                   const SizedBox(height: 20),
 
-                  // Milestones Section
-                  _buildMilestonesSection(
+                  // Achievements Section (Levels + Tiered Badges)
+                  _buildAchievementsSection(
                     theme,
                     isDark,
                   ).animate().fadeIn(delay: 150.ms),
@@ -579,33 +615,39 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  // ==================== GAMIFICATION WIDGETS ====================
+  // ==================== GAMIFICATION WIDGETS (PREMIUM) ====================
 
-  /// Level & XP progress card at the top
+  /// Premium Level & XP card with circular progress ring and named level
   Widget _buildLevelCard(ThemeData theme, bool isDark) {
-    final xpProgress = _xpToNextLevel > 0
-        ? ((_totalXP % _xpToNextLevel) / _xpToNextLevel).clamp(0.0, 1.0)
-        : 0.0;
+    final level = _gamification.currentLevel;
+    final progress = getLevelProgress(_gamification.totalXP);
+    final totalXP = _gamification.totalXP;
+    final achievedCount = _gamification.achievedCount;
+    final totalAchievements = _gamification.totalCount;
+
+    final Color gradStart = Color(level.gradientColors[0]);
+    final Color gradEnd = Color(level.gradientColors[1]);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: isDark
-              ? [const Color(0xFF1A1A2E), const Color(0xFF16213E)]
-              : [const Color(0xFFE3F2FD), const Color(0xFFBBDEFB)],
+              ? [const Color(0xFF0F1123), const Color(0xFF1A1A3E)]
+              : [Colors.white, const Color(0xFFF5F7FF)],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark
-              ? const Color(0xFF2196F3).withOpacity(0.3)
-              : const Color(0xFF2196F3).withOpacity(0.2),
+          color: gradStart.withOpacity(isDark ? 0.4 : 0.25),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2196F3).withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: gradStart.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -613,99 +655,221 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         children: [
           Row(
             children: [
-              // Level badge
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2196F3), Color(0xFF1565C0)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2196F3).withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+              // Circular progress ring with level number
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Background ring
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: CircularProgressIndicator(
+                        value: 1.0,
+                        strokeWidth: 6,
+                        backgroundColor: Colors.transparent,
+                        valueColor: AlwaysStoppedAnimation(
+                          isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                        ),
+                      ),
+                    ),
+                    // Progress ring
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: CircularProgressIndicator(
+                        value: progress.progress,
+                        strokeWidth: 6,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: Colors.transparent,
+                        valueColor: AlwaysStoppedAnimation(gradStart),
+                      ),
+                    ),
+                    // Level badge center
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [gradStart, gradEnd],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: gradStart.withOpacity(0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          level.emoji,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    '$_userLevel',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 20),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    // Level title + number
+                    Row(
                       children: [
                         Text(
-                          'Level $_userLevel',
+                          level.title,
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
                             color: isDark ? Colors.white : Colors.black87,
+                            letterSpacing: 0.5,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(colors: [gradStart, gradEnd]),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            '$_totalXP XP',
+                            'Lv.${level.level}',
                             style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF4CAF50),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    // XP Progress bar
+                    const SizedBox(height: 6),
+                    // XP display
+                    Row(
+                      children: [
+                        Icon(Icons.bolt, size: 16, color: gradStart),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$totalXP XP',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: gradStart,
+                          ),
+                        ),
+                        if (progress.nextLevel != null) ...[
+                          Text(
+                            '  •  ${progress.xpForNext - progress.xpInLevel} to ${progress.nextLevel!.title}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white38 : Colors.black38,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Gradient XP Bar
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: xpProgress,
-                        minHeight: 8,
-                        backgroundColor: isDark
-                            ? Colors.white.withOpacity(0.1)
-                            : Colors.black.withOpacity(0.08),
-                        valueColor: const AlwaysStoppedAnimation(
-                          Color(0xFF2196F3),
-                        ),
+                      child: Stack(
+                        children: [
+                          Container(
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          FractionallySizedBox(
+                            widthFactor: progress.progress,
+                            child: Container(
+                              height: 10,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(colors: [gradStart, gradEnd]),
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: gradStart.withOpacity(0.4),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
+                    // Achievements counter
                     Text(
-                      '$_milestonesAchieved of $_totalMilestones milestones achieved',
+                      '$achievedCount of $totalAchievements achievements unlocked',
                       style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white54 : Colors.black45,
+                        fontSize: 11,
+                        color: isDark ? Colors.white38 : Colors.black38,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
             ],
+          ),
+
+          // Level progression dots
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 36,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: allLevels.length,
+              itemBuilder: (context, index) {
+                final lvl = allLevels[index];
+                final isReached = _gamification.totalXP >= lvl.xpRequired;
+                final isCurrent = lvl.level == level.level;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: isCurrent ? 28 : 22,
+                        height: isCurrent ? 28 : 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: isReached
+                              ? LinearGradient(colors: [Color(lvl.gradientColors[0]), Color(lvl.gradientColors[1])])
+                              : null,
+                          color: isReached ? null : (isDark ? Colors.white.withOpacity(0.08) : Colors.grey.shade200),
+                          border: isCurrent ? Border.all(color: Colors.white, width: 2) : null,
+                          boxShadow: isCurrent
+                              ? [BoxShadow(color: Color(lvl.gradientColors[0]).withOpacity(0.5), blurRadius: 8)]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            isReached ? lvl.emoji : '${lvl.level}',
+                            style: TextStyle(
+                              fontSize: isCurrent ? 14 : 10,
+                              color: isReached ? null : (isDark ? Colors.white24 : Colors.grey),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -1227,159 +1391,156 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   /// Milestones grid section
-  Widget _buildMilestonesSection(ThemeData theme, bool isDark) {
-    // Default milestones if none loaded from backend
-    final milestoneData = _milestones.isNotEmpty
-        ? _milestones
-        : _getDefaultMilestones();
+  /// Premium Achievements Section with category filters, tiered badges, and progress
+  Widget _buildAchievementsSection(ThemeData theme, bool isDark) {
+    final achievedCount = _gamification.achievedCount;
+    final totalCount = _gamification.totalCount;
+
+    // Filter achievements by selected category
+    List<AchievementState> displayList;
+    if (_selectedAchievementCategory != null) {
+      displayList = _achievementStates
+          .where((a) => a.definition.category == _selectedAchievementCategory)
+          .toList();
+    } else {
+      displayList = _achievementStates;
+    }
+
+    // Sort: achieved first, then by tier (platinum first), then by progress
+    displayList.sort((a, b) {
+      if (a.achieved != b.achieved) return a.achieved ? -1 : 1;
+      if (a.definition.tier != b.definition.tier) {
+        return b.definition.tier.sortOrder.compareTo(a.definition.tier.sortOrder);
+      }
+      return b.progress.compareTo(a.progress);
+    });
+
+    // Show max 6 in grid, rest in "View All"
+    final gridItems = displayList.take(6).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFD700), Color(0xFFFF8F00)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.emoji_events, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.emoji_events,
-                      color: Color(0xFFFFC107),
-                      size: 24,
+                    Text(
+                      'Achievements',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Milestones',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                        ),
+                    Text(
+                      '$achievedCount of $totalCount unlocked',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white38 : Colors.black38,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFC107).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$_milestonesAchieved / $_totalMilestones',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFFFC107),
-                  ),
+              // Achievement progress ring
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: totalCount > 0 ? achievedCount / totalCount : 0,
+                      strokeWidth: 4,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFFFFD700)),
+                    ),
+                    Text(
+                      '${((achievedCount / max(totalCount, 1)) * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+
           const SizedBox(height: 16),
+
+          // Category filter chips
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildCategoryChip(null, 'All', isDark),
+                ...AchievementCategory.values.map(
+                  (cat) => _buildCategoryChip(cat, '${cat.emoji} ${cat.label}', isDark),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Achievement grid
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.85,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+              crossAxisCount: 2,
+              childAspectRatio: 1.55,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
-            itemCount: milestoneData.length > 9
-                ? 9
-                : milestoneData.length, // Show first 9
+            itemCount: gridItems.length,
             itemBuilder: (context, index) {
-              final m = milestoneData[index];
-              final achieved = m['achieved'] == true;
-              final name = m['name'] ?? 'Milestone';
-              final xp = m['xp_reward'] ?? 0;
-              final icon = _getMilestoneIcon(name);
-
-              return Container(
-                decoration: BoxDecoration(
-                  color: achieved
-                      ? (isDark
-                            ? const Color(0xFF1B5E20).withOpacity(0.3)
-                            : const Color(0xFFE8F5E9))
-                      : (isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.grey.withOpacity(0.08)),
-                  borderRadius: BorderRadius.circular(14),
-                  border: achieved
-                      ? Border.all(
-                          color: const Color(0xFF4CAF50).withOpacity(0.4),
-                        )
-                      : Border.all(color: Colors.transparent),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 28,
-                      color: achieved
-                          ? const Color(0xFF4CAF50)
-                          : (isDark ? Colors.white24 : Colors.grey.shade400),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      name,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: achieved
-                            ? (isDark ? Colors.white : Colors.black87)
-                            : (isDark ? Colors.white38 : Colors.grey),
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      achieved ? '✓ +$xp XP' : '$xp XP',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                        color: achieved
-                            ? const Color(0xFF4CAF50)
-                            : (isDark ? Colors.white24 : Colors.grey.shade400),
-                      ),
-                    ),
-                  ],
-                ),
-              );
+              return _buildAchievementCard(gridItems[index], isDark);
             },
           ),
-          if (milestoneData.length > 9) ...[
+
+          if (displayList.length > 6) ...[
             const SizedBox(height: 12),
             Center(
-              child: TextButton(
-                onPressed: () =>
-                    _showAllMilestones(context, milestoneData, isDark),
-                child: Text(
-                  'View all $_totalMilestones milestones',
-                  style: const TextStyle(color: Color(0xFF2196F3)),
+              child: TextButton.icon(
+                onPressed: () => _showAllAchievements(context, isDark),
+                icon: const Icon(Icons.grid_view_rounded, size: 18),
+                label: Text(
+                  'View all ${displayList.length} achievements',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -1389,77 +1550,377 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  void _showAllMilestones(
-    BuildContext context,
-    List<Map<String, dynamic>> milestones,
-    bool isDark,
-  ) {
+  /// Category filter chip
+  Widget _buildCategoryChip(AchievementCategory? category, String label, bool isDark) {
+    final isSelected = _selectedAchievementCategory == category;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        selected: isSelected,
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white60 : Colors.black54),
+          ),
+        ),
+        backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade100,
+        selectedColor: const Color(0xFFFF8F00),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        onSelected: (_) {
+          setState(() {
+            _selectedAchievementCategory = isSelected ? null : category;
+          });
+        },
+      ),
+    );
+  }
+
+  /// Single achievement card with tier gradient border and progress
+  Widget _buildAchievementCard(AchievementState achievement, bool isDark) {
+    final def = achievement.definition;
+    final tier = def.tier;
+    final achieved = achievement.achieved;
+    final progress = achievement.progress;
+
+    final Color tierColor1 = Color(tier.gradientColors[0]);
+    final Color tierColor2 = Color(tier.gradientColors[1]);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: achieved
+            ? (isDark ? tierColor1.withOpacity(0.12) : tierColor1.withOpacity(0.06))
+            : (isDark ? Colors.white.withOpacity(0.04) : Colors.grey.shade50),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: achieved ? tierColor1.withOpacity(0.5) : (isDark ? Colors.white.withOpacity(0.08) : Colors.grey.shade200),
+          width: achieved ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              // Tier badge
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: achieved
+                      ? LinearGradient(colors: [tierColor1, tierColor2])
+                      : null,
+                  color: achieved ? null : (isDark ? Colors.white.withOpacity(0.08) : Colors.grey.shade200),
+                ),
+                child: Center(
+                  child: Text(
+                    achieved ? tier.emoji : def.category.emoji,
+                    style: TextStyle(fontSize: achieved ? 14 : 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  def.name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: achieved
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : (isDark ? Colors.white54 : Colors.black45),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          // Description
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              def.description,
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? Colors.white30 : Colors.black38,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Progress bar + XP
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 5,
+                    backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05),
+                    valueColor: AlwaysStoppedAnimation(
+                      achieved ? tierColor1 : (isDark ? Colors.white24 : Colors.grey.shade400),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                achieved ? '✓' : '+${def.xpReward}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: achieved ? tierColor1 : (isDark ? Colors.white30 : Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show all achievements in a bottom sheet grouped by category
+  void _showAllAchievements(BuildContext context, bool isDark) {
+    final byCategory = _gamification.getAchievementsByCategory();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          maxChildSize: 0.9,
+          initialChildSize: 0.75,
+          maxChildSize: 0.95,
           minChildSize: 0.4,
           expand: false,
           builder: (context, scrollController) {
             return Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Column(
                 children: [
+                  // Handle bar
                   Container(
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade400,
+                      color: isDark ? Colors.white24 : Colors.grey.shade400,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'All Milestones',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  // Title
+                  Row(
+                    children: [
+                      const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 28),
+                      const SizedBox(width: 12),
+                      Text(
+                        'All Achievements',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${_gamification.achievedCount}/${_gamification.totalCount}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Expanded(
-                    child: ListView.builder(
+                    child: ListView(
                       controller: scrollController,
-                      itemCount: milestones.length,
-                      itemBuilder: (context, index) {
-                        final m = milestones[index];
-                        final achieved = m['achieved'] == true;
-                        return ListTile(
-                          leading: Icon(
-                            _getMilestoneIcon(m['name'] ?? ''),
-                            color: achieved
-                                ? const Color(0xFF4CAF50)
-                                : Colors.grey,
-                          ),
-                          title: Text(
-                            m['name'] ?? 'Milestone',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: achieved ? null : Colors.grey,
+                      children: [
+                        ...byCategory.entries.map((entry) {
+                        final category = entry.key;
+                        final achievements = entry.value;
+                        final catAchieved = achievements.where((a) => a.achieved).length;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Category header
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '${category.emoji} ${category.label}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.white70 : Colors.black54,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '$catAchieved/${achievements.length}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.white30 : Colors.black26,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          subtitle: Text(m['description'] ?? ''),
-                          trailing: Text(
-                            achieved
-                                ? '✓ +${m['xp_reward']} XP'
-                                : '${m['xp_reward']} XP',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: achieved
-                                  ? const Color(0xFF4CAF50)
-                                  : Colors.grey,
-                            ),
-                          ),
+                            // Achievement list
+                            ...achievements.map((a) {
+                              final tierColor = Color(a.definition.tier.gradientColors[0]);
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: a.achieved
+                                        ? tierColor.withOpacity(isDark ? 0.1 : 0.05)
+                                        : (isDark ? Colors.white.withOpacity(0.03) : Colors.grey.shade50),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: a.achieved
+                                          ? tierColor.withOpacity(0.4)
+                                          : (isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade200),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // Tier badge
+                                      Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: a.achieved
+                                              ? LinearGradient(colors: [
+                                                  Color(a.definition.tier.gradientColors[0]),
+                                                  Color(a.definition.tier.gradientColors[1]),
+                                                ])
+                                              : null,
+                                          color: a.achieved
+                                              ? null
+                                              : (isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade200),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            a.achieved ? a.definition.tier.emoji : a.definition.category.emoji,
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    a.definition.name,
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: a.achieved
+                                                          ? (isDark ? Colors.white : Colors.black87)
+                                                          : (isDark ? Colors.white54 : Colors.black45),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: tierColor.withOpacity(isDark ? 0.2 : 0.12),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Text(
+                                                    a.definition.tier.label,
+                                                    style: TextStyle(
+                                                      fontSize: 9,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: tierColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              a.definition.description,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isDark ? Colors.white30 : Colors.black38,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            // Progress bar
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(3),
+                                              child: LinearProgressIndicator(
+                                                value: a.progress,
+                                                minHeight: 4,
+                                                backgroundColor: isDark
+                                                    ? Colors.white.withOpacity(0.06)
+                                                    : Colors.black.withOpacity(0.04),
+                                                valueColor: AlwaysStoppedAnimation(
+                                                  a.achieved ? tierColor : (isDark ? Colors.white24 : Colors.grey),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // XP reward
+                                      Column(
+                                        children: [
+                                          Text(
+                                            a.achieved ? '✓' : '+${a.definition.xpReward}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: a.achieved ? tierColor : (isDark ? Colors.white24 : Colors.grey),
+                                            ),
+                                          ),
+                                          if (!a.achieved)
+                                            Text(
+                                              'XP',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.grey.shade400,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                            const SizedBox(height: 8),
+                          ],
                         );
-                      },
+                      }),
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ),
                 ],
@@ -1470,124 +1931,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       },
     );
   }
-
-  IconData _getMilestoneIcon(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('first') || lower.contains('step')) return Icons.flag;
-    if (lower.contains('budget')) return Icons.account_balance_wallet;
-    if (lower.contains('saver') || lower.contains('saving')) {
-      return Icons.savings;
-    }
-    if (lower.contains('champion')) return Icons.emoji_events;
-    if (lower.contains('debt')) return Icons.money_off;
-    if (lower.contains('guardian')) return Icons.shield;
-    if (lower.contains('liquidity')) return Icons.water_drop;
-    if (lower.contains('invest')) return Icons.trending_up;
-    if (lower.contains('analyst')) return Icons.analytics;
-    if (lower.contains('streak')) return Icons.local_fire_department;
-    if (lower.contains('goal') && lower.contains('set')) {
-      return Icons.track_changes;
-    }
-    if (lower.contains('goal') && lower.contains('achiev')) {
-      return Icons.check_circle;
-    }
-    if (lower.contains('idea') || lower.contains('innovat')) {
-      return Icons.lightbulb;
-    }
-    if (lower.contains('dpr')) return Icons.description;
-    return Icons.star;
-  }
-
-  List<Map<String, dynamic>> _getDefaultMilestones() {
-    return [
-      {
-        'name': 'First Step',
-        'xp_reward': 10,
-        'achieved': false,
-        'description': 'Track your first ₹5,000 in spending',
-      },
-      {
-        'name': 'Budget Master',
-        'xp_reward': 50,
-        'achieved': false,
-        'description': 'Set up budgets for all categories',
-      },
-      {
-        'name': 'Saver Initiate',
-        'xp_reward': 25,
-        'achieved': false,
-        'description': 'Achieve 10% savings rate',
-      },
-      {
-        'name': 'Savings Champion',
-        'xp_reward': 100,
-        'achieved': false,
-        'description': 'Sustain 30% savings rate',
-      },
-      {
-        'name': 'Debt Manager',
-        'xp_reward': 75,
-        'achieved': false,
-        'description': 'Reduce debt below ₹5 Lakhs',
-      },
-      {
-        'name': 'Financial Guardian',
-        'xp_reward': 150,
-        'achieved': false,
-        'description': 'Become completely debt-free',
-      },
-      {
-        'name': 'Liquidity Expert',
-        'xp_reward': 100,
-        'achieved': false,
-        'description': 'Build 6 months emergency fund',
-      },
-      {
-        'name': 'Investor',
-        'xp_reward': 75,
-        'achieved': false,
-        'description': 'Invest ₹1 Lakh',
-      },
-      {
-        'name': 'Analyst',
-        'xp_reward': 50,
-        'achieved': false,
-        'description': 'Analyze 50+ transactions',
-      },
-      {
-        'name': 'Streak Master',
-        'xp_reward': 60,
-        'achieved': false,
-        'description': '30-day daily tracking streak',
-      },
-      {
-        'name': 'Goal Setter',
-        'xp_reward': 40,
-        'achieved': false,
-        'description': 'Create 3+ financial goals',
-      },
-      {
-        'name': 'Goal Achiever',
-        'xp_reward': 80,
-        'achieved': false,
-        'description': 'Complete your first goal',
-      },
-      {
-        'name': 'Idea Innovator',
-        'xp_reward': 45,
-        'achieved': false,
-        'description': 'Evaluate 3 business ideas',
-      },
-      {
-        'name': 'DPR Champion',
-        'xp_reward': 120,
-        'achieved': false,
-        'description': 'Create your first DPR',
-      },
-    ];
-  }
-
-  // ==================== EXISTING WIDGETS (REFRESHED) ====================
 
   // ==================== EXISTING WIDGETS (REFRESHED) ====================
 
