@@ -352,6 +352,8 @@ class PythonBridgeService {
     String toolName,
     Map<String, dynamic> params,
   ) async {
+    // Ensure API keys are injected — tools like extract_receipt need Sarvam key
+    await ensureConfigured();
     final result = await _callPython('execute_tool', {
       'tool_name': toolName,
       'tool_args': params,
@@ -360,6 +362,8 @@ class PythonBridgeService {
   }
 
   Future<Map<String, dynamic>> extractReceiptFromPath(String filePath) async {
+    // Ensure API keys are injected for Sarvam/Groq vision calls
+    await ensureConfigured();
     // Prefer direct path extractor for better OCR parsing.
     final result = await _callPython('extract_receipt_from_path', {
       'file_path': filePath,

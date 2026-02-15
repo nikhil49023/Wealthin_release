@@ -9,7 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/ai_agent_service.dart';
 import '../../core/services/python_bridge_service.dart';
-import '../../core/utils/responsive_utils.dart';
+
 import '../../main.dart' show authService;
 import '../../core/services/data_service.dart';
 

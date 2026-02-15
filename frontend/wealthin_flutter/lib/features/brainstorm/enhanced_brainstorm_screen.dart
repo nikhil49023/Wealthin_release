@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/data_service.dart';
 import '../../core/services/database_helper.dart';
@@ -1006,21 +1006,29 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
               );
             }).toList(),
           ),
-          // Language selector
+          // Language selector (text only, no icons)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.translate, size: 20),
-            tooltip: 'Response Language: $_preferredLanguage',
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                _preferredLanguage,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+            tooltip: 'Response Language',
             onSelected: (lang) => setState(() => _preferredLanguage = lang),
-            itemBuilder: (context) => _languageOptions.entries.map((entry) {
-              final isActive = _preferredLanguage == entry.key;
+            itemBuilder: (context) => _languageOptions.keys.map((lang) {
+              final isActive = _preferredLanguage == lang;
               return PopupMenuItem(
-                value: entry.key,
+                value: lang,
                 child: Row(
                   children: [
-                    Text(entry.value, style: const TextStyle(fontSize: 18)),
-                    const SizedBox(width: 10),
                     Text(
-                      entry.key,
+                      lang,
                       style: TextStyle(
                         fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
                         color: isActive ? WealthInColors.primary : null,
@@ -1733,57 +1741,408 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
     return result.join('\n');
   }
 
-  /// Split content into segments: regular markdown vs roadmap steps.
-  /// Roadmap steps are rendered as visual timeline widgets.
-  List<Widget> _buildSmartContent(String content, bool isDark, bool isCritique) {
-    final widgets = <Widget>[];
-    final lines = content.split('\n');
-    final buffer = <String>[];
+  /// Sanitize AI response — remove unnecessary characters and clean formatting
+  String _sanitizeAIResponseForIdeas(String text) {
+    text = text.replaceAll(RegExp(r'^(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'\n(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false), '\n');
+    text = text.replaceAll('***', '');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    text = text.replaceAll(RegExp(r'^\*\s+', multiLine: true), '• ');
+    text = text.replaceAll(RegExp(r'```json[\s\S]*?```'), '');
+    text = text.replaceAll(RegExp(r'```[\s\S]*?```'), '');
+    text = text.replaceAll('`', '');
+    text = text.replaceAll(RegExp(r'^Here (?:is|are) (?:the|your|my) (?:response|answer)[:\.]?\s*', caseSensitive: false), '');
+    return text.trim();
+  }
 
-    // Regex to detect roadmap step lines (🔵 **Step 1:, 🟢 **Step 2:, 🎯 **Final Goal:, etc.)
-    final stepPattern = RegExp(r'^[🔵🟢🟡🟠🔴🎯⭐✅]\s*\*\*');
-    final arrowPattern = RegExp(r'^\s*⬇️\s*$');
+  /// Check if line is a section header (surrounded by **)
+  bool _isSectionHeaderIdeas(String line) {
+    final trimmed = line.trim();
+    return trimmed.startsWith('**') && trimmed.endsWith('**') && 
+           trimmed.length > 4 && !trimmed.substring(2, trimmed.length - 2).contains('**');
+  }
 
-    // Collect steps into a group
-    final roadmapSteps = <Map<String, String>>[];
-    bool inRoadmap = false;
-
-    void flushMarkdown() {
-      final text = buffer.join('\n').trim();
-      if (text.isNotEmpty) {
-        widgets.add(_buildMarkdownWidget(text, isDark, isCritique));
-      }
-      buffer.clear();
+  /// Extract header text from **header**
+  String _extractHeaderTextIdeas(String line) {
+    final trimmed = line.trim();
+    if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+      return trimmed.substring(2, trimmed.length - 2).trim();
     }
+    return trimmed;
+  }
+
+  /// Get contextual icon for section headers
+  IconData _getSectionIconIdeas(String header) {
+    final h = header.toLowerCase();
+    if (h.contains('roadmap') || h.contains('step') || h.contains('plan') || h.contains('improvement')) return Icons.route_outlined;
+    if (h.contains('vendor') || h.contains('platform') || h.contains('provider') || h.contains('supplier')) return Icons.storefront_outlined;
+    if (h.contains('scheme') || h.contains('government') || h.contains('yojana') || h.contains('subsidy')) return Icons.account_balance_outlined;
+    if (h.contains('invest') || h.contains('mutual') || h.contains('sip') || h.contains('fund')) return Icons.trending_up_outlined;
+    if (h.contains('saving') || h.contains('budget') || h.contains('cost')) return Icons.savings_outlined;
+    if (h.contains('insurance') || h.contains('policy')) return Icons.health_and_safety_outlined;
+    if (h.contains('tax') || h.contains('deduction') || h.contains('gst')) return Icons.receipt_long_outlined;
+    if (h.contains('loan') || h.contains('emi') || h.contains('credit') || h.contains('funding')) return Icons.credit_score_outlined;
+    if (h.contains('tip') || h.contains('advice') || h.contains('suggest') || h.contains('recommend')) return Icons.lightbulb_outline;
+    if (h.contains('warning') || h.contains('risk') || h.contains('caution') || h.contains('challenge')) return Icons.warning_amber_outlined;
+    if (h.contains('benefit') || h.contains('advantage') || h.contains('pro') || h.contains('opportunity')) return Icons.star_outline;
+    if (h.contains('how') || h.contains('process') || h.contains('apply') || h.contains('registration')) return Icons.checklist_outlined;
+    if (h.contains('score') || h.contains('projection') || h.contains('target') || h.contains('revenue')) return Icons.analytics_outlined;
+    if (h.contains('msme') || h.contains('local') || h.contains('enterprise') || h.contains('business')) return Icons.store_outlined;
+    if (h.contains('market') || h.contains('analysis') || h.contains('research')) return Icons.pie_chart_outline;
+    if (h.contains('summary') || h.contains('overview') || h.contains('conclusion')) return Icons.assessment_outlined;
+    if (h.contains('supply') || h.contains('chain') || h.contains('logistics')) return Icons.local_shipping_outlined;
+    if (h.contains('customer') || h.contains('user') || h.contains('audience')) return Icons.people_outline;
+    if (h.contains('product') || h.contains('service') || h.contains('offering')) return Icons.inventory_2_outlined;
+    if (h.contains('partner') || h.contains('collaboration') || h.contains('network')) return Icons.handshake_outlined;
+    return Icons.label_outline;
+  }
+
+  /// Premium section header with gradient background and icon
+  Widget _buildSectionHeaderIdeas(String text, bool isDark, Color accent, bool hasTopPadding) {
+    final icon = _getSectionIconIdeas(text);
+    return Padding(
+      padding: EdgeInsets.only(top: hasTopPadding ? 14 : 0, bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              accent.withValues(alpha: isDark ? 0.15 : 0.08),
+              accent.withValues(alpha: 0.0),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          border: Border(left: BorderSide(color: accent, width: 3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, size: 14, color: accent),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : Colors.black87,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Emerald dot bullet point
+  Widget _buildBulletPointIdeas(String text, Color baseColor, Color accent, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 3, bottom: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 7),
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: accent,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _buildFormattedTextIdeas(text, baseColor, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Tip / callout box
+  Widget _buildTipCalloutIdeas(String text, bool isDark, Color accent) {
+    final baseColor = isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7).withValues(alpha: isDark ? 0.12 : 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFBBF24).withValues(alpha: isDark ? 0.3 : 0.4),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_rounded, size: 16,
+            color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _buildFormattedTextIdeas(text, baseColor, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Highlight card for key metric lines
+  Widget _buildHighlightCardIdeas(String text, bool isDark, Color accent) {
+    final baseColor = isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            accent.withValues(alpha: isDark ? 0.12 : 0.06),
+            accent.withValues(alpha: isDark ? 0.04 : 0.02),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accent.withValues(alpha: isDark ? 0.25 : 0.15),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.insights_rounded, size: 18, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _buildFormattedTextIdeas(
+              text.replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'\1'),
+              baseColor,
+              isDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Check if a line is a highlight-worthy metric
+  bool _isHighlightLineIdeas(String line) {
+    final hasAmount = line.contains('₹');
+    final hasScore = RegExp(r'\d+/100|score|target|projection|revenue|profit|loss', caseSensitive: false).hasMatch(line);
+    return hasAmount && hasScore && !line.startsWith('•') && !line.startsWith('-');
+  }
+
+  /// Visual roadmap card with timeline for numbered steps
+  Widget _buildRoadmapCardIdeas(List<String> steps, bool isDark, Color accent) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark 
+            ? Colors.white.withValues(alpha: 0.03)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accent.withValues(alpha: isDark ? 0.2 : 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(steps.length, (i) {
+          final isLast = i == steps.length - 1;
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Timeline column
+                SizedBox(
+                  width: 28,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [accent, accent.withValues(alpha: 0.7)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (!isLast)
+                        Expanded(
+                          child: Container(
+                            width: 1.5,
+                            margin: const EdgeInsets.symmetric(vertical: 2),
+                            color: accent.withValues(alpha: 0.25),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: isLast ? 0 : 14, top: 2),
+                    child: _buildFormattedTextIdeas(
+                      steps[i],
+                      isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                      isDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// Parse inline bold/italic formatting into TextSpans
+  List<InlineSpan> _parseInlineFormattingIdeas(String text, Color baseColor) {
+    final List<InlineSpan> spans = [];
+    final pattern = RegExp(r'\*\*(.+?)\*\*|_(.+?)_');
+    
+    int lastEnd = 0;
+    final matches = pattern.allMatches(text).toList();
+    
+    for (final match in matches) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, match.start),
+          style: TextStyle(color: baseColor),
+        ));
+      }
+      
+      if (match.group(1) != null) {
+        spans.add(TextSpan(
+          text: match.group(1),
+          style: TextStyle(color: baseColor, fontWeight: FontWeight.w600),
+        ));
+      } else if (match.group(2) != null) {
+        spans.add(TextSpan(
+          text: match.group(2),
+          style: TextStyle(color: baseColor.withValues(alpha: 0.85), fontStyle: FontStyle.italic),
+        ));
+      }
+      
+      lastEnd = match.end;
+    }
+    
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastEnd),
+        style: TextStyle(color: baseColor),
+      ));
+    }
+    
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: text, style: TextStyle(color: baseColor)));
+    }
+    
+    return spans;
+  }
+
+  /// Build formatted text with bold/italic support
+  Widget _buildFormattedTextIdeas(String text, Color baseColor, bool isDark) {
+    final spans = _parseInlineFormattingIdeas(text, baseColor);
+    return Text.rich(
+      TextSpan(children: spans),
+      style: TextStyle(
+        color: baseColor,
+        height: 1.5,
+        fontSize: 13.5,
+      ),
+    );
+  }
+
+  /// Split content into segments and render with premium formatting.
+  /// Uses the same visual language as the AI Advisor chat screen.
+  List<Widget> _buildSmartContent(String content, bool isDark, bool isCritique) {
+    final accent = isDark ? WealthInColors.emeraldGlow : WealthInColors.primary;
+    final baseColor = isCritique 
+        ? Colors.red.shade900 
+        : (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87);
+
+    // First sanitize the content
+    String cleanContent = _sanitizeAIResponseForIdeas(content);
+    // Then convert tables
+    cleanContent = _convertTablesForMobile(cleanContent);
+
+    final lines = cleanContent.split('\n');
+    final List<Widget> widgets = [];
+    
+    // Collect consecutive numbered lines for roadmap rendering
+    List<String> roadmapBuffer = [];
 
     void flushRoadmap() {
-      if (roadmapSteps.isNotEmpty) {
-        widgets.add(_buildRoadmapWidget(roadmapSteps, isDark));
-        roadmapSteps.clear();
+      if (roadmapBuffer.isEmpty) return;
+      widgets.add(_buildRoadmapCardIdeas(roadmapBuffer, isDark, accent));
+      roadmapBuffer = [];
+    }
+
+    // Also detect emoji-prefixed roadmap steps (🔵 **Step 1: ...)
+    final emojiStepPattern = RegExp(r'^[🔵🟢🟡🟠🔴🎯⭐✅]\s*\*\*');
+    final arrowPattern = RegExp(r'^\s*⬇️\s*$');
+    List<Map<String, String>> emojiRoadmapSteps = [];
+    bool inEmojiRoadmap = false;
+
+    void flushEmojiRoadmap() {
+      if (emojiRoadmapSteps.isNotEmpty) {
+        widgets.add(_buildRoadmapWidget(emojiRoadmapSteps, isDark));
+        emojiRoadmapSteps = [];
       }
-      inRoadmap = false;
+      inEmojiRoadmap = false;
     }
 
     for (int i = 0; i < lines.length; i++) {
-      final line = lines[i].trim();
+      String line = lines[i].trim();
 
-      // Skip standalone arrow lines
+      // Skip arrow lines
       if (arrowPattern.hasMatch(line)) continue;
 
-      if (stepPattern.hasMatch(line)) {
-        // Start or continue roadmap
-        if (!inRoadmap) {
-          flushMarkdown();
-          inRoadmap = true;
-        }
+      if (line.isEmpty) {
+        flushRoadmap();
+        if (inEmojiRoadmap) flushEmojiRoadmap();
+        continue;
+      }
+      
+      // Emoji-based roadmap steps
+      if (emojiStepPattern.hasMatch(line)) {
+        flushRoadmap();
+        if (!inEmojiRoadmap) inEmojiRoadmap = true;
 
-        // Parse "🔵 **Step 1: Title**" 
         final emoji = line.substring(0, line.indexOf(' '));
         var rest = line.substring(line.indexOf(' ') + 1).trim();
-        // Remove surrounding **
         rest = rest.replaceAll(RegExp(r'^\*\*'), '').replaceAll(RegExp(r'\*\*$'), '');
         
-        // Collect description lines following this step
         final descLines = <String>[];
         while (i + 1 < lines.length) {
           final nextLine = lines[i + 1].trim();
@@ -1791,123 +2150,74 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             if (arrowPattern.hasMatch(nextLine)) i++;
             break;
           }
-          if (stepPattern.hasMatch(nextLine)) break;
+          if (emojiStepPattern.hasMatch(nextLine)) break;
           descLines.add(nextLine);
           i++;
         }
 
-        roadmapSteps.add({
+        emojiRoadmapSteps.add({
           'emoji': emoji,
           'title': rest,
           'description': descLines.join('\n'),
         });
-      } else {
-        if (inRoadmap) {
-          // Empty line after roadmap ends
-          if (line.isEmpty) {
-            flushRoadmap();
-          } else {
-            flushRoadmap();
-            buffer.add(lines[i]);
-          }
-        } else {
-          buffer.add(lines[i]);
-        }
+        continue;
       }
+
+      if (inEmojiRoadmap) {
+        flushEmojiRoadmap();
+      }
+
+      // Detect numbered steps → collect for roadmap
+      final numberedMatch = RegExp(r'^(\d+)[\.)\-]\s*').firstMatch(line);
+      if (numberedMatch != null) {
+        roadmapBuffer.add(line.substring(numberedMatch.end).trim());
+        continue;
+      }
+      
+      // If we had steps buffered but now hit a non-step line, flush
+      flushRoadmap();
+
+      // Section headers with icon accent
+      if (_isSectionHeaderIdeas(line)) {
+        final headerText = _extractHeaderTextIdeas(line);
+        widgets.add(_buildSectionHeaderIdeas(headerText, isDark, accent, widgets.isNotEmpty));
+        continue;
+      }
+      
+      // Tip / callout boxes (→ Tip: or 💡)
+      if (line.startsWith('→ ') || line.toLowerCase().startsWith('tip:') || line.startsWith('💡')) {
+        final tipText = line.replaceAll(RegExp(r'^[→💡]\s*'), '').replaceAll(RegExp(r'^[Tt]ip:\s*'), '').trim();
+        widgets.add(_buildTipCalloutIdeas(tipText, isDark, accent));
+        continue;
+      }
+      
+      // Bullet points with emerald dot
+      if (line.startsWith('• ') || line.startsWith('- ')) {
+        final bulletText = line.substring(2).trim();
+        widgets.add(_buildBulletPointIdeas(bulletText, baseColor, accent, isDark));
+        continue;
+      }
+      
+      // Highlight card for key metric lines
+      if (_isHighlightLineIdeas(line)) {
+        widgets.add(_buildHighlightCardIdeas(line, isDark, accent));
+        continue;
+      }
+      
+      // Regular text
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 2, bottom: 2),
+        child: _buildFormattedTextIdeas(line, baseColor, isDark),
+      ));
     }
 
-    // Flush remaining
-    if (inRoadmap) flushRoadmap();
-    flushMarkdown();
-
+    flushRoadmap();
+    if (inEmojiRoadmap) flushEmojiRoadmap();
+    
+    if (widgets.isEmpty) {
+      return [Text(cleanContent, style: TextStyle(color: baseColor, height: 1.5, fontSize: 13.5))];
+    }
     return widgets;
-  }
-
-  /// Render a markdown text segment with full styling.
-  Widget _buildMarkdownWidget(String text, bool isDark, bool isCritique) {
-    return MarkdownBody(
-      data: text,
-      selectable: true,
-      styleSheet: MarkdownStyleSheet(
-        p: TextStyle(
-          fontSize: 13.5,
-          height: 1.55,
-          color: isCritique ? Colors.red.shade900 : (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87),
-        ),
-        h1: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: isDark ? Colors.white : Colors.black87,
-          height: 1.4,
-        ),
-        h2: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: isDark ? Colors.white.withValues(alpha: 0.95) : Colors.black87,
-          height: 1.4,
-        ),
-        h3: TextStyle(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w600,
-          color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
-          height: 1.4,
-        ),
-        strong: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: isDark ? Colors.white : Colors.black87,
-        ),
-        em: TextStyle(
-          fontStyle: FontStyle.italic,
-          color: isDark ? Colors.white70 : Colors.black54,
-        ),
-        listBullet: TextStyle(
-          fontSize: 13.5,
-          color: isDark ? Colors.white70 : Colors.black54,
-        ),
-        blockquoteDecoration: BoxDecoration(
-          color: isDark ? WealthInColors.primary.withValues(alpha: 0.08) : WealthInColors.primary.withValues(alpha: 0.04),
-          border: Border(
-            left: BorderSide(color: WealthInColors.primary.withValues(alpha: 0.5), width: 3),
-          ),
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomRight: Radius.circular(8),
-          ),
-        ),
-        blockquotePadding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        codeblockDecoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        codeblockPadding: const EdgeInsets.all(12),
-        code: TextStyle(
-          fontSize: 12,
-          color: isDark ? Colors.greenAccent.shade200 : Colors.green.shade800,
-          backgroundColor: Colors.transparent,
-        ),
-        horizontalRuleDecoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
-          ),
-        ),
-        // Table styling fallback
-        tableHead: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: isDark ? Colors.white : Colors.black87,
-        ),
-        tableBody: TextStyle(
-          fontSize: 11,
-          color: isDark ? Colors.white70 : Colors.black54,
-        ),
-        tableColumnWidth: const IntrinsicColumnWidth(),
-        tableCellsPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        tableBorder: TableBorder.all(
-          color: isDark ? Colors.white12 : Colors.grey.shade300,
-          width: 0.5,
-        ),
-      ),
-    );
   }
 
   /// Render a visual roadmap/timeline widget from parsed step data.
@@ -1939,7 +2249,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
               isFinalGoal: steps[i]['emoji'] == '🎯',
               isDark: isDark,
               stepIndex: i,
-            ),
+            ).animate(delay: Duration(milliseconds: 80 * i))
+             .fadeIn(duration: 300.ms, curve: Curves.easeOut)
+             .slideY(begin: 0.15, end: 0, duration: 300.ms, curve: Curves.easeOut),
         ],
       ),
     );
@@ -2053,9 +2365,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   Widget _buildMessageBubble(Map<String, dynamic> message, bool isDark) {
     final isUser = message['role'] == 'user';
     final isCritique = (message['is_critique'] ?? 0) == 1;
-    final rawContent = (message['content'] ?? '').toString();
-    // Convert tables to mobile-friendly cards for AI messages
-    final content = isUser ? rawContent : _convertTablesForMobile(rawContent);
+    final content = (message['content'] ?? '').toString();
 
     // User messages: compact, right-aligned
     if (isUser) {
@@ -2084,33 +2394,41 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             ),
           ),
         ),
-      );
+      ).animate().fadeIn(duration: 200.ms).slideX(begin: 0.05, end: 0);
     }
 
-    // AI messages: full-width, markdown-rendered
+    // AI messages: full-width, rich-rendered with premium formatting
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Persona label
+          // Persona label with icon
           if (message['persona'] != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4, left: 2),
+              padding: const EdgeInsets.only(bottom: 6, left: 2),
               child: Row(
                 children: [
-                  Icon(
-                    _personas[message['persona']]?['icon'] as IconData? ?? Icons.psychology,
-                    size: 13,
-                    color: _personas[message['persona']]?['color'] as Color? ?? Colors.blue,
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: (_personas[message['persona']]?['color'] as Color? ?? Colors.blue).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Icon(
+                      _personas[message['persona']]?['icon'] as IconData? ?? Icons.psychology,
+                      size: 12,
+                      color: _personas[message['persona']]?['color'] as Color? ?? Colors.blue,
+                    ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Text(
                     _personas[message['persona']]?['name'] ?? 'Copilot',
                     style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
                       color: _personas[message['persona']]?['color'] as Color? ?? Colors.blue,
+                      letterSpacing: 0.2,
                     ),
                   ),
                 ],
@@ -2136,6 +2454,13 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                   : Border.all(
                       color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200,
                     ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2181,7 +2506,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.language, size: 11, color: Colors.blue.shade300),
+                              Icon(Icons.link, size: 11, color: Colors.blue.shade300),
                               const SizedBox(width: 3),
                               Text(
                                 '${(message['sources'] as List).length} sources',
@@ -2264,7 +2589,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
           ),
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 250.ms).slideY(begin: 0.03, end: 0);
   }
 
   /// Shows a bottom sheet with sources for an AI message
@@ -2283,7 +2608,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.language, size: 18, color: Colors.blue.shade300),
+                Icon(Icons.link, size: 18, color: Colors.blue.shade300),
                 const SizedBox(width: 8),
                 Text(
                   'Sources (${sources.length})',

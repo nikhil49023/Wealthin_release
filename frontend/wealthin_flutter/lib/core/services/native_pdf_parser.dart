@@ -319,27 +319,47 @@ class NativePdfParser {
     
     String? lastDate;
     
+    // Skip patterns - lines that should NOT be treated as transactions
+    final skipPatterns = [
+      'opening balance', 'closing balance', 'available balance',
+      'total debit', 'total credit', 'total balance',
+      'account summary', 'account number', 'account no',
+      'branch', 'ifsc', 'micr', 'customer id', 'cif no',
+      'statement period', 'generated on', 'page no', 'page ',
+      'narration', 'particulars', 'description', 'value date',
+      'chq no', 'cheque no', 'instrument',
+    ];
+    
     for (final line in lines) {
+      final lineLower = line.toLowerCase();
+      
+      // Skip balance/summary/header lines
+      if (skipPatterns.any((p) => lineLower.contains(p))) continue;
+      
       // Try to extract date
       final dateMatch = _extractDate(line);
       if (dateMatch != null) {
         lastDate = dateMatch;
       }
       
-      // Try to extract amount from line
-      final amounts = _extractAllAmounts(line);
-      if (amounts.isNotEmpty && lastDate != null) {
-        // Find the most likely transaction amount (usually the largest or last)
-        double amount = amounts.last;
+      // Try to extract transaction amount using currency-aware extraction
+      final amountResult = _extractTransactionAmount(line);
+      if (amountResult != null && lastDate != null) {
+        double amount = amountResult['amount'] as double;
         if (amount < 1 || amount > 10000000) continue;
         
-        // Determine type from context
-        String txType = 'expense';
-        final lineLower = line.toLowerCase();
-        if (lineLower.contains('cr') || lineLower.contains('credit') || 
-            lineLower.contains('deposit') || lineLower.contains('received') ||
-            line.contains('+')) {
-          txType = 'income';
+        // Determine type from context and amount result
+        String txType = amountResult['type'] as String? ?? 'expense';
+        if (txType == 'unknown') {
+          // Infer from line context
+          if (lineLower.contains('cr') || lineLower.contains('credit') || 
+              lineLower.contains('deposit') || lineLower.contains('received') ||
+              lineLower.contains('salary') || lineLower.contains('refund') ||
+              line.contains('+')) {
+            txType = 'income';
+          } else {
+            txType = 'expense';
+          }
         }
         
         // Extract description
@@ -366,11 +386,24 @@ class NativePdfParser {
     debugPrint('[NativePDF] Using generic statement parser');
     final transactions = <ParsedTransaction>[];
     
+    // Skip patterns for generic parser too
+    final skipPatterns = [
+      'opening balance', 'closing balance', 'available balance',
+      'total debit', 'total credit', 'total balance',
+      'account summary', 'account number', 'account no',
+      'statement period', 'generated on', 'page no', 'page ',
+    ];
+    
     String? lastDate;
     
     for (final line in lines) {
       // Skip very short lines
       if (line.length < 5) continue;
+      
+      final lineLower = line.toLowerCase();
+      
+      // Skip balance/summary lines
+      if (skipPatterns.any((p) => lineLower.contains(p))) continue;
       
       // Try to extract date
       final dateMatch = _extractDate(line);
@@ -378,12 +411,18 @@ class NativePdfParser {
         lastDate = dateMatch;
       }
       
-      // Look for amount in line
-      final amount = _extractAmount(line);
-      if (amount != null && amount >= 10 && amount <= 10000000) {
-        final lineLower = line.toLowerCase();
-        final isCredit = lineLower.contains('cr') || lineLower.contains('credit') || 
-                        lineLower.contains('+') || lineLower.contains('received');
+      // Use currency-aware amount extraction
+      final amountResult = _extractTransactionAmount(line);
+      if (amountResult != null) {
+        double amount = amountResult['amount'] as double;
+        if (amount < 10 || amount > 10000000) continue;
+        
+        String txType = amountResult['type'] as String? ?? 'unknown';
+        if (txType == 'unknown') {
+          final isCredit = lineLower.contains('cr') || lineLower.contains('credit') || 
+                          lineLower.contains('+') || lineLower.contains('received');
+          txType = isCredit ? 'income' : 'expense';
+        }
         
         final description = _cleanDescription(line);
         if (description.length < 3) continue;
@@ -392,7 +431,7 @@ class NativePdfParser {
           date: lastDate ?? DateTime.now().toIso8601String().substring(0, 10),
           description: description,
           amount: amount,
-          type: isCredit ? 'income' : 'expense',
+          type: txType,
           category: _categorize(description, amount),
           merchant: description,
           confidence: 0.6,
@@ -666,19 +705,19 @@ class NativePdfParser {
     return null;
   }
   
-  /// Extract a single amount from text
+  /// Extract a single amount from text (currency-prefixed only)
   static double? _extractAmount(String text) {
     final patterns = [
-      // ₹1,234.56 or ₹ 1,234.56
+      // ₹1,234.56 or ₹ 1,234.56 (supports Indian lakh format: ₹1,23,456.78)
       RegExp(r'₹\s*([\d,]+(?:\.\d{1,2})?)'),
       // Rs. 1,234.56 or Rs 1234
       RegExp(r'Rs\.?\s*([\d,]+(?:\.\d{1,2})?)', caseSensitive: false),
       // INR 1,234.56
       RegExp(r'INR\s*([\d,]+(?:\.\d{1,2})?)', caseSensitive: false),
       // 1,234.56 Cr/Dr
-      RegExp(r'([\d,]+(?:\.\d{1,2})?)\s*(?:Cr|Dr|CR|DR)\b'),
-      // +/- amount
-      RegExp(r'[+\-]\s*₹?\s*([\d,]+(?:\.\d{1,2})?)'),
+      RegExp(r'([\d,]+\.\d{2})\s*(?:Cr|Dr|CR|DR)\b'),
+      // +/- amount (only with ₹ or decimal point to avoid matching random numbers)
+      RegExp(r'[+\-]\s*₹\s*([\d,]+(?:\.\d{1,2})?)'),
     ];
     
     for (final pattern in patterns) {
@@ -695,13 +734,107 @@ class NativePdfParser {
     return null;
   }
   
-  /// Extract all amounts from text
+  /// Extract transaction amount with type info from a bank statement line.
+  /// This is smarter than _extractAmount — it tries to identify the debit/credit
+  /// column in tabular bank statements and avoids picking up running balance.
+  static Map<String, dynamic>? _extractTransactionAmount(String text) {
+    // Strategy 1: Look for currency-prefixed amounts
+    // Indian bank statements typically show: Date | Description | Debit | Credit | Balance
+    // We want Debit or Credit, NOT Balance
+    
+    final currencyPatterns = [
+      // ₹ amount
+      RegExp(r'₹\s*([\d,]+(?:\.\d{1,2})?)'),
+      // Rs amount
+      RegExp(r'Rs\.?\s*([\d,]+(?:\.\d{1,2})?)', caseSensitive: false),
+      // INR amount  
+      RegExp(r'INR\s*([\d,]+(?:\.\d{1,2})?)', caseSensitive: false),
+    ];
+    
+    for (final pattern in currencyPatterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        final amtStr = match.group(1)?.replaceAll(',', '');
+        if (amtStr != null) {
+          final amt = double.tryParse(amtStr);
+          if (amt != null && amt > 0) {
+            return {'amount': amt, 'type': 'unknown'};
+          }
+        }
+      }
+    }
+    
+    // Strategy 2: For tabular bank statements without ₹ prefix
+    // Look for amounts with decimal point (bank statements almost always show .00)
+    // In Indian bank statements: "01/01/2026  UPI-SWIGGY  500.00   -   12,345.00"
+    // The pattern is: transaction amount followed by another amount (balance)
+    final decimalAmounts = <double>[];
+    final decimalPattern = RegExp(r'(?<![\d])([\d,]+\.\d{2})(?![\d])');
+    for (final match in decimalPattern.allMatches(text)) {
+      final amtStr = match.group(1)?.replaceAll(',', '');
+      if (amtStr != null) {
+        final amt = double.tryParse(amtStr);
+        if (amt != null && amt >= 1 && amt <= 10000000) {
+          decimalAmounts.add(amt);
+        }
+      }
+    }
+    
+    if (decimalAmounts.isEmpty) return null;
+    
+    // Determine transaction type from Cr/Dr markers
+    String txType = 'unknown';
+    if (RegExp(r'\bCr\b|\bCR\b|\bcredit\b', caseSensitive: false).hasMatch(text)) {
+      txType = 'income';
+    } else if (RegExp(r'\bDr\b|\bDR\b|\bdebit\b', caseSensitive: false).hasMatch(text)) {
+      txType = 'expense';
+    }
+    
+    if (decimalAmounts.length == 1) {
+      // Single amount found - likely the transaction amount
+      return {'amount': decimalAmounts[0], 'type': txType};
+    }
+    
+    if (decimalAmounts.length >= 2) {
+      // Multiple amounts found - typical bank statement has:
+      // [debit_amount, balance] or [credit_amount, balance] or [debit, credit, balance]
+      // The LAST amount is usually the running balance - skip it.
+      // If there are exactly 2, the FIRST is likely the transaction.
+      // If there are 3+, it could be [debit, credit, balance] where one of debit/credit is 0.
+      
+      if (decimalAmounts.length == 2) {
+        // First is transaction, second is balance
+        return {'amount': decimalAmounts[0], 'type': txType};
+      }
+      
+      if (decimalAmounts.length >= 3) {
+        // Columns: withdrawal/debit | deposit/credit | balance
+        // One of the first two will be 0 or very small (or missing)
+        final debit = decimalAmounts[0];
+        final credit = decimalAmounts[1];
+        // balance = decimalAmounts.last (skip)
+        
+        if (debit > 0 && (credit == 0 || credit == debit)) {
+          return {'amount': debit, 'type': 'expense'};
+        } else if (credit > 0) {
+          return {'amount': credit, 'type': 'income'};
+        } else {
+          return {'amount': debit, 'type': txType};
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /// Extract all currency-prefixed amounts from text (no longer matches bare numbers)
   static List<double> _extractAllAmounts(String text) {
     final amounts = <double>[];
-    final pattern = RegExp(r'[\d,]+(?:\.\d{1,2})?');
+    // Only match amounts with decimal points (standard in bank statements)
+    final pattern = RegExp(r'(?<![\d])([\d,]+\.\d{2})(?![\d])');
     
     for (final match in pattern.allMatches(text)) {
-      final amtStr = match.group(0)?.replaceAll(',', '');
+      final amtStr = match.group(1)?.replaceAll(',', '');
       if (amtStr != null) {
         final amt = double.tryParse(amtStr);
         if (amt != null && amt >= 1 && amt <= 10000000) {

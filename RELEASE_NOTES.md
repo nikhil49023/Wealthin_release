@@ -1,27 +1,44 @@
-# WealthIn v2.2.2 - AI Engine Reliability Fix
+# WealthIn v2.3.0 - Premium UI & Stability Release
 
-## 🔧 Critical Fixes
+## 🎨 Premium Ideas (Brainstorm) Rendering
+- **Ported AI Advisor's rich rendering engine to Ideas section** — Responses now display with the same premium formatting as the AI Advisor chat
+- **Gradient section headers with contextual icons** — Headers like "Investment Plan", "Tax Benefits", "Risk Analysis" now show relevant icons (📈, 🏛️, ⚠️) with gradient-accented backgrounds
+- **Visual timeline roadmaps** — Numbered steps render as connected timeline cards with gradient step circles
+- **Emerald dot bullet points** — Clean, themed bullet points instead of plain markdown dashes
+- **Tip/callout boxes** — Lines starting with 💡 or "Tip:" render as warm highlighted callout cards
+- **Key metric highlight cards** — Lines with ₹ amounts and scores render as gradient-accented metric cards
+- **Inline bold/italic parsing** — `**bold**` and `_italic_` render as proper styled text (no raw asterisks)
+- **Response sanitization** — Removes "Final Answer:", code blocks, and formatting artifacts for cleaner output
+- **Smooth fade+slide animations** — AI messages fade in with subtle slide, user messages slide from right
+
+## 🐛 Import Dialog Fix — No More Double Saves
+- **Added `_isSaving` guard** — Prevents accidental double-tap on the save button from creating duplicate transactions
+- **Instant dialog close** — Dialog now closes immediately after saving to database, eliminating the "is it working?" feeling
+- **Background budget sync** — Budget auto-categorization, analysis snapshots, and milestone checks now run in the background AFTER the dialog closes
+- **Fixed Navigator crash** — Captured `Navigator.of(context)` and `ScaffoldMessenger.of(context)` before async gaps to prevent `Null check operator used on a null value` crashes
+
+## 🔧 Code Quality
+- Removed unused `flutter_markdown` import from brainstorm screen
+- Removed dead `_buildMarkdownWidget` fallback method
+- Fixed double table-conversion (tables were being converted twice in brainstorm)
+- Persona labels now render with icon backgrounds and better typography
+
+## Previous: v2.2.2 - AI Engine Reliability Fix
 
 ### AI API Key Configuration
-- **Fixed missing Sarvam AI key** — Sarvam fallback was completely non-functional due to missing API key configuration
-- **Fixed API key race condition** — Keys were being injected using synchronous getters before secure storage finished loading, sending empty strings to the Python bridge
-- **Fixed 13+ code paths bypassing key injection** — Many screens (Brainstorm, Analysis, Deep Research) called the Python bridge directly without ensuring API keys were configured
+- Fixed missing Sarvam AI key
+- Fixed API key race condition
+- Fixed 13+ code paths bypassing key injection
 
 ### AI Model Resilience
-- **Added Groq model fallback chain** — If the primary model (`openai/gpt-oss-20b`) fails due to rate limits or errors, the system now automatically tries `llama-3.3-70b-versatile` → `llama-3.1-8b-instant` → `mixtral-8x7b-32768`
-- **Added 2-second retry delay on 429 rate limits** before trying the next model
-- **Increased Groq API timeout** from 30s to 45s for complex prompts
+- Added Groq model fallback chain
+- Added 2-second retry delay on 429 rate limits
+- Increased Groq API timeout from 30s to 45s
 
 ### Sarvam AI Integration
-- **Fixed Sarvam urllib fallback** — Improved error logging with HTTP status codes and error bodies
-- **Added proper error separation** — HTTPError vs generic exceptions now logged independently for better debugging
+- Fixed Sarvam urllib fallback with improved error logging
 
-## 🔍 Diagnostic Improvements
-- `set_config()` now logs which AI providers are active (key lengths only — never actual values)
-- `PythonBridgeService.setConfig()` logs key injection status
-- `AIAgentService` logs key status on initialization (✓/✗ for each provider)
-
-## 🏗️ Architecture Improvements
-- `PythonBridgeService.ensureConfigured()` — Safety net that auto-injects keys before any LLM call, regardless of which screen initiates it
-- `AIAgentService.reinjectKeys()` — Public method for re-injecting keys after user changes them in Settings
-- Async key getters ensure secure storage is fully loaded before reading keys
+### Architecture Improvements
+- `PythonBridgeService.ensureConfigured()` safety net
+- `AIAgentService.reinjectKeys()` for runtime key changes
+- Async key getters with secure storage

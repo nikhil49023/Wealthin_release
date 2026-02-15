@@ -875,7 +875,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  /// Analysis Streak Timeline Bar - visualizes analysis schedule with next date marker
+  /// Analysis Streak Timeline Bar — minimalistic design
   Widget _buildAnalysisStreakBar(ThemeData theme, bool isDark) {
     // Calculate progress through the 7-day cycle
     double progress = 0.0;
@@ -901,322 +901,103 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     if (_nextAnalysisDate != null) {
       try {
         final nextDate = DateTime.parse(_nextAnalysisDate!);
-        nextDateDisplay = '${nextDate.day}/${nextDate.month}/${nextDate.year}';
+        nextDateDisplay = '${nextDate.day}/${nextDate.month}';
       } catch (e) {
-        nextDateDisplay = 'Unknown';
+        nextDateDisplay = '—';
       }
     }
 
+    final accentColor = _canAnalyze ? const Color(0xFF4CAF50) : const Color(0xFFFF9800);
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF1A2C1E), const Color(0xFF1E3A24)]
-              : [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)],
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark
-              ? const Color(0xFF4CAF50).withOpacity(0.3)
-              : const Color(0xFF4CAF50).withOpacity(0.2),
+          color: accentColor.withValues(alpha: 0.15),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4CAF50).withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 420;
-              return Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4CAF50).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.timeline,
-                          color: Color(0xFF4CAF50),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Analysis Timeline',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '7-Day Analysis Cycle',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.white60 : Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!isCompact) ...[
-                        const SizedBox(width: 8),
-                        _buildAnalysisStatusBadge(),
-                      ],
-                    ],
-                  ),
-                  if (isCompact) ...[
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: _buildAnalysisStatusBadge(),
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-
-          // Visual timeline bar
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Top row: icon + label + status badge
+          Row(
             children: [
-              // Timeline labels
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Last Analysis',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _lastAnalysisDate != null
-                            ? _formatAnalysisDate(_lastAnalysisDate!)
-                            : 'Not yet',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? Colors.white54 : Colors.black38,
-                        ),
-                      ),
-                    ],
+              Icon(
+                _canAnalyze ? Icons.check_circle_outline : Icons.schedule,
+                size: 18,
+                color: accentColor,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _canAnalyze ? 'Analysis ready' : 'Next analysis in ${_daysRemaining}d ${_hoursRemaining}h',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black87,
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Next Analysis',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : Colors.black54,
-                        ),
+                ),
+              ),
+              // Compact date badges
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_lastAnalysisDate != null)
+                    Text(
+                      _formatAnalysisDate(_lastAnalysisDate!),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? Colors.white38 : Colors.black38,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        nextDateDisplay,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF4CAF50),
-                        ),
-                      ),
-                    ],
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.arrow_forward, size: 10,
+                      color: isDark ? Colors.white24 : Colors.black26),
+                  ),
+                  Text(
+                    nextDateDisplay,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: accentColor,
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-
-              // Progress bar with marker
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxLeft = (constraints.maxWidth - 20)
-                      .clamp(0.0, double.infinity)
-                      .toDouble();
-                  final markerLeft = ((constraints.maxWidth * progress) - 10)
-                      .clamp(0.0, maxLeft)
-                      .toDouble();
-
-                  return Stack(
-                    children: [
-                      // Background track
-                      Container(
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.black.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-
-                      // Filled progress
-                      FractionallySizedBox(
-                        widthFactor: progress,
-                        child: Container(
-                          height: 12,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFF4CAF50),
-                                const Color(0xFF66BB6A),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF4CAF50).withOpacity(0.4),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Next analysis date marker (at 100%)
-                      Positioned(
-                        right: 0,
-                        top: -4,
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _canAnalyze
-                                    ? const Color(0xFF4CAF50)
-                                    : const Color(0xFFFF9800),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: (_canAnalyze
-                                            ? const Color(0xFF4CAF50)
-                                            : const Color(0xFFFF9800))
-                                        .withOpacity(0.5),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                _canAnalyze ? Icons.check : Icons.flag,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Current position marker (moving)
-                      if (!_canAnalyze)
-                        Positioned(
-                          left: markerLeft,
-                          top: -4,
-                          child: Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFF2196F3),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF2196F3).withOpacity(0.5),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.circle,
-                              size: 8,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-
-              // Day markers (0, 1, 2, 3, 4, 5, 6, 7)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(8, (index) {
-                  return Text(
-                    'D$index',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isDark ? Colors.white38 : Colors.black26,
-                    ),
-                  );
-                }),
               ),
             ],
           ),
+          const SizedBox(height: 10),
 
-          const SizedBox(height: 16),
-
-          // Info text
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.03),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+          // Slim progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: Stack(
               children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 16,
-                  color: const Color(0xFF4CAF50),
+                Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _canAnalyze
-                        ? 'Analysis ready! Import transactions to trigger automatic analysis.'
-                        : 'Analysis cooldown active. Tracking meaningful financial changes over 7 days.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? Colors.white60 : Colors.black54,
+                FractionallySizedBox(
+                  widthFactor: progress,
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          accentColor.withValues(alpha: 0.7),
+                          accentColor,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),

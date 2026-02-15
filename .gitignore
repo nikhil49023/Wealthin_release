@@ -1,5 +1,13 @@
-# SDKs and Tools
+# Android-only project — no desktop/iOS/web platforms
+frontend/wealthin_flutter/ios/
+frontend/wealthin_flutter/web/
+frontend/wealthin_flutter/linux/
+frontend/wealthin_flutter/macos/
+frontend/wealthin_flutter/windows/
+backend/
 flutter/
+
+# SDKs and Tools
 jdk-17/
 *.tar.gz
 
@@ -12,9 +20,6 @@ jdk-17/
 .env
 .env.*
 !.env.*.example
-backend/.env
-backend/.env.*
-!backend/.env.*.example
 __pycache__/
 *.py[cod]
 venv/
@@ -47,8 +52,6 @@ frontend/wealthin_flutter/.gradle/
 # Runtime artifacts
 *.log
 *.pid
-backend/*.log
-backend/*.pid
 
 # Backup files
 *.bak
@@ -59,3 +62,4 @@ backend/*.pid
 # Release APKs (use GitHub Releases instead)
 releases/**/*.apk
 releases/**/*.aab
+releases/**/*.sha256

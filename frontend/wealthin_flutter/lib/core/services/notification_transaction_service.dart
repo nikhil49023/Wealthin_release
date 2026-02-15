@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:permission_handler/permission_handler.dart';
+
+
 import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 
@@ -587,44 +587,10 @@ class NotificationTransactionService {
   // Contact / UPI name resolution
   // ────────────────────────────────────────────────────────
   Future<void> _loadContactCache() async {
-    _phoneToContactName.clear();
-    _normalizedContactNameToDisplayName.clear();
-
-    try {
-      final contactsPermission = await Permission.contacts.status;
-      if (!contactsPermission.isGranted) {
-        debugPrint('[NotifTxn] Contacts permission not granted, skipping');
-        return;
-      }
-
-      final contacts =
-          await FlutterContacts.getContacts(withProperties: true);
-
-      for (final contact in contacts) {
-        final name = contact.displayName.trim();
-        if (name.isEmpty) continue;
-
-        final normalizedName = _normalizeNameForMatch(name);
-        if (normalizedName.isNotEmpty) {
-          _normalizedContactNameToDisplayName.putIfAbsent(
-            normalizedName,
-            () => name,
-          );
-        }
-
-        for (final phone in contact.phones) {
-          final normalizedPhone = _normalizePhoneNumber(phone.number);
-          if (normalizedPhone == null) continue;
-          _phoneToContactName.putIfAbsent(normalizedPhone, () => name);
-        }
-      }
-
-      debugPrint(
-        '[NotifTxn] Loaded ${_phoneToContactName.length} contact numbers',
-      );
-    } catch (e) {
-      debugPrint('[NotifTxn] Failed to load contacts: $e');
-    }
+    // Contact loading disabled — flutter_contacts requires READ_CONTACTS
+    // permission which we have removed. UPI name resolution still works
+    // via the database-cached UPI-to-name mapping.
+    debugPrint('[NotifTxn] Contact loading skipped (no contacts permission)');
   }
 
   String _normalizeNameForMatch(String input) {

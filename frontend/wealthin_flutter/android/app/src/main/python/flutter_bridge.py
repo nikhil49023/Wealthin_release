@@ -552,6 +552,27 @@ AVAILABLE_TOOLS = [
             "industry": "str - Industry (e.g., 'IT', 'Finance', 'Healthcare', 'Marketing')",
             "query_type": "str - Type of advice: 'growth_path', 'salary_insight', or 'interview_prep'"
         }
+    },
+    {
+        "name": "search_local_vendors",
+        "description": "Search for local vendors, raw material suppliers, and service providers near the project location using data.gov.in UDYAM directory. Filters by state, district, and optionally by industry/NIC code. Returns vendor name, contact details, address, services, and certifications. Use for supply chain optimization in DPR.",
+        "parameters": {
+            "state": "str - Indian state name in UPPERCASE (e.g., 'RAJASTHAN', 'TAMIL NADU')",
+            "district": "str - District name in UPPERCASE (e.g., 'JAIPUR', 'CHENNAI')",
+            "industry_keyword": "str - Industry keyword to filter (e.g., 'solar', 'textile', 'food processing', 'machinery')",
+            "radius_preference": "str - Optional: 'local' (same district), 'regional' (same state), 'national' (all India). Default: 'local'",
+            "limit": "int - Number of results (default: 10, max: 20)"
+        }
+    },
+    {
+        "name": "search_supply_chain_data",
+        "description": "Search for supply chain data including logistics partners, warehousing options, transportation routes, and raw material pricing for a specific location and industry. Uses web search to find current logistics and supply chain information.",
+        "parameters": {
+            "location": "str - City/District name (e.g., 'Jaipur', 'Chennai')",
+            "industry": "str - Industry type (e.g., 'solar energy', 'textiles', 'food processing')",
+            "requirement_type": "str - Type of supply chain data needed: 'logistics', 'warehousing', 'raw_materials', 'transportation', 'all'",
+            "budget_range": "str - Optional budget range (e.g., '5-10 lakhs', '1-5 crore')"
+        }
     }
 ]
 
@@ -617,6 +638,9 @@ def execute_tool(tool_name: str, args_json: str) -> str:
             "get_dpr_template": get_dpr_template,
             # Government MSME Directory
             "search_msme_directory": search_msme_directory,
+            # Supply Chain Optimization Tools
+            "search_local_vendors": search_local_vendors,
+            "search_supply_chain_data": search_supply_chain_data,
             # Job & Career Tools
             "search_jobs": search_jobs,
             "get_career_advice": get_career_advice,
@@ -1634,12 +1658,13 @@ DPR_STRUCTURE = [
     "2. Promoter Profile & Background",
     "3. Business Description & Market Analysis",
     "4. Technical Aspects & Production Process",
-    "5. Financial Projections",
-    "6. Cost of Project & Means of Finance",
-    "7. Profitability & Break-Even Analysis",
-    "8. Risk Analysis & Mitigation",
-    "9. Statutory Compliance & Approvals",
-    "10. Annexures",
+    "5. Supply Chain Optimization",
+    "6. Financial Projections",
+    "7. Cost of Project & Means of Finance",
+    "8. Profitability & Break-Even Analysis",
+    "9. Risk Analysis & Mitigation",
+    "10. Statutory Compliance & Approvals",
+    "11. Annexures",
 ]
 
 
@@ -1669,20 +1694,23 @@ def generate_dpr(project_data: Dict[str, Any]) -> str:
             "process_description", "raw_materials",
             "plant_capacity", "manpower_required",
         ]),
-        ("financial_projections", "5. Financial Projections", [
+        ("supply_chain", "5. Supply Chain Optimization", [
+            "vendor_list", "logistics_plan", "cost_comparison",
+        ]),
+        ("financial_projections", "6. Financial Projections", [
             "year_1", "year_2", "year_3",
         ]),
-        ("cost_of_project", "6. Cost of Project & Means of Finance", [
+        ("cost_of_project", "7. Cost of Project & Means of Finance", [
             "total_project_cost", "term_loan",
             "promoter_contribution",
         ]),
-        ("profitability", "7. Profitability & Break-Even Analysis", [
+        ("profitability", "8. Profitability & Break-Even Analysis", [
             "dscr", "break_even_revenue", "payback_period_years",
         ]),
-        ("risk_analysis", "8. Risk Analysis & Mitigation", [
+        ("risk_analysis", "9. Risk Analysis & Mitigation", [
             "key_risks", "mitigation_strategies",
         ]),
-        ("compliance", "9. Statutory Compliance & Approvals", [
+        ("compliance", "10. Statutory Compliance & Approvals", [
             "udyam_registration", "gst_registration",
         ]),
     ]
@@ -2138,7 +2166,7 @@ def search_msme_directory(state: str, district: str, limit: int = 10) -> str:
     global _gov_msme_api_key
     
     try:
-        api_key = _gov_msme_api_key or "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b"
+        api_key = _gov_msme_api_key or "579b464db66ec23bdd0000017f0e4e7f6bd74c3e4f6d28b8554a1689"
         limit = min(int(limit or 10), 10)
         
         # Build API URL with filters
@@ -2254,6 +2282,275 @@ def search_msme_directory(state: str, district: str, limit: int = 10) -> str:
         })
 
 
+def search_local_vendors(state: str, district: str, industry_keyword: str = "",
+                         radius_preference: str = "local", limit: int = 10) -> str:
+    """
+    Search for local vendors/suppliers using data.gov.in UDYAM directory.
+    Filters by state, district, and industry keyword (matched against NIC descriptions).
+    Returns vendor details with contact info for supply chain optimization.
+    """
+    global _gov_msme_api_key
+    
+    try:
+        api_key = _gov_msme_api_key or "579b464db66ec23bdd0000017f0e4e7f6bd74c3e4f6d28b8554a1689"
+        limit = min(int(limit or 10), 20)
+        
+        # Build API URL — fetch more records to allow keyword filtering
+        fetch_limit = min(limit * 5, 100)  # Fetch extra to filter by keyword
+        base_url = "https://api.data.gov.in/resource/8b68ae56-84cf-4728-a0a6-1be11028dea7"
+        params = {
+            "api-key": api_key,
+            "format": "json",
+            "limit": str(fetch_limit),
+            "offset": "0",
+            "filters[State]": state.upper().strip(),
+        }
+        
+        # For 'local', filter by district; for 'regional', only state filter
+        if radius_preference != "national":
+            params["filters[District]"] = district.upper().strip()
+        
+        query_string = urllib.parse.urlencode(params)
+        url = f"{base_url}?{query_string}"
+        
+        ctx = ssl.create_unverified_context()
+        req = urllib.request.Request(url, headers={"User-Agent": "WealthIn/2.0"})
+        
+        with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        
+        records = data.get("records", [])
+        total = data.get("total", 0)
+        
+        print(f"[VendorSearch] Fetched {len(records)} records from data.gov.in (total: {total})")
+        
+        # Filter by industry keyword if provided
+        keyword_lower = industry_keyword.lower().strip() if industry_keyword else ""
+        filtered_records = []
+        
+        for rec in records:
+            if keyword_lower:
+                # Check if keyword appears in Activities, EnterpriseName, or any text field
+                activities_raw = str(rec.get("Activities", "")).lower()
+                name_raw = str(rec.get("EnterpriseName", "")).lower()
+                
+                # Parse activities JSON for description matching
+                matched = keyword_lower in activities_raw or keyword_lower in name_raw
+                
+                if not matched:
+                    try:
+                        activities = json.loads(rec.get("Activities", "[]")) if isinstance(rec.get("Activities"), str) else rec.get("Activities", [])
+                        if isinstance(activities, list):
+                            for act in activities:
+                                desc = str(act.get("Description", "")).lower()
+                                if keyword_lower in desc:
+                                    matched = True
+                                    break
+                    except:
+                        pass
+                
+                if matched:
+                    filtered_records.append(rec)
+            else:
+                filtered_records.append(rec)
+        
+        print(f"[VendorSearch] {len(filtered_records)} records match keyword '{keyword_lower}'")
+        
+        if not filtered_records:
+            # Fallback: return unfiltered results with a note
+            filtered_records = records[:limit]
+            keyword_note = f" No exact matches for '{industry_keyword}', showing all registered MSMEs instead." if keyword_lower else ""
+        else:
+            keyword_note = ""
+        
+        # Parse and format vendors
+        vendors = []
+        for rec in filtered_records[:limit]:
+            # Parse activities
+            activities_raw = rec.get("Activities", "[]")
+            services = []
+            nic_codes = []
+            try:
+                activities = json.loads(activities_raw) if isinstance(activities_raw, str) else activities_raw
+                if isinstance(activities, list):
+                    for act in activities:
+                        desc = act.get("Description", "")
+                        nic = act.get("NicCode", act.get("Nic2Digit", ""))
+                        if desc:
+                            services.append(desc[:150])
+                        if nic:
+                            nic_codes.append(str(nic))
+            except:
+                services = [str(activities_raw)[:150]] if activities_raw else []
+            
+            pincode = str(rec.get("Pincode", "")).replace(".0", "")
+            mobile = rec.get("MobileNo", rec.get("Mobile", rec.get("ContactNo", "")))
+            email = rec.get("Email", rec.get("EmailId", ""))
+            msme_category = rec.get("MSMEDICategory", rec.get("Category", rec.get("EnterpriseType", "")))
+            org_type = rec.get("OrganisationType", rec.get("TypeOfOrganisation", ""))
+            gst_no = rec.get("GSTNo", rec.get("GSTIN", ""))
+            
+            vendor = {
+                "name": rec.get("EnterpriseName", "Unknown"),
+                "state": rec.get("State", state.upper()),
+                "district": rec.get("District", district.upper()),
+                "address": rec.get("CommunicationAddress", "Not available"),
+                "pincode": pincode,
+                "services": services,
+                "nic_codes": nic_codes,
+                "registration_date": rec.get("RegistrationDate", ""),
+                "contact": str(mobile) if mobile else "Not listed",
+                "email": str(email) if email else "Not listed",
+                "category": str(msme_category) if msme_category else "MSME",
+                "organization_type": str(org_type) if org_type else "",
+                "gst_registered": bool(gst_no),
+                "gst_number": str(gst_no) if gst_no else "",
+                "compliance_status": "GST ✅" if gst_no else "GST ❌",
+            }
+            
+            # Build display card
+            svc_text = ", ".join(services[:2]) if services else "Various services"
+            display = f"> **🏭 {vendor['name']}**\n"
+            display += f"> • Services: {svc_text}\n"
+            display += f"> • 📍 {vendor['address']}, PIN: {pincode}\n"
+            if mobile and str(mobile).strip():
+                display += f"> • 📞 Contact: {mobile}\n"
+            if email and str(email).strip():
+                display += f"> • ✉️ Email: {email}\n"
+            display += f"> • Category: {vendor['category']} | {vendor['compliance_status']}\n"
+            if vendor['registration_date']:
+                display += f"> • Registered: {vendor['registration_date']}\n"
+            vendor["display_text"] = display
+            
+            vendors.append(vendor)
+        
+        return json.dumps({
+            "success": True,
+            "vendors": vendors,
+            "total_found": total,
+            "showing": len(vendors),
+            "state": state.upper(),
+            "district": district.upper(),
+            "industry_filter": industry_keyword,
+            "radius": radius_preference,
+            "source": "UDYAM Registration Portal, data.gov.in, Ministry of MSME, Government of India",
+            "message": f"Found {len(vendors)} vendors in {district}, {state} for '{industry_keyword}'.{keyword_note} Data sourced from data.gov.in UDYAM registry."
+        })
+        
+    except urllib.error.HTTPError as e:
+        return json.dumps({
+            "success": False,
+            "error": f"Government API error: {e.code} - {e.reason}",
+            "hint": "Check if state/district names are correct and in UPPERCASE. Try: search_local_vendors(state='RAJASTHAN', district='JAIPUR', industry_keyword='solar')"
+        })
+    except Exception as e:
+        print(f"[VendorSearch] Error: {e}")
+        return json.dumps({
+            "success": False,
+            "error": f"Vendor search failed: {str(e)}",
+            "fallback": "Try using web_search to find vendors manually."
+        })
+
+
+def search_supply_chain_data(location: str, industry: str, 
+                             requirement_type: str = "all", 
+                             budget_range: str = "") -> str:
+    """
+    Search for supply chain data: logistics, warehousing, raw materials, transportation.
+    Combines web search results with structured formatting for DPR inclusion.
+    """
+    try:
+        # Build targeted search queries based on requirement type
+        queries = []
+        
+        if requirement_type in ("logistics", "all"):
+            queries.append(f"{industry} logistics companies {location} India freight transport")
+        
+        if requirement_type in ("warehousing", "all"):
+            queries.append(f"warehouse storage facility {location} India {industry} rental")
+        
+        if requirement_type in ("raw_materials", "all"):
+            queries.append(f"{industry} raw material suppliers {location} India wholesale price")
+        
+        if requirement_type in ("transportation", "all"):
+            queries.append(f"goods transportation {location} India {industry} cargo rates")
+        
+        if not queries:
+            queries.append(f"{industry} supply chain {location} India {requirement_type}")
+        
+        # Execute searches
+        all_results = []
+        for q in queries[:3]:  # Max 3 searches to avoid delays
+            results = _duckduckgo_search(q, category="general")
+            for r in results[:5]:
+                r["search_type"] = requirement_type
+            all_results.extend(results[:5])
+        
+        # Structure the results
+        supply_chain_data = {
+            "location": location,
+            "industry": industry,
+            "requirement_type": requirement_type,
+        }
+        
+        # Categorize results
+        logistics = []
+        warehousing = []
+        raw_materials = []
+        transportation = []
+        
+        for r in all_results:
+            title_lower = r.get("title", "").lower()
+            snippet_lower = r.get("snippet", "").lower()
+            combined = title_lower + " " + snippet_lower
+            
+            if any(w in combined for w in ["logistics", "courier", "freight", "shipping"]):
+                logistics.append(r)
+            elif any(w in combined for w in ["warehouse", "storage", "godown", "cold storage"]):
+                warehousing.append(r)
+            elif any(w in combined for w in ["material", "supplier", "wholesale", "raw", "vendor"]):
+                raw_materials.append(r)
+            elif any(w in combined for w in ["transport", "truck", "cargo", "route"]):
+                transportation.append(r)
+            else:
+                # Add to the most relevant category
+                raw_materials.append(r)
+        
+        supply_chain_data["logistics"] = logistics[:5]
+        supply_chain_data["warehousing"] = warehousing[:5]
+        supply_chain_data["raw_materials"] = raw_materials[:5]
+        supply_chain_data["transportation"] = transportation[:5]
+        supply_chain_data["total_results"] = len(all_results)
+        
+        # Build summary message
+        summary_parts = []
+        if logistics:
+            summary_parts.append(f"{len(logistics)} logistics options")
+        if warehousing:
+            summary_parts.append(f"{len(warehousing)} warehousing options")
+        if raw_materials:
+            summary_parts.append(f"{len(raw_materials)} material suppliers")
+        if transportation:
+            summary_parts.append(f"{len(transportation)} transport providers")
+        
+        supply_chain_data["success"] = True
+        supply_chain_data["message"] = f"Supply chain data for {industry} in {location}: " + ", ".join(summary_parts) if summary_parts else f"Limited supply chain data found for {industry} in {location}. Try broadening your search."
+        supply_chain_data["results"] = all_results  # For source citations
+        
+        if budget_range:
+            supply_chain_data["budget_note"] = f"Budget range: {budget_range}. Filter results accordingly."
+        
+        return json.dumps(supply_chain_data)
+        
+    except Exception as e:
+        print(f"[SupplyChain] Error: {e}")
+        return json.dumps({
+            "success": False,
+            "error": f"Supply chain search failed: {str(e)}",
+            "fallback": "Try using web_search with specific supply chain queries."
+        })
+
+
 def execute_web_search(query: str) -> str:
     """Execute unified web search using DuckDuckGo."""
     return execute_search_tool(tool_name="web_search", query=query)
@@ -2320,169 +2617,158 @@ def execute_search_tool(tool_name: str, query: str = "") -> str:
 
 
 def _duckduckgo_search(query: str, category: str = "general") -> list:
-    """Search using DuckDuckGo via HTTP requests."""
+    """Search using DuckDuckGo via HTTP requests (Lite + JSON API)."""
     try:
         import re as regex_mod
         
-        # Use requests if available (faster), otherwise urllib
-        try:
-            import requests
-            use_requests = True
-        except ImportError:
-            use_requests = False
-        
         encoded_query = urllib.parse.quote(query)
         
-        # DuckDuckGo HTML endpoint
-        url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
-        
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'identity',  # Avoid gzip for easier debugging
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'identity',
         }
         
-        if use_requests:
-            response = requests.get(url, headers=headers, timeout=15)
-            html = response.text
-        else:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as response:
-                html = response.read().decode('utf-8', errors='ignore')
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
         
-        print(f"[WebSearch] Got {len(html)} bytes of HTML")
-        
-        # Check if we got a real results page or something else
-        if 'result__a' not in html and 'web-result' not in html:
-            print("[WebSearch] Page does not contain expected result markers")
-            # Try to get first 500 chars for debugging
-            print(f"[WebSearch] HTML preview: {html[:500]}")
-        
-        # Parse results from HTML using multiple patterns
         results = []
         
-        # Multiple patterns to handle different DDG HTML structures
-        patterns = [
-            # Pattern 1: Standard result link
-            (
-                r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([^<]+)</a>',
-                r'<a[^>]+class="result__snippet"[^>]*>(.+?)</a>'
-            ),
-            # Pattern 2: Alternative with rel=nofollow first
-            (
-                r'<a[^>]+rel="nofollow"[^>]*href="([^"]+)"[^>]*class="result__a"[^>]*>([^<]+)</a>',
-                r'class="result__snippet"[^>]*>(.+?)</a>'
-            ),
-            # Pattern 3: Web result links (newer DDG format)
-            (
-                r'<a[^>]+href="(https?://[^"]+)"[^>]*>(.{10,100}?)</a>',
-                r'<div[^>]+class="[^"]*snippet[^"]*"[^>]*>(.+?)</div>'
-            ),
-        ]
-        
-        for link_pattern, snippet_pattern in patterns:
-            matches = regex_mod.findall(link_pattern, html, regex_mod.IGNORECASE)
-            if matches:
-                print(f"[WebSearch] Pattern matched: found {len(matches)} links")
-                snippets_found = regex_mod.findall(snippet_pattern, html, regex_mod.IGNORECASE | regex_mod.DOTALL)
-                
-                for i, (link, title) in enumerate(matches[:10]):
-                    # Clean up the link (remove redirect)
-                    if '//duckduckgo.com/' in link:
-                        link_match = regex_mod.search(r'uddg=([^&"]+)', link)
-                        if link_match:
-                            link = urllib.parse.unquote(link_match.group(1))
-                    
-                    # Skip if link is not valid URL
-                    if not link.startswith('http'):
-                        continue
-                    
-                    # Skip DDG internal links
-                    if 'duckduckgo.com' in link:
-                        continue
-                    
-                    snippet = ""
-                    if i < len(snippets_found):
-                        # Clean HTML tags from snippet
-                        snippet = regex_mod.sub(r'<[^>]+>', '', snippets_found[i])
-                        snippet = snippet.strip()[:300]
-                    
-                    result = {
-                        "title": regex_mod.sub(r'<[^>]+>', '', title).strip(),
-                        "link": link,
-                        "snippet": snippet,
-                        "category": category
-                    }
-                    
-                    # Extract price if shopping category
-                    if category in ["shopping", "fashion"]:
-                        price = _extract_price_from_text(snippet + " " + title)
-                        if price:
-                            result["price"] = price
-                            result["price_display"] = f"₹{price:,.0f}"
-                        
-                        # Determine source from link
-                        link_lower = link.lower()
-                        if "amazon" in link_lower:
-                            result["source"] = "Amazon"
-                        elif "flipkart" in link_lower:
-                            result["source"] = "Flipkart"
-                        elif "myntra" in link_lower:
-                            result["source"] = "Myntra"
-                        elif "ajio" in link_lower:
-                            result["source"] = "AJIO"
-                        else:
-                            result["source"] = "Web"
-                    
-                    # Extract date for news
-                    if category == "news":
-                        result["date"] = _extract_date_from_text(snippet)
-                    
-                    results.append(result)
-                
-                if results:
-                    break
-        
-        # If HTML parsing failed, try DuckDuckGo Instant Answer API
-        if not results:
-            print("[WebSearch] HTML parsing failed, trying Instant Answer API")
-            api_url = f"https://api.duckduckgo.com/?q={encoded_query}&format=json&no_html=1&skip_disambig=1"
+        # === Strategy 1: DuckDuckGo Lite (simpler HTML, easier to parse) ===
+        try:
+            lite_url = f"https://lite.duckduckgo.com/lite/?q={encoded_query}"
+            req = urllib.request.Request(lite_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=15, context=context) as response:
+                html = response.read().decode('utf-8', errors='ignore')
             
-            try:
-                if use_requests:
-                    response = requests.get(api_url, headers=headers, timeout=10)
-                    data = response.json()
-                else:
-                    req = urllib.request.Request(api_url, headers=headers)
-                    with urllib.request.urlopen(req, timeout=10) as response:
-                        data = json.loads(response.read().decode('utf-8'))
+            print(f"[WebSearch] Lite: {len(html)} bytes")
+            
+            # Lite format uses <a> tags with class "result-link" or plain links in <td>
+            # Pattern: <a rel="nofollow" href="URL" class="result-link">TITLE</a>
+            link_pattern = regex_mod.findall(
+                r'<a\s+rel="nofollow"\s+href="(https?://[^"]+)"[^>]*class="result-link"[^>]*>([^<]+)</a>',
+                html, regex_mod.IGNORECASE
+            )
+            
+            if not link_pattern:
+                # Alternative pattern for Lite
+                link_pattern = regex_mod.findall(
+                    r'<a\s+[^>]*href="(https?://[^"]+)"[^>]*>([^<]{10,})</a>',
+                    html, regex_mod.IGNORECASE
+                )
+            
+            # Extract snippets from <td class="result-snippet">
+            snippets = regex_mod.findall(
+                r'<td\s+class="result-snippet"[^>]*>(.+?)</td>',
+                html, regex_mod.IGNORECASE | regex_mod.DOTALL
+            )
+            
+            for i, (link, title) in enumerate(link_pattern[:10]):
+                # Skip DDG internal links
+                if 'duckduckgo.com' in link:
+                    continue
                 
-                # Extract related topics
-                if 'RelatedTopics' in data:
-                    for topic in data['RelatedTopics'][:10]:
-                        if 'FirstURL' in topic and 'Text' in topic:
-                            results.append({
-                                "title": topic.get('Text', '')[:100],
-                                "link": topic['FirstURL'],
-                                "snippet": topic.get('Text', ''),
-                                "category": category
-                            })
+                snippet = ""
+                if i < len(snippets):
+                    snippet = regex_mod.sub(r'<[^>]+>', '', snippets[i]).strip()[:300]
                 
-                # Extract abstract if available
-                if data.get('AbstractText') and data.get('AbstractURL'):
-                    results.insert(0, {
-                        "title": data.get('Heading', query),
-                        "link": data['AbstractURL'],
-                        "snippet": data['AbstractText'],
+                result = {
+                    "title": regex_mod.sub(r'<[^>]+>', '', title).strip(),
+                    "link": link,
+                    "snippet": snippet,
+                    "category": category
+                }
+                
+                # Extract price for shopping
+                if category in ["shopping", "fashion"]:
+                    price = _extract_price_from_text(snippet + " " + title)
+                    if price:
+                        result["price"] = price
+                        result["price_display"] = f"₹{price:,.0f}"
+                    link_lower = link.lower()
+                    if "amazon" in link_lower: result["source"] = "Amazon"
+                    elif "flipkart" in link_lower: result["source"] = "Flipkart"
+                    elif "myntra" in link_lower: result["source"] = "Myntra"
+                    else: result["source"] = "Web"
+                
+                if category == "news":
+                    result["date"] = _extract_date_from_text(snippet)
+                
+                results.append(result)
+            
+            if results:
+                print(f"[WebSearch] Lite: found {len(results)} results")
+                return results
+        except Exception as lite_err:
+            print(f"[WebSearch] Lite endpoint error: {lite_err}")
+        
+        # === Strategy 2: DuckDuckGo HTML endpoint (original) ===
+        try:
+            html_url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+            req = urllib.request.Request(html_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=15, context=context) as response:
+                html = response.read().decode('utf-8', errors='ignore')
+            
+            print(f"[WebSearch] HTML: {len(html)} bytes")
+            
+            patterns = [
+                (r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([^<]+)</a>',
+                 r'<a[^>]+class="result__snippet"[^>]*>(.+?)</a>'),
+                (r'<a[^>]+href="(https?://[^"]+)"[^>]*class="result__a"[^>]*>([^<]+)</a>',
+                 r'class="result__snippet"[^>]*>(.+?)</a>'),
+            ]
+            
+            for link_pat, snip_pat in patterns:
+                matches = regex_mod.findall(link_pat, html, regex_mod.IGNORECASE)
+                if matches:
+                    snips = regex_mod.findall(snip_pat, html, regex_mod.IGNORECASE | regex_mod.DOTALL)
+                    for i, (link, title) in enumerate(matches[:10]):
+                        if '//duckduckgo.com/' in link:
+                            m = regex_mod.search(r'uddg=([^&"]+)', link)
+                            if m: link = urllib.parse.unquote(m.group(1))
+                        if not link.startswith('http') or 'duckduckgo.com' in link:
+                            continue
+                        snippet = regex_mod.sub(r'<[^>]+>', '', snips[i]).strip()[:300] if i < len(snips) else ""
+                        results.append({
+                            "title": regex_mod.sub(r'<[^>]+>', '', title).strip(),
+                            "link": link, "snippet": snippet, "category": category
+                        })
+                    if results: break
+            
+            if results:
+                print(f"[WebSearch] HTML: found {len(results)} results")
+                return results
+        except Exception as html_err:
+            print(f"[WebSearch] HTML endpoint error: {html_err}")
+        
+        # === Strategy 3: DuckDuckGo Instant Answer JSON API ===
+        try:
+            print("[WebSearch] Trying Instant Answer API")
+            api_url = f"https://api.duckduckgo.com/?q={encoded_query}&format=json&no_html=1&skip_disambig=1"
+            req = urllib.request.Request(api_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10, context=context) as response:
+                data = json.loads(response.read().decode('utf-8'))
+            
+            if data.get('AbstractText') and data.get('AbstractURL'):
+                results.append({
+                    "title": data.get('Heading', query),
+                    "link": data['AbstractURL'],
+                    "snippet": data['AbstractText'],
+                    "category": category
+                })
+            
+            for topic in (data.get('RelatedTopics') or [])[:8]:
+                if 'FirstURL' in topic and 'Text' in topic:
+                    results.append({
+                        "title": topic.get('Text', '')[:100],
+                        "link": topic['FirstURL'],
+                        "snippet": topic.get('Text', ''),
                         "category": category
                     })
-                    
-            except Exception as api_error:
-                print(f"[WebSearch] Instant Answer API error: {api_error}")
+        except Exception as api_err:
+            print(f"[WebSearch] JSON API error: {api_err}")
         
         print(f"[WebSearch] Final result count: {len(results)}")
         return results
@@ -2965,44 +3251,112 @@ def chat_with_llm(
 ## YOUR PERSONALITY
 - Be a supportive mentor — explain things simply for first-time founders
 - When you use a technical term, ALWAYS explain it: "DPR (Detailed Project Report — a document banks need to give you a loan)"
-- Be warm, encouraging, and practical
+- Be warm, encouraging, and practical — like a mentor over chai ☕
 
 ## AVAILABLE TOOLS
 {tool_list}
 
-## HOW TO CALL A TOOL
-Output ONLY this JSON when you need data:
+## ⚡ TOOL CALL FORMAT
+When you need live data, respond with ONLY this JSON and nothing else:
 ```json
-{{"tool_call": {{"name": "tool_name", "arguments": {{"param1": "value1"}}}}}}
+{{"tool_call": {{"name": "web_search", "arguments": {{"query": "simple search query"}}}}}}
 ```
 
-## RESPONSE FORMATTING RULES (CRITICAL):
+## 🎨 RESPONSE FORMATTING (CRITICAL — FOLLOW EXACTLY)
 
-### ❌ NEVER USE MARKDOWN TABLES — they are unreadable on phones
+### ❌ NEVER DO:
+- Never use markdown tables (|col|col|) — they break on mobile
+- Never write walls of text — break into visual sections
+- Never skip the roadmap format for any step-by-step content
 
-### ✅ USE VISUAL ROADMAPS FOR STEPS:
-🔵 **Step 1: [Title]**
-[Simple explanation]
+### ✅ ALWAYS USE VISUAL ROADMAPS FOR STEPS/PROCESSES:
+Format EVERY step-by-step answer like this (the app renders these as beautiful visual timelines):
+
+🔵 **Step 1: [Short Title]**
+[1-2 sentence explanation in simple language]
 ⬇️
-🟢 **Step 2: [Title]**
-[Simple explanation]
+🟢 **Step 2: [Short Title]**
+[1-2 sentence explanation]
 ⬇️
-🎯 **Final Goal: [Result]**
+🟡 **Step 3: [Short Title]**
+[1-2 sentence explanation]
+⬇️
+🟠 **Step 4: [Short Title]**
+[1-2 sentence explanation]
+⬇️
+🎯 **Final Goal: [What you achieve]**
+[Motivating summary of the outcome]
 
 ### ✅ USE COMPARISON CARDS (NOT TABLES):
-> **💰 Option 1: Name**
-> • Detail: Value
-> • Detail: Value
+When comparing options, use blockquote cards:
 
-### ✅ USE BULLET LISTS WITH EMOJIS
-- Bold key numbers and names
-- Keep sentences short (max 15 words)
+> **💰 Option A: [Name]**
+> • Cost: ₹XX,XXX
+> • Timeline: X months
+> • Best for: [who]
 
-### TONE
-- Like a mentor over chai ☕
-- Explain ALL jargon in parentheses
-- End with **🎯 Next Steps** — 2-3 actions
-- Use ₹ for Indian Rupees
+> **🏦 Option B: [Name]**
+> • Cost: ₹XX,XXX
+> • Timeline: X months
+> • Best for: [who]
+
+### ✅ USE CHECKLISTS FOR REQUIREMENTS:
+- ✅ **Requirement 1** — explanation
+- ✅ **Requirement 2** — explanation
+- ❌ **Not needed** — why
+
+### ✅ USE KEY METRICS IN BOLD:
+When sharing numbers, highlight them:
+• **Investment needed**: ₹5,00,000
+• **Break-even**: 8 months
+• **Expected monthly revenue**: ₹1,50,000
+
+### RESPONSE STRUCTURE:
+Every response should have:
+1. **Opening** — 1-2 line warm greeting or context
+2. **Visual content** — roadmap/cards/checklist (the main answer)
+3. **🎯 Next Steps** — 2-3 actionable follow-ups
+
+### TONE RULES:
+- Explain ALL jargon: "DSCR (Debt Service Coverage Ratio — shows if your business earns enough to repay loans)"
+- Use ₹ for amounts, Indian context always
+- Keep each step to max 2 sentences
+- Be encouraging: "Great question!", "You're on the right track!"
+
+## 🏗️ DPR CREATION WORKFLOW (When user wants a project report)
+
+### Discovery Phase — Ask First:
+- "What is your project's primary objective? (business launch, expansion, product development)"
+- "Which industry? (manufacturing, tech, agriculture, healthcare, food processing)"
+- "Where is the project based? (City/State)"
+- "What key deliverables do you expect? (financial models, technical specs, supply chain optimization)"
+
+### Supply Chain Optimization Phase:
+When the user mentions supply chain, vendors, raw materials, or logistics:
+1. Ask: "What are your key supply chain requirements? (raw materials, machinery, transportation)"
+2. Ask: "Should I search for local vendors within your district using government databases like data.gov.in?"
+3. AUTO-EXECUTE `search_local_vendors` with user's location + industry
+4. Present vendor results as comparison cards (NOT tables):
+   > **🏭 Vendor Name**
+   > • Services: what they offer
+   > • 📍 Address, PIN code
+   > • 📞 Contact number
+   > • Category: MSME type | GST status
+5. Ask: "Would you like to add these vendors to your DPR or refine the search?"
+6. If API fails, say: "Couldn't fetch vendor data from data.gov.in. Would you like to manually enter vendor details?"
+
+### DPR Roadmap (Present as Visual Roadmap):
+🔵 **Phase 1: Data Collection** (Background, Location, Market)
+⬇️
+🟢 **Phase 2: Financial Projections** (Revenue, Costs, ROI)
+⬇️
+🟡 **Phase 3: Technical Requirements** (Resources, Tech, Compliance)
+⬇️
+🟠 **Phase 4: Supply Chain** (Local Vendors, Logistics, Cost Analysis)
+⬇️
+🔴 **Phase 5: Risk Assessment** (Risks, Mitigation)
+⬇️
+🎯 **Phase 6: Final DPR Compilation** (PDF with all sections)
 """
             messages = [{"role": "system", "content": brainstorm_system}]
             # Include conversation history for brainstorm continuity
@@ -3274,57 +3628,14 @@ def _clean_llm_response(text: str) -> str:
 # ==================== SARVAM VISION OCR ====================
 
 def extract_receipt_from_path(file_path: str) -> str:
-    """Extract receipt data from a local image file using Sarvam Vision API."""
-    global _sarvam_api_key
+    """Extract receipt data from a local image file using Sarvam Vision or Groq fallback."""
+    global _sarvam_api_key, _groq_api_key
     
-    if not _sarvam_api_key:
-        return json.dumps({"success": False, "error": "Sarvam API key not configured"})
+    print(f"[Receipt] Extracting from: {file_path}")
+    print(f"[Receipt] Sarvam key: {'✓ ' + str(len(_sarvam_api_key)) + ' chars' if _sarvam_api_key else '✗ MISSING'}")
+    print(f"[Receipt] Groq key: {'✓ ' + str(len(_groq_api_key)) + ' chars' if _groq_api_key else '✗ MISSING'}")
     
-    try:
-        # Try using Sarvam SDK first
-        if _HAS_SARVAM_SDK:
-            try:
-                client = SarvamAI(api_subscription_key=_sarvam_api_key)
-                
-                with open(file_path, 'rb') as f:
-                    response = client.vision.analyze(
-                        file=f,
-                        prompt_type="default_ocr"
-                    )
-                
-                ocr_text = response.content if hasattr(response, 'content') else str(response)
-                print(f"[Sarvam Vision] OCR result: {ocr_text[:200]}...")
-                
-                # Parse the OCR text to extract receipt data
-                return _parse_receipt_from_ocr(ocr_text, file_path)
-                
-            except Exception as sdk_e:
-                print(f"[Sarvam Vision] SDK error: {sdk_e}, falling back to urllib")
-        
-        # Fallback: Use urllib with Sarvam multimodal chat API (FIXED - no /vision/analyze endpoint)
-        with open(file_path, 'rb') as f:
-            image_data = f.read()
-        
-        # Determine content type from file extension
-        ext = file_path.lower().split('.')[-1]
-        content_types = {
-            'jpg': 'image/jpeg',
-            'jpeg': 'image/jpeg',
-            'png': 'image/png',
-            'webp': 'image/webp'
-        }
-        content_type = content_types.get(ext, 'image/jpeg')
-        
-        # Encode image as base64 for multimodal chat
-        image_base64 = base64.b64encode(image_data).decode('utf-8')
-        
-        # Use Sarvam chat/completions with image_url (OpenAI-compatible multimodal)
-        request_body = {
-            "model": "sarvam-m",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": """You are an expert receipt/document parser. Extract ALL financial details from this image.
+    receipt_prompt = """You are an expert receipt/document parser. Extract ALL financial details from this image.
 Return a JSON object with these fields:
 {
   "merchant_name": "store or merchant name",
@@ -3335,82 +3646,243 @@ Return a JSON object with these fields:
   "items": [{"name": "item", "amount": 0.00}]
 }
 Return ONLY the JSON. No explanation."""
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{content_type};base64,{image_base64}"
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": "Extract receipt details from this image. Return ONLY JSON."
-                        }
-                    ]
-                }
-            ],
-            "max_tokens": 2000,
-            "temperature": 0.1
+    
+    extract_prompt = "Extract receipt details from this image. Return ONLY JSON."
+    
+    # Read and encode image
+    try:
+        with open(file_path, 'rb') as f:
+            image_data = f.read()
+        
+        ext = file_path.lower().split('.')[-1]
+        content_types = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'webp': 'image/webp'
         }
-        
-        data = json.dumps(request_body).encode('utf-8')
-        req = urllib.request.Request(
-            "https://api.sarvam.ai/v1/chat/completions",
-            data=data,
-            headers={
-                'Content-Type': 'application/json',
-                'api-subscription-key': _sarvam_api_key,
-                'User-Agent': 'WealthIn/1.0 (Android; Chaquopy)'
-            },
-            method='POST'
-        )
-        
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        
-        with urllib.request.urlopen(req, timeout=60, context=context) as response:
-            res = json.loads(response.read().decode('utf-8'))
-            content = res.get('choices', [{}])[0].get('message', {}).get('content', '')
-            
-            print(f"[Sarvam Vision] Chat response: {content[:200]}...")
-            
-            # Try to parse as JSON first
-            try:
-                clean = content.strip()
-                if clean.startswith("```json"):
-                    clean = clean[7:]
-                if clean.startswith("```"):
-                    clean = clean[3:]
-                if clean.endswith("```"):
-                    clean = clean[:-3]
-                clean = clean.strip()
-                
-                # Find JSON object
-                start = clean.find('{')
-                end = clean.rfind('}') + 1
-                if start >= 0 and end > start:
-                    parsed = json.loads(clean[start:end])
-                    parsed["success"] = True
-                    return json.dumps(parsed)
-            except json.JSONDecodeError:
-                pass
-            
-            # Fallback to text parsing
-            return _parse_receipt_from_ocr(content, file_path)
-            
-    except urllib.error.HTTPError as e:
-        error_body = ""
-        try:
-            error_body = e.read().decode('utf-8')
-        except:
-            pass
-        return json.dumps({"success": False, "error": f"Sarvam Vision API error {e.code}: {error_body}"})
+        content_type = content_types.get(ext, 'image/jpeg')
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
     except Exception as e:
-        return json.dumps({"success": False, "error": f"Image analysis error: {str(e)}"})
+        return json.dumps({"success": False, "error": f"Failed to read image: {str(e)}"})
+    
+    # Strategy 1: Try Sarvam SDK
+    if _sarvam_api_key and _HAS_SARVAM_SDK:
+        try:
+            client = SarvamAI(api_subscription_key=_sarvam_api_key)
+            with open(file_path, 'rb') as f:
+                response = client.vision.analyze(
+                    file=f,
+                    prompt_type="default_ocr"
+                )
+            ocr_text = response.content if hasattr(response, 'content') else str(response)
+            print(f"[Receipt] Sarvam SDK OCR: {ocr_text[:200]}...")
+            result = _parse_and_map_receipt(ocr_text, file_path)
+            if result.get("success"):
+                return json.dumps(result)
+        except Exception as sdk_e:
+            print(f"[Receipt] Sarvam SDK error: {sdk_e}")
+    
+    # Strategy 2: Try Sarvam multimodal chat
+    if _sarvam_api_key:
+        try:
+            request_body = {
+                "model": "sarvam-m",
+                "messages": [
+                    {"role": "system", "content": receipt_prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{content_type};base64,{image_base64}"}
+                            },
+                            {"type": "text", "text": extract_prompt}
+                        ]
+                    }
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.1
+            }
+            
+            data = json.dumps(request_body).encode('utf-8')
+            req = urllib.request.Request(
+                "https://api.sarvam.ai/v1/chat/completions",
+                data=data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'api-subscription-key': _sarvam_api_key,
+                    'User-Agent': 'WealthIn/1.0 (Android; Chaquopy)'
+                },
+                method='POST'
+            )
+            
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            
+            with urllib.request.urlopen(req, timeout=60, context=context) as response:
+                res = json.loads(response.read().decode('utf-8'))
+                ai_content = res.get('choices', [{}])[0].get('message', {}).get('content', '')
+                print(f"[Receipt] Sarvam chat response: {ai_content[:200]}...")
+                
+                parsed = _extract_json_from_text(ai_content)
+                if parsed:
+                    result = _map_receipt_to_transaction(parsed, file_path)
+                    return json.dumps(result)
+                    
+                # Fallback to OCR text parsing
+                result = _parse_and_map_receipt(ai_content, file_path)
+                if result.get("success"):
+                    return json.dumps(result)
+                    
+        except Exception as e:
+            print(f"[Receipt] Sarvam chat error: {e}")
+    
+    # Strategy 3: Try Groq multimodal (llama-4-scout supports vision)
+    if _groq_api_key:
+        try:
+            print("[Receipt] Trying Groq multimodal fallback...")
+            groq_models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"]
+            
+            for model in groq_models:
+                try:
+                    request_body = {
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": receipt_prompt},
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {"url": f"data:{content_type};base64,{image_base64}"}
+                                    },
+                                    {"type": "text", "text": extract_prompt}
+                                ]
+                            }
+                        ],
+                        "max_tokens": 2000,
+                        "temperature": 0.1
+                    }
+                    
+                    data = json.dumps(request_body).encode('utf-8')
+                    req = urllib.request.Request(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        data=data,
+                        headers={
+                            'Content-Type': 'application/json',
+                            'Authorization': f'Bearer {_groq_api_key}',
+                            'User-Agent': 'WealthIn/1.0 (Android; Chaquopy)'
+                        },
+                        method='POST'
+                    )
+                    
+                    context = ssl.create_default_context()
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+                    
+                    with urllib.request.urlopen(req, timeout=60, context=context) as response:
+                        res = json.loads(response.read().decode('utf-8'))
+                        ai_content = res.get('choices', [{}])[0].get('message', {}).get('content', '')
+                        print(f"[Receipt] Groq ({model}) response: {ai_content[:200]}...")
+                        
+                        parsed = _extract_json_from_text(ai_content)
+                        if parsed:
+                            result = _map_receipt_to_transaction(parsed, file_path)
+                            return json.dumps(result)
+                        
+                        # Fallback to OCR text parsing
+                        result = _parse_and_map_receipt(ai_content, file_path)
+                        if result.get("success"):
+                            return json.dumps(result)
+                            
+                except urllib.error.HTTPError as he:
+                    print(f"[Receipt] Groq model {model} HTTP error: {he.code}")
+                    continue
+                except Exception as me:
+                    print(f"[Receipt] Groq model {model} error: {me}")
+                    continue
+                    
+        except Exception as e:
+            print(f"[Receipt] Groq fallback error: {e}")
+    
+    # No AI provider available
+    if not _sarvam_api_key and not _groq_api_key:
+        return json.dumps({
+            "success": False, 
+            "error": "No AI API keys configured. Please check Settings → API Keys.",
+            "detail": "Image extraction requires either Sarvam or Groq API key."
+        })
+    
+    return json.dumps({"success": False, "error": "All extraction methods failed. Please try a clearer image."})
+
+
+def _extract_json_from_text(text: str) -> Optional[dict]:
+    """Try to extract a JSON object from text that may contain markdown or explanations."""
+    try:
+        clean = text.strip()
+        if clean.startswith("```json"):
+            clean = clean[7:]
+        if clean.startswith("```"):
+            clean = clean[3:]
+        if clean.endswith("```"):
+            clean = clean[:-3]
+        clean = clean.strip()
+        
+        start = clean.find('{')
+        end = clean.rfind('}') + 1
+        if start >= 0 and end > start:
+            return json.loads(clean[start:end])
+    except json.JSONDecodeError:
+        pass
+    return None
+
+
+def _map_receipt_to_transaction(parsed: dict, file_path: str) -> dict:
+    """Map parsed receipt JSON to the transaction format expected by Flutter."""
+    from datetime import datetime as dt
+    
+    amount = parsed.get('total_amount') or parsed.get('amount') or 0
+    if isinstance(amount, str):
+        try:
+            amount = float(amount.replace(',', ''))
+        except:
+            amount = 0
+    
+    date_str = parsed.get('date') or dt.now().strftime('%Y-%m-%d')
+    merchant = parsed.get('merchant_name') or parsed.get('merchant') or 'Unknown Merchant'
+    category = parsed.get('category') or 'Other'
+    
+    return {
+        "success": True,
+        "transaction": {
+            "date": date_str,
+            "description": merchant,
+            "amount": float(amount),
+            "type": "expense",
+            "category": category,
+            "merchant": merchant,
+        },
+        "merchant_name": merchant,
+        "total_amount": float(amount),
+        "date": date_str,
+        "category": category,
+        "items": parsed.get('items', []),
+        "confidence": 0.85,
+    }
+
+
+def _parse_and_map_receipt(ocr_text: str, file_path: str) -> dict:
+    """Parse OCR text and map it to the transaction format expected by Flutter."""
+    try:
+        result_json = _parse_receipt_from_ocr(ocr_text, file_path)
+        result = json.loads(result_json)
+        if result.get("success") and result.get("total_amount"):
+            return _map_receipt_to_transaction(result, file_path)
+        return result
+    except Exception as e:
+        return {"success": False, "error": f"Parse error: {str(e)}"}
 
 
 def _parse_receipt_from_ocr(ocr_text: str, file_path: str) -> str:
@@ -3679,92 +4151,121 @@ def _build_react_system_prompt(user_context: Dict[str, Any] = None) -> str:
     # Expose ALL tools for ReAct (not just the essentials)
     tool_list = "\n".join([f"- **{t['name']}**: {t['description']}" for t in AVAILABLE_TOOLS])
     
-    # Extract financial advice from context if available
-    financial_profile = ""
-    if user_context and 'financial_profile' in str(user_context):
-        financial_profile = str(user_context.get('financial_profile', ''))
-    
-    prompt = f"""You are WealthIn Business Planner — a strict, focused business financial planning assistant for Indian MSMEs and entrepreneurs.
+    prompt = f"""You are WealthIn AI — a smart, agentic financial advisor for Indian users, specializing in MSME and personal finance.
 
-## YOUR SCOPE (STRICTLY BUSINESS ONLY)
-You ONLY help with:
+## CORE CAPABILITIES
 ✅ DPR (Detailed Project Report) drafting — section by section
-✅ MSME/MUDRA/PMEGP/Stand-Up India scheme eligibility & applications
-✅ Business loan calculations (EMI, DSCR, working capital)
+✅ MSME/MUDRA/PMEGP/Stand-Up India scheme eligibility
+✅ Business & personal loan calculations (EMI, SIP, FD, DSCR)
 ✅ GST rates, compliance, invoicing queries
-✅ Business cashflow planning & projections
-✅ Break-even analysis & profitability calculations
-✅ Business budgeting & cost optimization
-✅ MSME directory search (finding registered enterprises)
-✅ Business risk assessment & mitigation
-✅ Market analysis & competitive positioning
+✅ Web search for live data (prices, rates, news, schemes)
+✅ Shopping & price comparison (Amazon, Flipkart, Myntra)
+✅ Budget creation, transaction tracking, savings goals
+✅ **Supply Chain Optimization** — local vendor sourcing via data.gov.in, logistics, cost analysis
 
-## WHAT YOU DO NOT DO (POLITELY REDIRECT)
-❌ Personal investment advice (SIP, mutual funds, stocks) → Say: "I'm your business planner! For personal investments, check the Analysis tab."
-❌ Shopping or purchase advice → Say: "I focus on business planning. For purchase decisions, try the Analysis section."
-❌ Career guidance or job search → Say: "I specialize in business planning. For career advice, try external job portals."
-❌ General knowledge or trivia → Say: "I'm built for business planning — ask me about DPR, MSME schemes, or business financials!"
-❌ Personal budgeting → Say: "I help with business budgets. For personal budgets, check the Budget section in the app."
-
-If ANY message is outside your scope, respond with a SHORT one-liner redirect and suggest a relevant business topic instead.
-
-## YOUR PERSONALITY
-- Professional but approachable. Like a trusted CA/business consultant.
-- ASK QUESTIONS before giving advice. Never assume the business type, scale, or financial details.
-- Use Indian business context: MSME categories, Udyam registration, GST, TDS, DSCR, etc.
-
-## ANTI-HALLUCINATION RULES (CRITICAL)
-1. **NEVER make up numbers, interest rates, scheme criteria, or GST rates.** Use `web_search` to verify.
-2. **For DPR drafts**: NEVER fill in fields with made-up data. Ask the user for every value.
-3. **For govt schemes**: ALWAYS verify eligibility criteria using `web_search` — schemes change frequently.
-4. **Always caveat**: "Verify this with your CA/chartered accountant before filing."
-
-## YOUR TOOLS
+## AVAILABLE TOOLS
 {tool_list}
 
-## HOW TO CALL A TOOL
-Output ONLY this JSON when you need to search, calculate, or take action:
+## ⚡ TOOL CALL FORMAT (CRITICAL — FOLLOW EXACTLY)
+When you need to use a tool, respond with ONLY this JSON block and NOTHING else:
+
 ```json
-{{"tool_call": {{"name": "tool_name", "arguments": {{"param1": "value1"}}}}}}
+{{"tool_call": {{"name": "TOOL_NAME", "arguments": {{"param": "value"}}}}}}
 ```
 
-## DPR DRAFTING FLOW (SECTION-BY-SECTION UNLOCK)
-When user wants to create a DPR:
-1. FIRST ask: "Let's build your DPR step by step. Each section unlocks only when ALL its required fields are filled."
-2. Start with **Section 1: Executive Summary** — ask for: business name, nature of business, MSME category, project cost, loan required.
-3. When one section is complete, move to the NEXT locked section. Use the `next_section` hint from `generate_dpr` results.
-4. **NEVER generate a DPR with empty/placeholder/made-up data.** Each section stays 🔒 LOCKED until the user provides real values.
-5. After each user response, call `generate_dpr` with all data collected so far — it returns section-by-section status (✅ Unlocked / 🔒 Locked).
-6. Show the user progress: "3/9 sections unlocked ✅ — next: Market Analysis"
-7. For complex sections (Financial Projections, Profitability), help calculate values from raw numbers the user provides.
+### CORRECT tool call examples:
+- User: "search for phones under 15000"
+```json
+{{"tool_call": {{"name": "search_amazon", "arguments": {{"query": "best phone under 15000"}}}}}}
+```
 
-## BUSINESS ANALYSIS
-You have access to the user's FINANCIAL PROFILE including spending trends. Use this to:
+- User: "what's the SIP return for 5000/month for 10 years?"
+```json
+{{"tool_call": {{"name": "calculate_sip", "arguments": {{"monthly_investment": 5000, "expected_return_rate": 12, "years": 10}}}}}}
+```
 
-1. **Business expense patterns**: Identify business-related spending from transaction data
-2. **Cashflow advice**: If the user runs a business, analyze their income vs expenses for cash runway
-3. **Loan readiness**: Based on DSCR, savings rate, and debt ratio — advise on loan eligibility
-4. **MSME scheme matching**: Proactively suggest relevant govt schemes based on business type and size
-5. **Trend-Aware Advice**: Use the Notable Trends section:
-   - **Recurring payments**: Identify business subscriptions (SaaS, rent, EMIs)
-   - **Expense hikes**: Flag business cost increases and suggest optimization
-   - **Top merchants**: Identify vendor concentration risk
+- User: "find solar panel vendors in Jaipur"
+```json
+{{"tool_call": {{"name": "search_local_vendors", "arguments": {{"state": "RAJASTHAN", "district": "JAIPUR", "industry_keyword": "solar"}}}}}}
+```
 
-## RESPONSE STYLE
-1. **Keep responses SHORT**: 3-5 sentences max. Use • bullets for lists.
-2. **Use ₹ for amounts**: Always in Indian Rupees.
-3. **ALWAYS end with a business-relevant follow-up question**:
-   - "What's your projected monthly revenue?"
-   - "Do you have your Udyam registration number?"
-   - "Shall I check your PMEGP/Mudra eligibility?"
-4. **NEVER give responses longer than 5 lines without bullet points**
+- User: "logistics options for textile business in Tirupur"
+```json
+{{"tool_call": {{"name": "search_supply_chain_data", "arguments": {{"location": "Tirupur", "industry": "textiles", "requirement_type": "all"}}}}}}
+```
 
-## CRITICAL RULES
-1. **BUSINESS ONLY** — reject personal/non-business queries with a polite one-liner
-2. **ASK before you ASSUME** — always clarify business details first
-3. **Never hallucinate** — when in doubt, use `web_search`
-4. Tool "query" parameter must be a SIMPLE search string
-5. After tool results, give a BRIEF summary with key business insights
+### WRONG tool call examples (NEVER do this):
+❌ Adding text before/after the JSON
+❌ Using markdown formatting around the JSON
+❌ Putting thinking/reasoning in the "query" parameter
+❌ Making up data instead of searching
+
+## WHEN TO CALL TOOLS (AUTO-EXECUTE — DON'T ASK PERMISSION)
+1. **Shopping/prices** → `search_amazon`, `search_flipkart`, `search_myntra`
+2. **Finance rates, schemes, news** → `web_search`
+3. **Calculate SIP/EMI/FD** → `calculate_sip`, `calculate_emi`, etc.
+4. **Budget/goal/transaction** → `create_budget`, `create_savings_goal`, `add_transaction`
+5. **DPR creation** → `generate_dpr`
+6. **MSME lookup** → `search_msme_directory`
+7. **Local vendor sourcing** → `search_local_vendors` (uses data.gov.in UDYAM API)
+8. **Supply chain data (logistics/warehousing)** → `search_supply_chain_data`
+
+## RESPONSE STYLE (when not calling tools)
+- Keep responses SHORT: 2-4 sentences, use • bullet points
+- Use ₹ for Indian Rupees
+- Be warm and conversational — like a trusted CA/advisor
+- End with a follow-up question
+- **NEVER use markdown tables** — use bullet lists or comparison cards instead
+
+## ANTI-HALLUCINATION
+1. **NEVER make up** interest rates, scheme criteria, prices, or GST rates
+2. **ALWAYS use web_search** for live data, govt scheme details, prices
+3. **Caveat** financial advice: "Please verify with your CA before filing"
+
+## DPR GENERATION FLOW (6 PHASES)
+When user wants a DPR, follow this phased approach:
+
+### Phase 1: Discovery (Understand the Project)
+Ask targeted questions:
+- "What is the primary objective — business launch, expansion, or infrastructure setup?"
+- "Which industry does this project belong to — manufacturing, tech, agriculture, healthcare?"
+- "Where is the project based? (City/State)"
+
+### Phase 2: Data Collection (Section-by-Section)
+Collect data step-by-step. Each section stays 🔒 LOCKED until all required fields are filled.
+- Section 1: Executive Summary → business name, nature, MSME category, project cost, loan
+- Section 2: Promoter Profile → name, qualification, experience, Udyam, PAN
+- Section 3: Market Analysis → product, target market, competitive advantage, pricing
+- Section 4: Technical Aspects → process, raw materials, capacity, manpower
+
+### Phase 3: Supply Chain Optimization (NEW — data.gov.in Powered)
+Ask the user:
+- "What are your key supply chain requirements? (raw materials, machinery, transportation)"
+- "Should I search for local vendors within your district using government databases?"
+- "Would you like to compare local vs. national vendor pricing?"
+
+Then AUTO-EXECUTE:
+1. `search_local_vendors` — fetch vendors from data.gov.in for user's location + industry
+2. `search_supply_chain_data` — find logistics, warehousing, raw material pricing
+3. Present results as vendor cards with: Name, Contact, Address, Services, GST Status
+4. Ask: "Would you like to add these vendors to your DPR or refine the search?"
+5. Store confirmed vendors in supply_chain section: vendor_list, logistics_plan, cost_comparison
+
+### Phase 4: Financial Projections
+- Revenue, costs, ROI for years 1-3
+- Break-even analysis, DSCR calculation
+
+### Phase 5: Risk Assessment & Compliance
+- Key risks + mitigation strategies
+- Udyam registration, GST registration, ISO certifications
+
+### Phase 6: Compile & Generate DPR
+Call `generate_dpr` with all collected data. Show progress: "6/10 sections unlocked ✅"
+The DPR includes a dedicated **Supply Chain Optimization** section with:
+- **Local Vendor Sourcing**: List of shortlisted vendors (from data.gov.in API)
+- **Cost-Benefit Analysis**: Local procurement vs. outsourcing savings
+- **Logistics Plan**: Transportation routes, lead times, warehousing
+- **Compliance**: Vendor GST/ISO certifications verified
 
 """
     
@@ -5356,7 +5857,24 @@ def parse_bank_statement_text(text: str) -> str:
         
         # Strategy 2: Generic line-by-line parsing for other banks
         if not transactions:
+            # Lines that should NOT be treated as transactions
+            skip_keywords = [
+                'opening balance', 'closing balance', 'available balance',
+                'total debit', 'total credit', 'total balance',
+                'account summary', 'account number', 'account no',
+                'branch', 'ifsc', 'micr', 'customer id', 'cif no',
+                'statement period', 'generated on', 'page no', 'page ',
+                'narration', 'particulars', 'value date',
+                'chq no', 'cheque no', 'instrument',
+            ]
+            
             for i, line in enumerate(lines):
+                line_lower = line.strip().lower()
+                
+                # Skip balance/summary/header lines
+                if any(kw in line_lower for kw in skip_keywords):
+                    continue
+                
                 # Update date
                 for pattern in date_patterns:
                     match = re.search(pattern, line, re.IGNORECASE)
@@ -5380,7 +5898,7 @@ def parse_bank_statement_text(text: str) -> str:
                             pass
                         break
                 
-                # Look for amount in line
+                # Look for amount in line (only currency-prefixed patterns)
                 for pattern in amount_patterns:
                     amt_match = re.search(pattern, line, re.IGNORECASE)
                     if amt_match:

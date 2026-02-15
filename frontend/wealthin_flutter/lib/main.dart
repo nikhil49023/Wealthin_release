@@ -10,7 +10,7 @@ import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/python_bridge_service.dart';
 import 'core/services/startup_permissions_service.dart';
-import 'core/services/contact_service.dart';
+
 import 'features/auth/auth_wrapper.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -137,17 +137,7 @@ Future<void> _initializeDeferredServices() async {
     await aiAgentService.initialize();
   });
 
-  // Load contacts in background (non-blocking)
-  await _runStartupTask('contacts', () async {
-    final contactService = ContactService();
-    final hasPermission = await contactService.hasPermission();
-    if (hasPermission) {
-      await contactService.loadContacts();
-      debugPrint('[App] Contacts loaded: ${contactService.cacheSize} entries');
-    } else {
-      debugPrint('[App] Contacts permission not granted');
-    }
-  });
+  debugPrint('[App] ✓ All startup services initialized');
 }
 
 Future<void> _runStartupTask(

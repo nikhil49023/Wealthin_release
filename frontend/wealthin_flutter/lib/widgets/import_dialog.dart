@@ -26,6 +26,7 @@ class ImportTransactionsDialog extends StatefulWidget {
 
 class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
   bool _isLoading = false;
+  bool _isSaving = false; // Prevent double-tap on save
   String? _fileName;
   Uint8List? _fileBytes;
   String _importType = ''; // 'pdf' or 'image'
@@ -252,6 +253,24 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
     return 'Statement';
   }
 
+  Widget _buildTipRow(ThemeData theme, IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              fontSize: 11,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -329,35 +348,66 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                   ],
                 ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1),
 
-                // 5-page limit note
+                // Tips & Guidelines
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.amber.withValues(alpha: 0.3),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.2),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 18,
-                        color: Colors.amber[800],
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'PDF files must not exceed 5 pages',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.amber[900],
-                            fontWeight: FontWeight.w500,
+                      Row(
+                        children: [
+                          Icon(Icons.tips_and_updates, size: 16, color: theme.colorScheme.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Tips for best results',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.primary,
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildTipRow(theme, Icons.picture_as_pdf, 'PDF: Max 5 pages, selectable text works best'),
+                      const SizedBox(height: 4),
+                      _buildTipRow(theme, Icons.image, 'Image: Clear photo, good lighting, no blur'),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '📝 For handwritten notes, use this format:',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '  15/02/2026  Swiggy          ₹250\n'
+                              '  15/02/2026  Uber Ride       ₹150\n'
+                              '  14/02/2026  Grocery Store   ₹1,200',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -585,12 +635,22 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                   const SizedBox(width: 12),
                   if (_showPreview && _extractedTransactions.isNotEmpty)
                     ElevatedButton.icon(
-                      onPressed: _isLoading
+                      onPressed: (_isLoading || _isSaving)
                           ? null
                           : () async {
-                              // Actually save transactions to database
-                              setState(() => _isLoading = true);
+                              // Guard against double-tap
+                              if (_isSaving) return;
+                              setState(() {
+                                _isSaving = true;
+                                _isLoading = true;
+                              });
 
+                              // Capture navigator/scaffold before async gap
+                              final nav = Navigator.of(context);
+                              final scaffold = ScaffoldMessenger.of(context);
+                              final userId = widget.userId;
+
+                              // Save transactions to database
                               List<TransactionModel> savedTransactions = [];
                               int savedCount = 0;
                               for (final tx in _extractedTransactions) {
@@ -606,7 +666,7 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
 
                                   final result = await dataService
                                       .createTransaction(
-                                        userId: widget.userId,
+                                        userId: userId,
                                         amount: amount,
                                         description:
                                             tx['description']?.toString() ??
@@ -629,43 +689,56 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                                 }
                               }
 
-                              if (mounted) {
-                                setState(() => _isLoading = false);
+                              // CLOSE DIALOG IMMEDIATELY — don't wait for sync/analysis
+                              nav.pop(true);
 
-                                // Auto-sync saved transactions to budgets
-                                if (savedCount > 0 &&
-                                    savedTransactions.isNotEmpty) {
-                                  try {
-                                    // Call auto-categorize and sync budgets
-                                    final syncResult = await dataService
-                                        .autoCategorizeAndSyncBudgets(
-                                          userId: widget.userId,
-                                          transactions: savedTransactions,
-                                        );
+                              // Show success snackbar right away
+                              String message =
+                                  '✅ Saved $savedCount transaction(s)';
+                              if (savedCount > 0) {
+                                message += ' & syncing budgets...';
+                              }
+                              scaffold.showSnackBar(
+                                SnackBar(
+                                  content: Text(message),
+                                  backgroundColor: Colors.green,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
 
-                                    final budgetsUpdated =
-                                        syncResult['categories_synced'] ?? 0;
-                                    debugPrint(
-                                      '[Import] Auto-synced to $budgetsUpdated budgets',
-                                    );
-                                  } catch (e) {
-                                    debugPrint(
-                                      '[Import] Budget sync error (non-critical): $e',
-                                    );
-                                    // Sync is best-effort, don't block
-                                  }
+                              // Run heavy background work AFTER dialog is closed
+                              if (savedCount > 0 &&
+                                  savedTransactions.isNotEmpty) {
+                                // Budget sync (fire and forget)
+                                dataService
+                                    .autoCategorizeAndSyncBudgets(
+                                      userId: userId,
+                                      transactions: savedTransactions,
+                                    )
+                                    .then((syncResult) {
+                                  final budgetsUpdated =
+                                      syncResult['categories_synced'] ?? 0;
+                                  debugPrint(
+                                    '[Import] Auto-synced to $budgetsUpdated budgets',
+                                  );
+                                }).catchError((e) {
+                                  debugPrint(
+                                    '[Import] Budget sync error (non-critical): $e',
+                                  );
+                                });
 
-                                  // Trigger analysis snapshot after import
+                                // Analysis snapshot (fire and forget)
+                                () async {
                                   try {
                                     final dashData = await dataService
-                                        .getDashboard(widget.userId);
+                                        .getDashboard(userId);
                                     final healthScore = await dataService
-                                        .getHealthScore(widget.userId);
+                                        .getHealthScore(userId);
 
                                     if (dashData != null) {
-                                      final snapshotResult = await dataService
+                                      await dataService
                                           .saveAnalysisSnapshot(
-                                            userId: widget.userId,
+                                            userId: userId,
                                             totalIncome: dashData.totalIncome,
                                             totalExpense: dashData.totalExpense,
                                             savingsRate: dashData.savingsRate,
@@ -683,59 +756,13 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                                       debugPrint(
                                         '[Import] Analysis snapshot triggered',
                                       );
-
-                                      // Check for new milestones
-                                      final newMilestones =
-                                          List<Map<String, dynamic>>.from(
-                                            snapshotResult['newly_achieved_milestones'] ??
-                                                [],
-                                          );
-                                      if (newMilestones.isNotEmpty && mounted) {
-                                        for (final m in newMilestones) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                '🎉 ${m['name']} unlocked! +${m['xp_reward']} XP',
-                                              ),
-                                              backgroundColor: const Color(
-                                                0xFF4CAF50,
-                                              ),
-                                              duration: const Duration(
-                                                seconds: 3,
-                                              ),
-                                            ),
-                                          );
-                                          await Future.delayed(
-                                            const Duration(milliseconds: 500),
-                                          );
-                                        }
-                                      }
                                     }
                                   } catch (e) {
                                     debugPrint(
                                       '[Import] Analysis snapshot error (non-critical): $e',
                                     );
                                   }
-                                }
-
-                                Navigator.of(context).pop(true);
-
-                                // Show success message with budget sync details
-                                String message =
-                                    '✅ Saved $savedCount transaction(s)';
-                                if (savedCount > 0) {
-                                  message += ' & synced to budgets';
-                                }
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(message),
-                                    backgroundColor: Colors.green,
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
+                                }();
                               }
                             },
                       icon: _isLoading
