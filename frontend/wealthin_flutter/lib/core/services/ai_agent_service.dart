@@ -12,6 +12,7 @@ class AIAgentService {
   AIAgentService._internal();
 
   bool _initialized = false;
+  bool _keysInjected = false;
 
   /// Initialize the AI Agent Service
   Future<void> initialize({
@@ -22,15 +23,53 @@ class AIAgentService {
     _initialized = true;
     
     // Inject Secrets into Python Brain (Android Only)
-    if (defaultTargetPlatform == TargetPlatform.android) {
-       await pythonBridge.setConfig({
-         'sarvam_api_key': AppSecrets.sarvamApiKey,
-         'gov_msme_api_key': AppSecrets.govMsmeApiKey,
-         'groq_api_key': AppSecrets.groqApiKey,
-       });
-    }
+    await _injectApiKeys();
     
     debugPrint('[AIAgentService] Initialized (Hybrid Mode)');
+  }
+
+  /// Inject API keys into the Python bridge.
+  /// Uses ASYNC getters to ensure keys are loaded from secure storage.
+  /// Can be called multiple times — will only inject if not already done.
+  Future<void> _injectApiKeys({bool force = false}) async {
+    if (_keysInjected && !force) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+
+    try {
+      // Use async getters — they wait for secure storage to be ready
+      final sarvamKey = await AppSecrets.getSarvamApiKeyAsync();
+      final govMsmeKey = await AppSecrets.getGovMsmeApiKeyAsync();
+      final groqKey = await AppSecrets.getGroqApiKeyAsync();
+
+      debugPrint('[AIAgentService] Key status: '
+          'Groq=${groqKey.isNotEmpty ? "✓" : "✗"}, '
+          'Sarvam=${sarvamKey.isNotEmpty ? "✓" : "✗"}, '
+          'GovMSME=${govMsmeKey.isNotEmpty ? "✓" : "✗"}');
+
+      if (groqKey.isEmpty && sarvamKey.isEmpty) {
+        debugPrint('[AIAgentService] ⚠ No AI API keys configured!');
+        return; // Don't mark as injected so we retry next time
+      }
+
+      await pythonBridge.setConfig({
+        'sarvam_api_key': sarvamKey,
+        'gov_msme_api_key': govMsmeKey,
+        'groq_api_key': groqKey,
+      });
+
+      _keysInjected = true;
+      pythonBridge.markConfigured();
+      debugPrint('[AIAgentService] ✓ API keys injected into Python bridge');
+    } catch (e) {
+      debugPrint('[AIAgentService] ⚠ Key injection failed: $e');
+      // Don't mark as injected so we retry next time
+    }
+  }
+
+  /// Force re-inject API keys (call after user updates keys in Settings)
+  Future<void> reinjectKeys() async {
+    _keysInjected = false;
+    await _injectApiKeys(force: true);
   }
 
   /// Main chat method - routes to Python Bridge
@@ -41,6 +80,8 @@ class AIAgentService {
     required String userId,
   }) async {
     if (!_initialized) await initialize();
+    // Ensure keys are injected (handles race conditions during startup)
+    if (!_keysInjected) await _injectApiKeys();
 
     try {
       // route to Python Brain

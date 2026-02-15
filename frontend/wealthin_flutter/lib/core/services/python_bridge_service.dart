@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../config/secrets.dart';
 
 /// System Health Status for Python Engine
 enum SystemHealthStatus {
@@ -38,6 +39,39 @@ class PythonBridgeService {
 
   // Lightweight in-memory fallback for Mudra drafts in Android-only mode.
   final Map<String, List<Map<String, dynamic>>> _mudraCache = {};
+
+  bool _configured = false;
+
+  /// Ensure API keys are injected into Python before making LLM calls.
+  /// This is a safety net for callers that bypass AIAgentService.
+  Future<void> ensureConfigured() async {
+    if (_configured || !_isAndroid) return;
+    try {
+      final sarvamKey = await AppSecrets.getSarvamApiKeyAsync();
+      final govMsmeKey = await AppSecrets.getGovMsmeApiKeyAsync();
+      final groqKey = await AppSecrets.getGroqApiKeyAsync();
+
+      if (groqKey.isEmpty && sarvamKey.isEmpty) {
+        debugPrint('[PythonBridge] ⚠ No AI API keys available to inject');
+        return;
+      }
+
+      await setConfig({
+        'sarvam_api_key': sarvamKey,
+        'gov_msme_api_key': govMsmeKey,
+        'groq_api_key': groqKey,
+      });
+      _configured = true;
+    } catch (e) {
+      debugPrint('[PythonBridge] ensureConfigured error: $e');
+    }
+  }
+
+  /// Mark as configured (called by AIAgentService after successful injection)
+  void markConfigured() => _configured = true;
+
+  /// Reset configured flag (call when keys change)
+  void resetConfigured() => _configured = false;
 
   Future<Map<String, dynamic>> _callPython(
     String function,
@@ -100,10 +134,23 @@ class PythonBridgeService {
   }
 
   Future<void> setConfig(Map<String, String> config) async {
+    // Log which keys are being sent (lengths only — never log actual values)
+    final keyStatus = config.entries.map((e) => 
+      '${e.key}=${e.value.isNotEmpty ? "✓(${e.value.length})" : "✗empty"}'
+    ).join(', ');
+    debugPrint('[PythonBridge] setConfig sending: $keyStatus');
+    
     final result = await _callPython('set_config', {
       'config_json': jsonEncode(config),
     });
-    debugPrint('[PythonBridge] setConfig result: $result');
+    
+    final success = result['success'] == true;
+    final providers = result['providers'];
+    debugPrint('[PythonBridge] setConfig result: success=$success, providers=$providers');
+    
+    if (!success) {
+      debugPrint('[PythonBridge] ⚠ setConfig FAILED: ${result['error']}');
+    }
   }
 
   Future<Map<String, dynamic>> sendChatMessage({
@@ -242,6 +289,9 @@ class PythonBridgeService {
     Map<String, dynamic>? userContext,
     String? userId,
   }) async {
+    // Ensure API keys are available before calling LLM
+    await ensureConfigured();
+
     final result = await _callPython('chat_with_llm', {
       'query': query,
       'conversation_history': conversationHistory ?? [],
@@ -494,6 +544,9 @@ class PythonBridgeService {
     String monthlyTrend = 'No trend data available',
   }) async {
     try {
+      // Ensure API keys are available before calling AI analysis
+      await ensureConfigured();
+
       final dataJson = jsonEncode({
         'income': income,
         'expenses': expenses,

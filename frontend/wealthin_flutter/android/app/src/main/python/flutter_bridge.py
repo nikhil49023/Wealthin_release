@@ -42,6 +42,7 @@ def set_config(config_json: str) -> str:
     global _sarvam_api_key, _groq_api_key, _gov_msme_api_key, _zoho_creds
     try:
         config = json.loads(config_json)
+        
         if "sarvam_api_key" in config and config["sarvam_api_key"]:
             _sarvam_api_key = config["sarvam_api_key"]
 
@@ -53,9 +54,24 @@ def set_config(config_json: str) -> str:
             
         if "zoho_creds" in config:
             _zoho_creds.update(config["zoho_creds"])
+        
+        # Diagnostic logging (key lengths only, never values)
+        print(f"[set_config] Keys configured:")
+        print(f"  Groq: {'✓ ' + str(len(_groq_api_key)) + ' chars' if _groq_api_key else '✗ MISSING'}")
+        print(f"  Sarvam: {'✓ ' + str(len(_sarvam_api_key)) + ' chars' if _sarvam_api_key else '✗ MISSING'}")
+        print(f"  GovMSME: {'✓ ' + str(len(_gov_msme_api_key)) + ' chars' if _gov_msme_api_key else '✗ MISSING'}")
+        
+        configured_providers = []
+        if _groq_api_key: configured_providers.append("Groq")
+        if _sarvam_api_key: configured_providers.append("Sarvam")
+        if not configured_providers:
+            print(f"[set_config] ⚠ WARNING: No AI providers configured! Chat/Analysis will fail.")
+        else:
+            print(f"[set_config] Active AI providers: {', '.join(configured_providers)}")
             
-        return json.dumps({"success": True, "message": "Configuration updated"})
+        return json.dumps({"success": True, "message": "Configuration updated", "providers": configured_providers})
     except Exception as e:
+        print(f"[set_config] ERROR: {e}")
         return json.dumps({"success": False, "error": str(e)})
 
 
@@ -3489,71 +3505,107 @@ def _parse_receipt_from_ocr(ocr_text: str, file_path: str) -> str:
 
 
 def _call_groq_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[Dict[str, Any]]:
-    """Call Groq LLM (OpenAI-compatible) and return message content.
-    Uses openai/gpt-oss-20b model on Groq's ultra-fast LPU inference.
+    """Call Groq LLM (OpenAI-compatible) with model fallback chain.
+    Tries multiple models in order: openai/gpt-oss-20b → llama-3.3-70b-versatile
+    → llama-3.1-8b-instant → mixtral-8x7b-32768
     """
-    try:
-        api_url = "https://api.groq.com/openai/v1/chat/completions"
-        request_body = {
-            "model": "openai/gpt-oss-20b",
-            "messages": messages,
-            "temperature": 0.3,
-            "max_tokens": 4096,
-        }
-        
-        data = json.dumps(request_body).encode('utf-8')
-        req = urllib.request.Request(
-            api_url,
-            data=data,
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {api_key}',
-                'User-Agent': 'WealthIn/1.0 (Android; Chaquopy)'
-            },
-            method='POST'
-        )
-        
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        
-        with urllib.request.urlopen(req, timeout=30, context=context) as response:
-            resp_body = response.read().decode('utf-8')
-            response_data = json.loads(resp_body)
-        
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            content = response_data['choices'][0]['message'].get('content', '')
-            print(f"[Groq] Response received ({len(content)} chars)")
-            return {"content": content}
-        
-        print(f"[Groq] No choices in response: {json.dumps(response_data)[:200]}")
-        return None
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8', errors='replace')[:500]
-        print(f"[Groq] HTTP Error {e.code}: {error_body}")
-        
-        # Handle tool_use_failed: the model tried native tool calling
-        # Extract the tool call from the error's failed_generation field
-        if e.code == 400 and 'tool_use_failed' in error_body:
-            try:
-                error_data = json.loads(error_body)
-                failed_gen = error_data.get('error', {}).get('failed_generation', '')
-                if failed_gen:
-                    print(f"[Groq] Recovered tool call from failed_generation: {failed_gen[:200]}")
-                    # Wrap in tool_call format that our ReAct parser expects
-                    try:
-                        tool_data = json.loads(failed_gen)
-                        tool_call_json = json.dumps({"tool_call": tool_data})
-                        return {"content": f"```json\n{tool_call_json}\n```"}
-                    except json.JSONDecodeError:
-                        return {"content": failed_gen}
-            except Exception as parse_err:
-                print(f"[Groq] Failed to parse error body: {parse_err}")
-        
-        return None
-    except Exception as e:
-        print(f"[Groq] LLM call error: {e}")
-        return None
+    import time
+    
+    # Model fallback chain — if primary fails (rate limit, unavailable), try next
+    MODELS = [
+        "openai/gpt-oss-20b",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768",
+    ]
+    
+    api_url = "https://api.groq.com/openai/v1/chat/completions"
+    last_error = None
+    
+    for model in MODELS:
+        try:
+            print(f"[Groq] Trying model: {model}")
+            request_body = {
+                "model": model,
+                "messages": messages,
+                "temperature": 0.3,
+                "max_tokens": 4096,
+            }
+            
+            data = json.dumps(request_body).encode('utf-8')
+            req = urllib.request.Request(
+                api_url,
+                data=data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {api_key}',
+                    'User-Agent': 'WealthIn/1.0 (Android; Chaquopy)'
+                },
+                method='POST'
+            )
+            
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            
+            with urllib.request.urlopen(req, timeout=45, context=context) as response:
+                resp_body = response.read().decode('utf-8')
+                response_data = json.loads(resp_body)
+            
+            if 'choices' in response_data and len(response_data['choices']) > 0:
+                content = response_data['choices'][0]['message'].get('content', '')
+                print(f"[Groq] Response received from {model} ({len(content)} chars)")
+                return {"content": content, "model": model}
+            
+            print(f"[Groq] No choices from {model}: {json.dumps(response_data)[:200]}")
+            continue  # Try next model
+            
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8', errors='replace')[:500]
+            print(f"[Groq] HTTP Error {e.code} for {model}: {error_body}")
+            last_error = f"HTTP {e.code}: {error_body[:100]}"
+            
+            # Handle tool_use_failed: the model tried native tool calling
+            # Extract the tool call from the error's failed_generation field
+            if e.code == 400 and 'tool_use_failed' in error_body:
+                try:
+                    error_data = json.loads(error_body)
+                    failed_gen = error_data.get('error', {}).get('failed_generation', '')
+                    if failed_gen:
+                        print(f"[Groq] Recovered tool call from failed_generation: {failed_gen[:200]}")
+                        try:
+                            tool_data = json.loads(failed_gen)
+                            tool_call_json = json.dumps({"tool_call": tool_data})
+                            return {"content": f"```json\n{tool_call_json}\n```", "model": model}
+                        except json.JSONDecodeError:
+                            return {"content": failed_gen, "model": model}
+                except Exception as parse_err:
+                    print(f"[Groq] Failed to parse error body: {parse_err}")
+            
+            # Rate limit (429) or server error (5xx) → wait briefly, try next model
+            if e.code == 429:
+                print(f"[Groq] Rate limited on {model}, waiting 2s before trying next model")
+                time.sleep(2)
+                continue
+            elif e.code >= 500:
+                print(f"[Groq] Server error on {model}, trying next model")
+                continue
+            elif e.code == 400:
+                # Bad request but not tool_use — could be model-specific issue, try next
+                print(f"[Groq] Bad request on {model}, trying next model")
+                continue
+            else:
+                # 401 (auth), 403 (forbidden) etc — don't retry, key issue
+                print(f"[Groq] Auth/permission error {e.code}, stopping retries")
+                return None
+                
+        except Exception as e:
+            print(f"[Groq] Error with {model}: {e}")
+            last_error = str(e)
+            continue  # Try next model
+    
+    print(f"[Groq] All models failed. Last error: {last_error}")
+    return None
 
 
 def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[Dict[str, Any]]:
@@ -3567,11 +3619,13 @@ def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[D
                     model="sarvam-m",
                     messages=messages
                 )
-                return {"content": res.choices[0].message.content}
+                print(f"[Sarvam] SDK response received")
+                return {"content": res.choices[0].message.content, "model": "sarvam-m"}
             except Exception as sdk_e:
-                print(f"[ReAct] SDK error: {sdk_e}, trying urllib")
+                print(f"[Sarvam] SDK error: {sdk_e}, trying urllib")
         
         # urllib fallback
+        print(f"[Sarvam] Calling via urllib (key length: {len(api_key)})")
         api_url = "https://api.sarvam.ai/v1/chat/completions"
         request_body = {
             "model": "sarvam-m",
@@ -3602,11 +3656,18 @@ def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[D
             response_data = json.loads(resp_body)
         
         if 'choices' in response_data and len(response_data['choices']) > 0:
-            return {"content": response_data['choices'][0]['message'].get('content', '')}
+            content = response_data['choices'][0]['message'].get('content', '')
+            print(f"[Sarvam] Response received ({len(content)} chars)")
+            return {"content": content, "model": "sarvam-m"}
         
+        print(f"[Sarvam] No choices in response: {json.dumps(response_data)[:200]}")
+        return None
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8', errors='replace')[:500]
+        print(f"[Sarvam] HTTP Error {e.code}: {error_body}")
         return None
     except Exception as e:
-        print(f"[ReAct] LLM call error: {e}")
+        print(f"[Sarvam] LLM call error: {type(e).__name__}: {e}")
         return None
 
 
