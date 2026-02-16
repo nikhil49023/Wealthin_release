@@ -42,18 +42,18 @@ class _ChatScreenState extends State<ChatScreen> {
   void _addWelcomeMessage() {
     _sessionMessages.add(
       ChatMessage(
-        text: """**Welcome to Business Planner 🏢**
+        text: """**Welcome to WealthIn AI Advisor 💰**
 
-I'm your AI business financial planning assistant — built for Indian MSMEs & entrepreneurs.
+I'm your personal AI financial planner — helping you build wealth, track spending, and grow your money smartly.
 
 I can help you:
-• **Draft a DPR** — section by section, bank-ready format
-• **Check Govt Schemes** — PMEGP, Mudra, Stand-Up India eligibility
-• **Business Loans** — EMI, DSCR & working capital calculations
-• **GST & Compliance** — rates, filing, invoicing queries
-• **Cashflow & Profitability** — break-even, projections, risk analysis
+• **Track & Optimize Spending** — categorize expenses, find savings
+• **Build Wealth** — investment plans, SIP strategies, goal-based saving
+• **Government Schemes** — PM schemes, subsidies, tax benefits you qualify for
+• **Budgets & Goals** — smart budgets, emergency fund, debt payoff plans
+• **Financial Health** — credit score tips, insurance, tax planning
 
-_Tell me about your business idea or ask about a scheme — let's get started!_""",
+_Tell me your financial goal or ask anything about money — let's grow your wealth!_""",
         isUser: false,
         timestamp: DateTime.now(),
       ),

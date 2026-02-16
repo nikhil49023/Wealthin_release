@@ -20,6 +20,7 @@ class FinanceHubScreen extends StatefulWidget {
 class _FinanceHubScreenState extends State<FinanceHubScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _refreshKey = 0;
 
   final List<_FinanceTab> _tabs = const [
     _FinanceTab(
@@ -99,15 +100,12 @@ class _FinanceHubScreenState extends State<FinanceHubScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          // Transactions tab - embedded without AppBar
-          _TransactionsTabContent(),
-          // Budgets tab - embedded without AppBar
-          _BudgetsTabContent(),
-          // Goals tab - embedded without AppBar
-          _GoalsTabContent(),
-          // Scheduled Payments tab - embedded without AppBar
-          _PaymentsTabContent(),
+        children: [
+          // Key forces rebuild after import
+          _TransactionsTabContent(key: ValueKey('tx_$_refreshKey')),
+          _BudgetsTabContent(key: ValueKey('bud_$_refreshKey')),
+          _GoalsTabContent(key: ValueKey('goal_$_refreshKey')),
+          _PaymentsTabContent(key: ValueKey('pay_$_refreshKey')),
         ],
       ),
       // Floating Action Button for quick import
@@ -125,7 +123,14 @@ class _FinanceHubScreenState extends State<FinanceHubScreen>
     showDialog(
       context: context,
       builder: (context) => ImportTransactionsDialog(userId: userId),
-    );
+    ).then((result) {
+      // Refresh all tabs when transactions are imported
+      if (result == true && mounted) {
+        setState(() {
+          _refreshKey++; // Force tab views to rebuild and reload data
+        });
+      }
+    });
   }
 }
 
@@ -143,7 +148,7 @@ class _FinanceTab {
 
 /// Transactions tab content (without its own AppBar)
 class _TransactionsTabContent extends StatelessWidget {
-  const _TransactionsTabContent();
+  const _TransactionsTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +159,7 @@ class _TransactionsTabContent extends StatelessWidget {
 
 /// Budgets tab content (without its own AppBar)
 class _BudgetsTabContent extends StatelessWidget {
-  const _BudgetsTabContent();
+  const _BudgetsTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +169,7 @@ class _BudgetsTabContent extends StatelessWidget {
 
 /// Goals tab content (without its own AppBar)
 class _GoalsTabContent extends StatelessWidget {
-  const _GoalsTabContent();
+  const _GoalsTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +179,7 @@ class _GoalsTabContent extends StatelessWidget {
 
 /// Payments tab content (without its own AppBar)
 class _PaymentsTabContent extends StatelessWidget {
-  const _PaymentsTabContent();
+  const _PaymentsTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {

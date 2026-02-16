@@ -449,10 +449,10 @@ class PythonBridgeService {
         'cluster': 'Industrial Estate',
         'city': city,
         'state': state,
-        'focus': bt.isEmpty ? 'General MSME' : businessType,
+        'focus': bt.isEmpty ? 'General' : businessType,
       },
       {
-        'cluster': 'District MSME Hub',
+        'cluster': 'District Hub',
         'city': city,
         'state': state,
         'focus': 'Vendor + market linkage',
@@ -468,7 +468,7 @@ class PythonBridgeService {
           'focus': 'Textiles',
         },
         {
-          'cluster': 'Chemical MSME Cluster',
+          'cluster': 'Chemical Cluster',
           'city': 'Vadodara',
           'state': 'Gujarat',
           'focus': 'Chemicals',

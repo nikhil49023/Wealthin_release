@@ -454,7 +454,7 @@ AVAILABLE_TOOLS = [
     },
     {
         "name": "generate_socratic_question",
-        "description": "Generate a Socratic question to guide MSME brainstorming. Uses 6 question types: clarification, probing_assumptions, probing_evidence, viewpoints, implications, meta.",
+        "description": "Generate a Socratic question to guide financial planning brainstorming. Uses 6 question types: clarification, probing_assumptions, probing_evidence, viewpoints, implications, meta.",
         "parameters": {
             "business_idea": "str - The user's business idea or topic",
             "aspect": "str - Specific aspect to focus on",
@@ -466,7 +466,7 @@ AVAILABLE_TOOLS = [
         "name": "start_brainstorming",
         "description": "Start a structured Socratic brainstorming session for DPR preparation.",
         "parameters": {
-            "business_idea": "str - The MSME business idea to explore",
+            "business_idea": "str - The business/financial idea to explore",
             "section": "str - Starting DPR section (default: 'market_analysis')"
         }
     },
@@ -492,7 +492,7 @@ AVAILABLE_TOOLS = [
     },
     {
         "name": "run_scenario_comparison",
-        "description": "Compare optimistic, base, conservative, and worst-case scenarios for MSME projections.",
+        "description": "Compare optimistic, base, conservative, and worst-case scenarios for financial projections.",
         "parameters": {
             "base_revenue": "float - Annual revenue in INR",
             "base_costs": "float - Annual operating costs in INR",
@@ -514,7 +514,7 @@ AVAILABLE_TOOLS = [
     },
     {
         "name": "generate_dpr",
-        "description": "Generate a complete Detailed Project Report (DPR) in standardized banking format for MSME loan applications.",
+        "description": "Generate a complete Detailed Project Report (DPR) in standardized banking format for loan applications and financial planning.",
         "parameters": {
             "project_data": "dict - Project data with sections: executive_summary, promoter_profile, market_analysis, financial_projections, cost_of_project, profitability, compliance"
         }
@@ -526,7 +526,7 @@ AVAILABLE_TOOLS = [
     },
     {
         "name": "search_msme_directory",
-        "description": "Search the Government of India UDYAM MSME directory for registered enterprises by State and District. Returns enterprise name, address, activities/services, pincode and registration date. Use this when user asks about local businesses, vendors, service providers, or registered MSMEs in a specific area.",
+        "description": "Search the Government of India UDYAM enterprise directory for registered businesses by State and District. Returns enterprise name, address, activities/services, pincode and registration date. Use this when user asks about local businesses, vendors, service providers, or registered enterprises in a specific area.",
         "parameters": {
             "state": "str - Indian state name in UPPERCASE (e.g., 'MAHARASHTRA', 'KARNATAKA', 'TAMIL NADU')",
             "district": "str - District name in UPPERCASE (e.g., 'PUNE', 'BANGALORE', 'CHENNAI')",
@@ -620,7 +620,7 @@ def execute_tool(tool_name: str, args_json: str) -> str:
             "create_scheduled_payment": prepare_create_scheduled_payment,
             # Pattern Analysis Tools
             "detect_subscriptions": detect_subscriptions,
-            # MSME Compliance & Financial Tools
+            # Government Compliance & Financial Tools
             "check_pmegp_eligibility": check_pmegp_eligibility,
             "check_standup_india_eligibility": check_standup_india_eligibility,
             "calculate_dscr": calculate_dscr,
@@ -636,7 +636,7 @@ def execute_tool(tool_name: str, args_json: str) -> str:
             # DPR Generator Tools
             "generate_dpr": generate_dpr,
             "get_dpr_template": get_dpr_template,
-            # Government MSME Directory
+            # Government Enterprise Directory
             "search_msme_directory": search_msme_directory,
             # Supply Chain Optimization Tools
             "search_local_vendors": search_local_vendors,
@@ -1679,7 +1679,7 @@ def generate_dpr(project_data: Dict[str, Any]) -> str:
     # A section is LOCKED if any required field is missing/empty/zero
     section_schema = [
         ("executive_summary", "1. Executive Summary", [
-            "business_name", "nature_of_business", "msme_category",
+            "business_name", "nature_of_business", "enterprise_category",
             "project_cost", "loan_required",
         ]),
         ("promoter_profile", "2. Promoter Profile & Background", [
@@ -1738,7 +1738,7 @@ def generate_dpr(project_data: Dict[str, Any]) -> str:
         "metadata": {
             "generated_on": datetime.now().isoformat(),
             "version": "1.0",
-            "format": "Standardized Banking Format (MSME)",
+            "format": "Standardized Banking Format",
         },
         "unlocked_sections": [],
         "section_status": [],
@@ -1816,7 +1816,7 @@ def get_dpr_template() -> str:
     """
     template = {
         "executive_summary": {
-            "business_name*": "", "nature_of_business*": "", "msme_category*": "Micro/Small/Medium",
+            "business_name*": "", "nature_of_business*": "", "enterprise_category*": "Micro/Small/Medium/Personal",
             "project_cost*": 0, "loan_required*": 0,
             "promoter_contribution": 0, "expected_employment": 0,
             "projected_revenue_year1": 0,
@@ -1860,7 +1860,7 @@ def get_dpr_template() -> str:
         "compliance": {
             "udyam_registration*": "", "gst_registration*": "",
             "trade_license": "", "pollution_noc": "",
-            "msme_schemes": ["PMEGP", "Stand-Up India", "Mudra", "ZED"],
+            "applicable_schemes": ["PMEGP", "Stand-Up India", "Mudra", "ZED", "PM Vishwakarma"],
         },
     }
     
@@ -3130,7 +3130,7 @@ def chat_with_llm(
     """
     # === Deserialize JSON strings from Kotlin bridge ===
     # Kotlin passes conversation_history as JSON string (e.g., '[{"role":"user","content":"hi"}]')
-    # and user_context as JSON string (e.g., '{"mode":"msme_copilot"}')
+    # and user_context as JSON string (e.g., '{"mode":"wealth_planner"}')
     if isinstance(conversation_history, str):
         try:
             conversation_history = json.loads(conversation_history)
@@ -3236,22 +3236,22 @@ def chat_with_llm(
         # Detect if this is a brainstorm/Ideas mode call
         is_brainstorm = False
         if user_context and user_context.get('mode') in (
-            'msme_copilot', 'strategic_planner', 'financial_architect',
+            'wealth_planner', 'msme_copilot', 'strategic_planner', 'financial_architect',
             'execution_coach', 'market_research', 'financial_planner',
         ):
             is_brainstorm = True
         
         if is_brainstorm:
             # For Ideas/Brainstorm mode: the query already contains the full
-            # MSME Copilot system prompt with detailed instructions.
+            # Wealth Planner system prompt with detailed instructions.
             # Don't override it with the generic short-response ReAct prompt.
             tool_list = "\n".join([f"- **{t['name']}**: {t['description']}" for t in AVAILABLE_TOOLS])
-            brainstorm_system = f"""You are WealthIn MSME Copilot — a friendly, patient, and deeply knowledgeable business mentor for Indian founders, especially first-time entrepreneurs.
+            brainstorm_system = f"""You are WealthIn — a friendly, patient, and deeply knowledgeable personal finance mentor for all Indians, helping them build wealth, save smartly, and achieve financial freedom.
 
 ## YOUR PERSONALITY
-- Be a supportive mentor — explain things simply for first-time founders
-- When you use a technical term, ALWAYS explain it: "DPR (Detailed Project Report — a document banks need to give you a loan)"
-- Be warm, encouraging, and practical — like a mentor over chai ☕
+- Be a supportive financial mentor — explain things simply for everyone
+- When you use a technical term, ALWAYS explain it: "SIP (Systematic Investment Plan — a way to invest a fixed amount every month automatically)"
+- Be warm, encouraging, and practical — like a financially savvy friend over chai ☕
 
 ## AVAILABLE TOOLS
 {tool_list}
@@ -3307,9 +3307,9 @@ When comparing options, use blockquote cards:
 
 ### ✅ USE KEY METRICS IN BOLD:
 When sharing numbers, highlight them:
-• **Investment needed**: ₹5,00,000
-• **Break-even**: 8 months
-• **Expected monthly revenue**: ₹1,50,000
+• **Monthly savings target**: ₹10,000
+• **Expected returns (12% SIP)**: ₹18,00,000 in 10 years
+• **Emergency fund goal**: ₹3,00,000
 
 ### RESPONSE STRUCTURE:
 Every response should have:
@@ -3318,7 +3318,7 @@ Every response should have:
 3. **🎯 Next Steps** — 2-3 actionable follow-ups
 
 ### TONE RULES:
-- Explain ALL jargon: "DSCR (Debt Service Coverage Ratio — shows if your business earns enough to repay loans)"
+- Explain ALL jargon: "CAGR (Compound Annual Growth Rate — shows how much your investment grows each year on average)"
 - Use ₹ for amounts, Indian context always
 - Keep each step to max 2 sentences
 - Be encouraging: "Great question!", "You're on the right track!"
@@ -3341,7 +3341,7 @@ When the user mentions supply chain, vendors, raw materials, or logistics:
    > • Services: what they offer
    > • 📍 Address, PIN code
    > • 📞 Contact number
-   > • Category: MSME type | GST status
+   > • Category: Enterprise type | GST status
 5. Ask: "Would you like to add these vendors to your DPR or refine the search?"
 6. If API fails, say: "Couldn't fetch vendor data from data.gov.in. Would you like to manually enter vendor details?"
 
@@ -4151,11 +4151,11 @@ def _build_react_system_prompt(user_context: Dict[str, Any] = None) -> str:
     # Expose ALL tools for ReAct (not just the essentials)
     tool_list = "\n".join([f"- **{t['name']}**: {t['description']}" for t in AVAILABLE_TOOLS])
     
-    prompt = f"""You are WealthIn AI — a smart, agentic financial advisor for Indian users, specializing in MSME and personal finance.
+    prompt = f"""You are WealthIn AI — a smart, agentic financial advisor for Indian users, specializing in personal finance and wealth creation.
 
 ## CORE CAPABILITIES
 ✅ DPR (Detailed Project Report) drafting — section by section
-✅ MSME/MUDRA/PMEGP/Stand-Up India scheme eligibility
+✅ Government scheme eligibility (MUDRA/PMEGP/Stand-Up India/PM Vishwakarma)
 ✅ Business & personal loan calculations (EMI, SIP, FD, DSCR)
 ✅ GST rates, compliance, invoicing queries
 ✅ Web search for live data (prices, rates, news, schemes)
@@ -4206,7 +4206,7 @@ When you need to use a tool, respond with ONLY this JSON block and NOTHING else:
 3. **Calculate SIP/EMI/FD** → `calculate_sip`, `calculate_emi`, etc.
 4. **Budget/goal/transaction** → `create_budget`, `create_savings_goal`, `add_transaction`
 5. **DPR creation** → `generate_dpr`
-6. **MSME lookup** → `search_msme_directory`
+6. **Enterprise lookup** → `search_msme_directory`
 7. **Local vendor sourcing** → `search_local_vendors` (uses data.gov.in UDYAM API)
 8. **Supply chain data (logistics/warehousing)** → `search_supply_chain_data`
 
@@ -4233,7 +4233,7 @@ Ask targeted questions:
 
 ### Phase 2: Data Collection (Section-by-Section)
 Collect data step-by-step. Each section stays 🔒 LOCKED until all required fields are filled.
-- Section 1: Executive Summary → business name, nature, MSME category, project cost, loan
+- Section 1: Executive Summary → business name, nature, enterprise category, project cost, loan
 - Section 2: Promoter Profile → name, qualification, experience, Udyam, PAN
 - Section 3: Market Analysis → product, target market, competitive advantage, pricing
 - Section 4: Technical Aspects → process, raw materials, capacity, manpower

@@ -1,44 +1,42 @@
-# WealthIn v2.3.0 - Premium UI & Stability Release
+# WealthIn v2.4.0 — Wealth Creation Rebrand & DPR Fix
 
-## 🎨 Premium Ideas (Brainstorm) Rendering
-- **Ported AI Advisor's rich rendering engine to Ideas section** — Responses now display with the same premium formatting as the AI Advisor chat
-- **Gradient section headers with contextual icons** — Headers like "Investment Plan", "Tax Benefits", "Risk Analysis" now show relevant icons (📈, 🏛️, ⚠️) with gradient-accented backgrounds
-- **Visual timeline roadmaps** — Numbered steps render as connected timeline cards with gradient step circles
-- **Emerald dot bullet points** — Clean, themed bullet points instead of plain markdown dashes
-- **Tip/callout boxes** — Lines starting with 💡 or "Tip:" render as warm highlighted callout cards
-- **Key metric highlight cards** — Lines with ₹ amounts and scores render as gradient-accented metric cards
-- **Inline bold/italic parsing** — `**bold**` and `_italic_` render as proper styled text (no raw asterisks)
-- **Response sanitization** — Removes "Final Answer:", code blocks, and formatting artifacts for cleaner output
-- **Smooth fade+slide animations** — AI messages fade in with subtle slide, user messages slide from right
+## 🏷️ Full App Rebrand — Wealth Creation & Financial Planner
+- **Splash screen tagline** updated from "MSME Finance Copilot" → "Wealth Creation & Financial Planner"
+- **AI Advisor welcome** rewritten from MSME business focus → personal finance, wealth building, investment, budgeting, and government schemes
+- **Ideas (Brainstorm) modes** — "MSME Copilot" → "Wealth Planner" with updated descriptions, starter prompts, and encouragement facts
+- **Personas** rebranded — "Strategy Consultant" → "Wealth Advisor", "Critical Investor" → "Risk Analyst", "Financial Analyst" → "Investment Analyst"
+- **System prompts** — AI now positions as a personal finance mentor for all Indians, covering SIPs, mutual funds, PPF, NPS, tax planning, insurance, goal-based saving
+- **Starter prompts** shifted from MSME/DPR/loan focused → savings plans, investment options, home buying, emergency funds
+- **Facts/encouragement** — MSME stats replaced with wealth creation & financial literacy facts
+- **Badge labels** — "Copilot" → "WealthIn", "MSME" → "Gov"
+- **Government services** — generalized "MSME" references to broader "Government Services"
+- **API key naming** — "GOV_MSME_API_KEY" → "GOV_API_KEY"
 
-## 🐛 Import Dialog Fix — No More Double Saves
-- **Added `_isSaving` guard** — Prevents accidental double-tap on the save button from creating duplicate transactions
-- **Instant dialog close** — Dialog now closes immediately after saving to database, eliminating the "is it working?" feeling
-- **Background budget sync** — Budget auto-categorization, analysis snapshots, and milestone checks now run in the background AFTER the dialog closes
-- **Fixed Navigator crash** — Captured `Navigator.of(context)` and `ScaffoldMessenger.of(context)` before async gaps to prevent `Null check operator used on a null value` crashes
+## 🔧 DPR (Detailed Project Report) Flow Fixes
+- **Clipboard copy fixed** — DPR editor's "Copy all text" button now actually copies to clipboard (was only showing snackbar)
+- **Fallback template** — When Python bridge fails, DPR now shows a complete 10-section editable template instead of empty document
+- **Tool description** updated — DPR generation now described for "loan applications and financial planning" (not MSME-only)
+- **Section schema** — `msme_category` → `enterprise_category`, `msme_schemes` → `applicable_schemes`
 
-## 🔧 Code Quality
-- Removed unused `flutter_markdown` import from brainstorm screen
-- Removed dead `_buildMarkdownWidget` fallback method
-- Fixed double table-conversion (tables were being converted twice in brainstorm)
-- Persona labels now render with icon backgrounds and better typography
+## 📊 Finance Hub — Auto-refresh After Import
+- **Tab refresh on import** — Finance Hub tabs now auto-refresh after importing transactions via the import dialog
+- **ValueKey pattern** — Used `_refreshKey` counter with `ValueKey` to force tab widget rebuild
+- **Added `super.key`** to all tab content widgets for proper key propagation
 
-## Previous: v2.2.2 - AI Engine Reliability Fix
+## 🐍 Python Bridge Updates
+- Mode detection updated to include `wealth_planner` alongside legacy `msme_copilot`
+- Brainstorm system prompt rebranded to personal finance mentor
+- Response formatting examples use savings/SIP/emergency fund metrics instead of business revenue/break-even
+- DPR workflow instructions kept intact but rebranded
 
-### AI API Key Configuration
-- Fixed missing Sarvam AI key
-- Fixed API key race condition
-- Fixed 13+ code paths bypassing key injection
+## Previous: v2.3.0 — Premium UI & Stability Release
 
-### AI Model Resilience
-- Added Groq model fallback chain
-- Added 2-second retry delay on 429 rate limits
-- Increased Groq API timeout from 30s to 45s
+### Premium Ideas Rendering
+- Ported AI Advisor's rich rendering engine to Ideas section
+- Gradient headers, visual timelines, emerald bullets, tip boxes, metric cards
+- Smooth fade+slide animations
 
-### Sarvam AI Integration
-- Fixed Sarvam urllib fallback with improved error logging
-
-### Architecture Improvements
-- `PythonBridgeService.ensureConfigured()` safety net
-- `AIAgentService.reinjectKeys()` for runtime key changes
-- Async key getters with secure storage
+### Import Dialog Fix
+- `_isSaving` guard prevents double saves
+- Background budget sync after dialog close
+- Fixed Navigator crash on async gaps

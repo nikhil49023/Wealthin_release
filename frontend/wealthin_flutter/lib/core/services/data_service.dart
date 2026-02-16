@@ -3250,7 +3250,7 @@ $emiRecommendation
     required Map<String, dynamic> projectData,
   }) async {
     final mode = _normalizeIdeasMode(
-      projectData['mode']?.toString() ?? 'msme_copilot',
+      projectData['mode']?.toString() ?? 'wealth_planner',
     );
     final businessIdea =
         projectData['business_idea']?.toString() ??
@@ -3300,15 +3300,27 @@ $emiRecommendation
         debugPrint('DPR generation error: $e');
       }
     }
-    // Fallback
+    // Fallback — provide a structural template instead of empty sections
+    final idea = projectData['business_idea']?.toString() ?? 'Business Idea';
     return {
       'success': true,
       'dpr': {
         'metadata': {
-          'completeness_pct': 45.0,
-          'status': 'Draft - Requires More Data',
+          'completeness_pct': 0.0,
+          'status': 'Draft — Fill in details to complete',
         },
-        'sections': [],
+        'sections': [
+          {'title': '1. Executive Summary', 'content': {'business_name': '', 'nature_of_business': idea, 'enterprise_category': '', 'project_cost': '', 'loan_required': ''}},
+          {'title': '2. Promoter Profile', 'content': {'promoter_name': '', 'qualification': '', 'experience_years': '', 'udyam_number': '', 'pan': ''}},
+          {'title': '3. Market Analysis', 'content': {'product_description': idea, 'target_market': '', 'competitive_advantage': '', 'pricing_strategy': ''}},
+          {'title': '4. Technical Aspects', 'content': {'process_description': '', 'raw_materials': '', 'plant_capacity': '', 'manpower_required': ''}},
+          {'title': '5. Supply Chain', 'content': {'vendor_list': '', 'logistics_plan': '', 'cost_comparison': ''}},
+          {'title': '6. Financial Projections', 'content': {'year_1': '', 'year_2': '', 'year_3': ''}},
+          {'title': '7. Cost of Project', 'content': {'total_project_cost': '', 'term_loan': '', 'promoter_contribution': ''}},
+          {'title': '8. Profitability', 'content': {'dscr': '', 'break_even_revenue': '', 'payback_period_years': ''}},
+          {'title': '9. Risk Analysis', 'content': {'key_risks': '', 'mitigation_strategies': ''}},
+          {'title': '10. Compliance', 'content': {'udyam_registration': '', 'gst_registration': '', 'applicable_schemes': ''}},
+        ],
       },
     };
   }
@@ -3317,7 +3329,7 @@ $emiRecommendation
     required String userId,
     required List<Map<String, dynamic>> canvasItems,
     Map<String, dynamic>? userData,
-    String mode = 'msme_copilot',
+    String mode = 'wealth_planner',
     String? businessIdea,
   }) async {
     final normalizedMode = _normalizeIdeasMode(mode);
@@ -3748,7 +3760,8 @@ $emiRecommendation
 
   String _normalizeIdeasMode(String mode) {
     final normalized = mode.trim().toLowerCase();
-    if (normalized == 'msme_copilot' ||
+    if (normalized == 'wealth_planner' ||
+        normalized == 'msme_copilot' ||
         normalized == 'strategic_planner' ||
         normalized == 'financial_architect' ||
         normalized == 'execution_coach' ||
@@ -3757,22 +3770,22 @@ $emiRecommendation
         normalized == 'career_advisor' ||
         normalized == 'investment_analyst' ||
         normalized == 'life_planning') {
-      return 'msme_copilot';
+      return 'wealth_planner';
     }
-    return 'msme_copilot';
+    return 'wealth_planner';
   }
 
   String _brainstormAnalysisModePrompt(String mode) {
     _normalizeIdeasMode(mode);
-    return 'Analysis Mode: MSME Copilot. Combine market validation, financial viability, execution roadmap, and legal/compliance readiness in one clear answer.';
+    return 'Analysis Mode: Wealth Planner. Combine savings optimization, investment strategy, budget planning, government scheme eligibility, and financial goal-setting in one clear answer.';
   }
 
   List<Map<String, dynamic>> _fallbackBrainstormModes() {
     return const [
       {
-        'id': 'msme_copilot',
-        'label': 'MSME Copilot',
-        'description': 'Unified strategy, finance, execution, and compliance guidance.',
+        'id': 'wealth_planner',
+        'label': 'Wealth Planner',
+        'description': 'Smart budgets, investments, savings & financial growth guidance.',
       },
     ];
   }
@@ -3853,7 +3866,7 @@ $emiRecommendation
     List<Map<String, dynamic>>? conversationHistory,
     Map<String, dynamic>? userProfile,
     String persona = 'neutral',
-    String mode = 'msme_copilot',
+    String mode = 'wealth_planner',
     String workflowMode = 'input',
     bool enableWebSearch = true,
     String? userLocation,
@@ -3924,7 +3937,7 @@ $emiRecommendation
         final effectiveLocation = userLocation ?? userProfile?['location']?.toString() ?? '';
         if (effectiveLocation.isNotEmpty) {
           locationCtx.writeln('\n📍 USER LOCATION: $effectiveLocation');
-          locationCtx.writeln('Use this to provide state-wise government MSME data, local supplier recommendations, and competition analysis.');
+          locationCtx.writeln('Use this to provide state-wise government scheme data, local investment options, and financial planning insights.');
           locationCtx.writeln('Search across the ENTIRE state for the best options, not just nearby.');
         }
 
@@ -3935,28 +3948,33 @@ $emiRecommendation
             : '';
 
         final prompt =
-            '''You are WealthIn MSME Copilot — a friendly, patient, and deeply knowledgeable business mentor for Indian founders, especially first-time entrepreneurs.
+            '''You are WealthIn — a friendly, patient, and deeply knowledgeable personal finance mentor for all Indians, helping them build wealth, save smartly, and achieve financial freedom.
 
 ## YOUR PERSONALITY
-- Think of yourself as a supportive elder brother/sister who has built businesses in India
-- You explain things simply — assume the user may be a first-time founder who doesn't know business jargon
-- When you use a technical term, ALWAYS explain it in simple words in parentheses. Example: "DPR (Detailed Project Report — a document banks need to give you a loan)"
-- Be warm, encouraging, and practical. Many users may feel intimidated by business planning — make them feel confident.
+- Think of yourself as a supportive elder brother/sister who understands money and wants everyone to grow financially
+- You explain things simply — assume the user may be new to investing, budgeting, or financial planning
+- When you use a technical term, ALWAYS explain it in simple words in parentheses. Example: "SIP (Systematic Investment Plan — a way to invest a fixed amount every month automatically)"
+- Be warm, encouraging, and practical. Many users may feel intimidated by finance — make them feel confident.
 $langInstruction
 
 ## YOUR EXPERTISE
-- **Scheme-Savvy**: PMMY/MUDRA (government gives loans up to ₹10L without guarantee), PMEGP (government pays 15-35% of your project cost!), CGTMSE (no property needed for loans up to ₹5Cr), PM Vishwakarma, NULM, NRLM, MSE-GIFT, GST Sahay
-- **Supply Chain Thinker**: For ANY business idea, walk through: Where to buy raw materials → How to make the product → How to package it → How to deliver it → How to find customers
+- **Savings & Budgeting**: 50-30-20 rule, emergency funds, expense tracking, smart budgets
+- **Investments**: Mutual funds, SIPs, PPF, NPS, FDs, stocks, gold, real estate basics
+- **Government Schemes**: PMMY/MUDRA, PM Vishwakarma, Sukanya Samriddhi, Atal Pension, PM Kisan, Stand-Up India
+- **Tax Planning**: Section 80C/80D, HRA, NPS deductions, tax-saving instruments
+- **Goal Planning**: Home purchase, education fund, retirement, marriage, emergency corpus
+- **Debt Management**: Loan comparison, EMI optimization, debt payoff strategies
+- **Insurance**: Term life, health insurance, why ULIPs are usually bad
 - **State-Wise**: Know what works best in each Indian state
 - **Honest but Encouraging**: Share risks clearly, but always end with what the user CAN do right now
 
 ${_brainstormWorkflowPrompt(normalizedWorkflow)}
 ${_brainstormPersonaPrompt(persona)}
 
-${enableWebSearch ? 'IMPORTANT: Use web_search tool to find real market data, competitor info, government scheme details, or industry statistics relevant to the user\'s idea.' : ''}
+${enableWebSearch ? 'IMPORTANT: Use web_search tool to find real market data, current interest rates, government scheme details, or investment statistics relevant to the user\'s query.' : ''}
 
 ${financialCtx.isNotEmpty ? 'User Financial Context:\n$financialCtx' : ''}
-${locationCtx.isNotEmpty ? '$locationCtx' : 'NOTE: User has not set their location. Ask for their state naturally — it helps you provide real government MSME data.'}
+${locationCtx.isNotEmpty ? '$locationCtx' : 'NOTE: User has not set their location. Ask for their state naturally — it helps you provide state-specific scheme data and local insights.'}
 
 Conversation context:
 ${_formatConversationSnippet(conversationHistory, maxTurns: 10)}
@@ -4058,7 +4076,7 @@ When comparing schemes, loans, or options, use this card format:
   Future<Map<String, dynamic>> reverseBrainstorm({
     required List<String> ideas,
     List<Map<String, dynamic>>? conversationHistory,
-    String mode = 'msme_copilot',
+    String mode = 'wealth_planner',
   }) async {
     final normalizedMode = _normalizeIdeasMode(mode);
 
@@ -4140,7 +4158,7 @@ Return concise markdown with sections:
 
   Future<Map<String, dynamic>> extractCanvasItems({
     required List<Map<String, dynamic>> conversationHistory,
-    String mode = 'msme_copilot',
+    String mode = 'wealth_planner',
   }) async {
     final normalizedMode = _normalizeIdeasMode(mode);
 

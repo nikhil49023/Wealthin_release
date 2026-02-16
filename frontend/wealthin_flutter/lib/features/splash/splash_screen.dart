@@ -170,7 +170,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'MSME Finance Copilot',
+                        'Wealth Creation & Financial Planner',
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: const Color(0xFF6B7280),

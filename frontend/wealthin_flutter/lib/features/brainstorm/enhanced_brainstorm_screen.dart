@@ -32,13 +32,13 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   bool _isLoading = false;
   bool _isCritiqueMode = false;
   String _activeWorkflowMode = 'input';
-  String _activeIdeasMode = 'msme_copilot';
+  String _activeIdeasMode = 'wealth_planner';
   List<Map<String, dynamic>> _ideasModes = const [
     {
-      'id': 'msme_copilot',
-      'label': 'MSME Copilot',
-      'icon': '🧭',
-      'description': 'Unified strategy, finance, execution, and compliance',
+      'id': 'wealth_planner',
+      'label': 'Wealth Planner',
+      'icon': '💰',
+      'description': 'Smart budgets, investments, savings & financial growth',
     },
   ];
   Map<String, dynamic>? _lastVisualization;
@@ -79,22 +79,22 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   // Personas (simplified to 3 essential perspectives)
   final Map<String, Map<String, dynamic>> _personas = {
     'neutral': {
-      'name': 'Strategy Consultant',
-      'icon': Icons.psychology,
+      'name': 'Wealth Advisor',
+      'icon': Icons.auto_awesome,
       'color': Colors.blue,
-      'description': 'Balanced, practical advice',
+      'description': 'Balanced, practical financial advice',
     },
     'cynical_vc': {
-      'name': 'Critical Investor',
-      'icon': Icons.trending_down,
+      'name': 'Risk Analyst',
+      'icon': Icons.shield_outlined,
       'color': Colors.red,
-      'description': 'Find every weakness',
+      'description': 'Find financial risks & gaps',
     },
     'financial_analyst': {
-      'name': 'Financial Analyst',
-      'icon': Icons.calculate,
+      'name': 'Investment Analyst',
+      'icon': Icons.trending_up,
       'color': Colors.green,
-      'description': 'Run the numbers',
+      'description': 'Optimize returns & growth',
     },
   };
 
@@ -120,27 +120,27 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   };
 
   final List<String> _starterPrompts = const [
-    '💡 I have a business idea — help me shape it',
-    '🔍 What funding schemes match my startup?',
-    '🚀 Build me an MVP plan with first-week actions',
-    '📊 Help me prepare a DPR for bank loan',
-    '🧠 Challenge my assumptions — be brutally honest',
-    '🌱 I want to start small — what are my options?',
+    '💰 Help me create a monthly savings plan',
+    '📈 What are the best investment options for me?',
+    '🏠 Plan my finances for buying a home',
+    '📊 Analyze my spending and find savings',
+    '🎯 Build an emergency fund strategy',
+    '🌱 How can I start investing with ₹1,000/month?',
   ];
 
-  // MSME facts shown in empty state for encouragement
+  // Wealth creation facts shown in empty state for encouragement
   static const List<String> _msmeFacts = [
-    '🇮🇳 MSMEs contribute 30% to India\'s GDP and employ 110M+ people',
-    '💰 PMEGP offers up to 35% subsidy on project costs — no collateral!',
-    '📈 78% of successful MSMEs started with a clear DPR before approaching banks',
-    '🌟 CGTMSE covers collateral-free loans up to ₹5 crore for MSMEs',
-    '🏆 India ranks 3rd globally in startup ecosystem — your idea has potential!',
-    '📋 A well-structured DPR increases loan approval chances by 3x',
+    '🇮🇳 India\'s \$5T GDP vision requires 140Cr financially literate citizens — be one!',
+    '💰 Starting a ₹5,000/month SIP at 25 can grow to ₹1 Crore by 50!',
+    '📈 73% of Indians lack basic financial literacy (RBI, 2023) — WealthIn is changing that',
+    '🌟 The Rule of 72: Divide 72 by your return rate to know when your money doubles',
+    '🏆 Even ₹500/month invested consistently beats keeping money in a savings account by 3x',
+    '📋 A solid budget frees up 20-30% more money than you think you have!',
   ];
 
   IconData _modeIcon(String modeId) {
     switch (modeId) {
-      case 'msme_copilot':
+      case 'wealth_planner':
         return Icons.auto_awesome;
       case 'financial_planner':
         return Icons.account_balance_wallet_outlined;
@@ -150,9 +150,6 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         return Icons.architecture;
       case 'execution_coach':
         return Icons.rocket_launch;
-      // Legacy mode support
-      case 'career_advisor':
-        return Icons.badge_outlined;
       case 'investment_analyst':
         return Icons.show_chart;
       case 'life_planning':
@@ -164,7 +161,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   Color _modeColor(String modeId) {
     switch (modeId) {
-      case 'msme_copilot':
+      case 'wealth_planner':
         return Colors.deepPurple;
       case 'strategic_planner':
         return Colors.orange;
@@ -172,11 +169,8 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         return Colors.green;
       case 'execution_coach':
         return Colors.blue;
-      // Legacy mode support
       case 'financial_planner':
         return Colors.green;
-      case 'career_advisor':
-        return Colors.indigo;
       case 'investment_analyst':
         return Colors.deepPurple;
       case 'life_planning':
@@ -189,9 +183,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   String _modeLabel(String modeId) {
     final mode = _ideasModes.firstWhere(
       (m) => (m['id']?.toString() ?? '') == modeId,
-      orElse: () => const {'label': 'MSME Copilot'},
+      orElse: () => const {'label': 'Wealth Planner'},
     );
-    return mode['label']?.toString() ?? 'MSME Copilot';
+    return mode['label']?.toString() ?? 'Wealth Planner';
   }
 
   // UI state
@@ -324,7 +318,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         );
         if (!exists) {
           _activeIdeasMode =
-              _ideasModes.first['id']?.toString() ?? 'msme_copilot';
+              _ideasModes.first['id']?.toString() ?? 'wealth_planner';
         }
       });
     } catch (e) {
@@ -396,7 +390,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Select your state to get real government MSME data,\n'
+                'Select your state to get local financial data,\n'
                 'supplier recommendations, and state-wise insights.',
                 style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
@@ -444,7 +438,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('\ud83d\udccd Location set to $result \u2014 AI will now use government MSME data for your state!'),
+            content: Text('\ud83d\udccd Location set to $result \u2014 AI will now personalize financial insights for your state!'),
             backgroundColor: Colors.deepPurple,
             duration: const Duration(seconds: 3),
           ),
@@ -599,7 +593,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       debugPrint('[Brainstorm] Could not load financial context: $e');
     }
 
-    // Include saved location for MSME government data enrichment
+    // Include saved location for state-wise financial data enrichment
     if (_userLocation != null) {
       profile['location'] = _userLocation!;
       profile['state'] = _userLocation!;
@@ -1051,7 +1045,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             onPressed: _showLocationPicker,
             tooltip: _userLocation != null
                 ? 'Location: $_userLocation'
-                : 'Set your state for MSME data',
+                : 'Set your state for local data',
           ),
           // New session button
           IconButton(
@@ -1315,7 +1309,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                               SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  'Set your state for MSME data & local insights',
+                                  'Set your state for local financial insights',
                                   style: TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.w500),
                                 ),
                               ),
@@ -2423,7 +2417,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _personas[message['persona']]?['name'] ?? 'Copilot',
+                    _personas[message['persona']]?['name'] ?? 'Wealth Advisor',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -2532,13 +2526,13 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                           children: [
                             Icon(Icons.verified, size: 10, color: Colors.deepPurple.shade300),
                             const SizedBox(width: 3),
-                            Text('Copilot', style: TextStyle(fontSize: 9, color: Colors.deepPurple.shade300, fontWeight: FontWeight.w500)),
+                            Text('WealthIn', style: TextStyle(fontSize: 9, color: Colors.deepPurple.shade300, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
                     ],
 
-                    // Gov MSME badge
+                    // Gov schemes badge
                     if (_userLocation != null && message['mode'] != null) ...[
                       const SizedBox(width: 6),
                       Container(
@@ -2552,7 +2546,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                           children: [
                             Icon(Icons.account_balance, size: 10, color: Colors.green.shade400),
                             const SizedBox(width: 3),
-                            Text('MSME', style: TextStyle(fontSize: 9, color: Colors.green.shade400, fontWeight: FontWeight.w500)),
+                            Text('Gov', style: TextStyle(fontSize: 9, color: Colors.green.shade400, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
@@ -2752,7 +2746,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   }
 
   Widget _buildEmptyState(bool isDark) {
-    // Pick a random MSME fact for encouragement
+    // Pick a random wealth fact for encouragement
     final factIndex = DateTime.now().second % _msmeFacts.length;
     final fact = _msmeFacts[factIndex];
 
@@ -2802,7 +2796,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
               ),
             ),
             const SizedBox(height: 20),
-            // MSME fact card
+            // Wealth fact card
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -3075,6 +3069,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                 buffer.writeln();
               }
               // Copy to clipboard
+              Clipboard.setData(ClipboardData(text: buffer.toString()));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('DPR text copied to clipboard'),
