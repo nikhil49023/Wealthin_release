@@ -1424,7 +1424,7 @@ class DataService {
           insights: insights,
         );
 
-        // Enrich with AI analysis from Groq (async, non-blocking)
+        // Enrich with AI analysis from Sarvam (async, non-blocking)
         try {
           // Build category breakdown string
           final budgets = await databaseHelper.getBudgets();
@@ -2922,9 +2922,9 @@ $emiRecommendation
     return null;
   }
 
-  /// OpenAI-powered brainstorming with web search augmentation
+  /// Sarvam-powered brainstorming with web search augmentation
   /// Returns response with clickable markdown links
-  Future<Map<String, dynamic>?> openAIBrainstorm({
+  Future<Map<String, dynamic>?> sarvamBrainstorm({
     required String message,
     required String userId,
     List<Map<String, dynamic>> conversationHistory = const [],
@@ -2973,12 +2973,12 @@ $emiRecommendation
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('OpenAI Brainstorm failed: $e');
+      debugPrint('Sarvam Brainstorm failed: $e');
     }
     return null;
   }
 
-  /// Check if OpenAI brainstorming is available
+  /// Check if brainstorming is available
   Future<bool> isBrainstormAvailable() async {
     if (_isAndroid) {
       return true;
@@ -3588,9 +3588,9 @@ $emiRecommendation
     return [];
   }
 
-  // ==================== IDEA EVALUATION (OPENAI) ====================
+  // ==================== IDEA EVALUATION (SARVAM) ====================
 
-  /// Evaluate a business idea using OpenAI backend
+  /// Evaluate a business idea using Sarvam backend
   Future<Map<String, dynamic>?> evaluateIdea({
     required String userId,
     required String idea,

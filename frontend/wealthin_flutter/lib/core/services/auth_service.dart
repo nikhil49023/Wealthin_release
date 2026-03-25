@@ -7,8 +7,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthService extends ChangeNotifier {
   User? _user;
   StreamSubscription<User?>? _authStateSubscription;
+  StreamSubscription<User?>? _idTokenSubscription;
   User? get currentUser => _user;
   bool get isAuthenticated => _user != null;
+  bool get isEmailVerified => _user?.emailVerified ?? false;
 
   AuthService() {
     _initialize();
@@ -24,6 +26,12 @@ class AuthService extends ChangeNotifier {
         _user = user;
         notifyListeners();
         debugPrint('[AuthService] User changed: ${_user?.email}');
+      });
+
+      // Also track ID token updates so email verification refreshes in real time.
+      _idTokenSubscription = auth.idTokenChanges().listen((User? user) {
+        _user = user;
+        notifyListeners();
       });
     } catch (error) {
       debugPrint(
@@ -43,6 +51,14 @@ class AuthService extends ChangeNotifier {
         email: email,
         password: password,
       );
+
+      await credential.user?.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+      if (refreshedUser != null && !refreshedUser.emailVerified) {
+        await refreshedUser.sendEmailVerification();
+        throw 'Please verify your email before signing in. A new verification link has been sent.';
+      }
+
       return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleFirebaseError(e);
@@ -95,6 +111,9 @@ class AuthService extends ChangeNotifier {
         await credential.user!.updateDisplayName(displayName);
       }
 
+      // Enforce verified-email auth for production readiness.
+      await credential.user?.sendEmailVerification();
+
       return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleFirebaseError(e);
@@ -129,6 +148,20 @@ class AuthService extends ChangeNotifier {
     return _user;
   }
 
+  Future<void> reloadCurrentUser() async {
+    await FirebaseAuth.instance.currentUser?.reload();
+    _user = FirebaseAuth.instance.currentUser;
+    notifyListeners();
+  }
+
+  Future<void> resendVerificationEmail() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw 'No authenticated user found';
+    }
+    await user.sendEmailVerification();
+  }
+
   /// Get current user ID safely
   String get currentUserId => currentUser?.uid ?? 'anonymous';
 
@@ -157,6 +190,7 @@ class AuthService extends ChangeNotifier {
   @override
   void dispose() {
     _authStateSubscription?.cancel();
+    _idTokenSubscription?.cancel();
     super.dispose();
   }
 }

@@ -18,6 +18,19 @@ val localProperties = Properties().apply {
     }
 }
 
+val keystoreProperties = Properties().apply {
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
+val hasReleaseSigning =
+    keystoreProperties.getProperty("storeFile")?.isNotBlank() == true &&
+        keystoreProperties.getProperty("storePassword")?.isNotBlank() == true &&
+        keystoreProperties.getProperty("keyAlias")?.isNotBlank() == true &&
+        keystoreProperties.getProperty("keyPassword")?.isNotBlank() == true
+
 fun loadSecret(propertyName: String): String {
     return (System.getenv(propertyName) ?: localProperties.getProperty(propertyName) ?: "").trim()
 }
@@ -55,8 +68,6 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         buildConfigField("String", "SARVAM_API_KEY", toBuildConfigString(loadSecret("SARVAM_API_KEY")))
-        buildConfigField("String", "GOV_MSME_API_KEY", toBuildConfigString(loadSecret("GOV_MSME_API_KEY")))
-        buildConfigField("String", "GROQ_API_KEY", toBuildConfigString(loadSecret("GROQ_API_KEY")))
         
         ndk {
             // arm64-v8a for real devices, x86_64 for emulators
@@ -64,11 +75,24 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
 
             // R8 shrinking — removes unused Java/Kotlin code and obfuscates
             isMinifyEnabled = true

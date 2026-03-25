@@ -13,13 +13,13 @@ import '../services/secure_storage_service.dart';
 /// For production deployment:
 /// 1. Use Settings screen to configure API keys (stored securely)
 /// 2. Or use --dart-define for compile-time injection:
-///    flutter run --dart-define=SARVAM_API_KEY=sk_xxx --dart-define=GROQ_API_KEY=gsk_xxx
+///    flutter run --dart-define=SARVAM_API_KEY=sk_xxx
 /// 3. Or use dart-define-from-file with a local secrets.json
+///
+/// **SARVAM AI ONLY** - All AI features now use Sarvam exclusively
 class AppSecrets {
   // Cached values for synchronous access
   static String? _cachedSarvamKey;
-  static String? _cachedGovMsmeKey;
-  static String? _cachedGroqKey;
   static bool _initialized = false;
 
   // Compile-time injection (via --dart-define or --dart-define-from-file)
@@ -33,14 +33,14 @@ class AppSecrets {
     defaultValue: '',
   );
 
-  static const String _defaultGovMsmeKey = String.fromEnvironment(
-    'GOV_MSME_API_KEY',
-    defaultValue: '',
+  static const String _defaultSarvamChatModel = String.fromEnvironment(
+    'SARVAM_CHAT_MODEL',
+    defaultValue: 'sarvam-m',
   );
 
-  static const String _defaultGroqKey = String.fromEnvironment(
-    'GROQ_API_KEY',
-    defaultValue: '',
+  static const String _defaultSarvamVisionModel = String.fromEnvironment(
+    'SARVAM_VISION_MODEL',
+    defaultValue: 'sarvam-m',
   );
 
   static Future<Map<String, String>> _loadAndroidBuildSecrets() async {
@@ -54,11 +54,7 @@ class AppSecrets {
       if (payload == null || payload.isEmpty) return const {};
 
       final secrets = <String, String>{};
-      for (final key in const [
-        'sarvam_api_key',
-        'gov_msme_api_key',
-        'groq_api_key',
-      ]) {
+      for (final key in const ['sarvam_api_key']) {
         final value = payload[key]?.toString().trim();
         if (value != null && value.isNotEmpty) {
           secrets[key] = value;
@@ -66,7 +62,7 @@ class AppSecrets {
       }
       return secrets;
     } catch (e) {
-      debugPrint('[AppSecrets] Android build secret fetch failed: $e');
+      debugPrint('[AppSecrets] Error loading Android build secrets: $e');
       return const {};
     }
   }
@@ -89,72 +85,39 @@ class AppSecrets {
       final androidBuildSecrets = await _loadAndroidBuildSecrets();
       final fallbackSarvamKey =
           androidBuildSecrets['sarvam_api_key'] ?? _defaultSarvamKey;
-      final fallbackGovMsmeKey =
-          androidBuildSecrets['gov_msme_api_key'] ?? _defaultGovMsmeKey;
-      final fallbackGroqKey =
-          androidBuildSecrets['groq_api_key'] ?? _defaultGroqKey;
 
       // Migrate compile-time defaults to secure storage on first run
       await secureStorage.migrateFromDefaults(
         defaultSarvamKey: fallbackSarvamKey,
-        defaultGovMsmeKey: fallbackGovMsmeKey,
-        defaultGroqKey: fallbackGroqKey,
       );
 
       // Load from secure storage
       _cachedSarvamKey = await secureStorage.getSarvamApiKey();
-      _cachedGovMsmeKey = await secureStorage.getGovMsmeApiKey();
-      _cachedGroqKey = await secureStorage.getGroqApiKey();
-
       _initialized = true;
-      debugPrint('[AppSecrets] Initialized from secure storage');
+
+      debugPrint('[AppSecrets] Initialized - Sarvam: ${_cachedSarvamKey != null ? '✓' : '✗'}');
     } catch (e) {
       debugPrint('[AppSecrets] Initialization error: $e');
-      // Fallback to compile-time defaults
-      _cachedSarvamKey = _defaultSarvamKey;
-      _cachedGovMsmeKey = _defaultGovMsmeKey;
-      _cachedGroqKey = _defaultGroqKey;
-      _initialized = true;
     }
   }
 
-  /// Sarvam AI API Key
+  /// Sarvam AI API Key (only AI provider now)
   static String get sarvamApiKey {
     if (!_initialized) return _defaultSarvamKey;
     return _cachedSarvamKey ?? _defaultSarvamKey;
   }
 
-  /// Government MSME API Key (data.gov.in)
-  static String get govMsmeApiKey {
-    if (!_initialized) return _defaultGovMsmeKey;
-    return _cachedGovMsmeKey ?? _defaultGovMsmeKey;
-  }
+  /// Sarvam chat model identifier (can be overridden via --dart-define).
+  static String get sarvamChatModel => _defaultSarvamChatModel;
 
-  /// Groq API Key (for Ideas/Brainstorm - GPT-OSS 20B)
-  static String get groqApiKey {
-    if (!_initialized) return _defaultGroqKey;
-    return _cachedGroqKey ?? _defaultGroqKey;
-  }
+  /// Sarvam vision model identifier (can be overridden via --dart-define).
+  static String get sarvamVisionModel => _defaultSarvamVisionModel;
 
   /// Async getter for Sarvam key
   static Future<String> getSarvamApiKeyAsync() async {
     if (!_initialized) await initialize();
     final key = await secureStorage.getSarvamApiKey();
     return key ?? _defaultSarvamKey;
-  }
-
-  /// Async getter for Gov MSME key
-  static Future<String> getGovMsmeApiKeyAsync() async {
-    if (!_initialized) await initialize();
-    final key = await secureStorage.getGovMsmeApiKey();
-    return key ?? _defaultGovMsmeKey;
-  }
-
-  /// Async getter for Groq key
-  static Future<String> getGroqApiKeyAsync() async {
-    if (!_initialized) await initialize();
-    final key = await secureStorage.getGroqApiKey();
-    return key ?? _defaultGroqKey;
   }
 
   /// Update Sarvam API key in secure storage
@@ -164,34 +127,16 @@ class AppSecrets {
     return success;
   }
 
-  /// Update Gov MSME API key in secure storage
-  static Future<bool> setGovMsmeApiKey(String apiKey) async {
-    final success = await secureStorage.setGovMsmeApiKey(apiKey);
-    if (success) _cachedGovMsmeKey = apiKey;
-    return success;
-  }
-
-  /// Update Groq API key in secure storage
-  static Future<bool> setGroqApiKey(String apiKey) async {
-    final success = await secureStorage.setGroqApiKey(apiKey);
-    if (success) _cachedGroqKey = apiKey;
-    return success;
-  }
-
   /// Check if using default/development keys
-  static bool get isUsingDefaultKeys =>
-      sarvamApiKey.isEmpty || groqApiKey.isEmpty;
+  static bool get isUsingDefaultKeys => sarvamApiKey.isEmpty;
 
   /// Check if keys are properly configured
-  static bool get areKeysConfigured =>
-      sarvamApiKey.isNotEmpty && groqApiKey.isNotEmpty;
+  static bool get areKeysConfigured => sarvamApiKey.isNotEmpty;
 
   /// Clear all stored keys (for logout/reset)
   static Future<void> clearAllKeys() async {
     await secureStorage.deleteAllKeys();
     _cachedSarvamKey = null;
-    _cachedGovMsmeKey = null;
-    _cachedGroqKey = null;
     debugPrint('[AppSecrets] All keys cleared');
   }
 }

@@ -1,0 +1,6 @@
+# Copy to key.properties for release signing.
+# Do not commit the real key.properties file.
+storeFile=/absolute/path/to/your/release-keystore.jks
+storePassword=replace-with-store-password
+keyAlias=replace-with-key-alias
+keyPassword=replace-with-key-password

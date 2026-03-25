@@ -31,35 +31,32 @@ class AIAgentService {
   /// Inject API keys into the Python bridge.
   /// Uses ASYNC getters to ensure keys are loaded from secure storage.
   /// Can be called multiple times — will only inject if not already done.
+  ///
+  /// **SARVAM AI ONLY** - All AI features now use Sarvam
   Future<void> _injectApiKeys({bool force = false}) async {
     if (_keysInjected && !force) return;
     if (defaultTargetPlatform != TargetPlatform.android) return;
 
     try {
-      // Use async getters — they wait for secure storage to be ready
+      // Use async getter — it waits for secure storage to be ready
       final sarvamKey = await AppSecrets.getSarvamApiKeyAsync();
-      final govMsmeKey = await AppSecrets.getGovMsmeApiKeyAsync();
-      final groqKey = await AppSecrets.getGroqApiKeyAsync();
 
-      debugPrint('[AIAgentService] Key status: '
-          'Groq=${groqKey.isNotEmpty ? "✓" : "✗"}, '
-          'Sarvam=${sarvamKey.isNotEmpty ? "✓" : "✗"}, '
-          'GovMSME=${govMsmeKey.isNotEmpty ? "✓" : "✗"}');
+      debugPrint('[AIAgentService] Sarvam AI status: ${sarvamKey.isNotEmpty ? "✓" : "✗"}');
 
-      if (groqKey.isEmpty && sarvamKey.isEmpty) {
-        debugPrint('[AIAgentService] ⚠ No AI API keys configured!');
+      if (sarvamKey.isEmpty) {
+        debugPrint('[AIAgentService] ⚠ Sarvam AI key not configured!');
         return; // Don't mark as injected so we retry next time
       }
 
       await pythonBridge.setConfig({
         'sarvam_api_key': sarvamKey,
-        'gov_msme_api_key': govMsmeKey,
-        'groq_api_key': groqKey,
+        'sarvam_chat_model': AppSecrets.sarvamChatModel,
+        'sarvam_vision_model': AppSecrets.sarvamVisionModel,
       });
 
       _keysInjected = true;
       pythonBridge.markConfigured();
-      debugPrint('[AIAgentService] ✓ API keys injected into Python bridge');
+      debugPrint('[AIAgentService] ✓ Sarvam API key injected into Python bridge');
     } catch (e) {
       debugPrint('[AIAgentService] ⚠ Key injection failed: $e');
       // Don't mark as injected so we retry next time

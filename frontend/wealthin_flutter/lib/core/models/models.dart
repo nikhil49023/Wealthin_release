@@ -327,7 +327,7 @@ class HealthScore {
   final String grade; // Excellent, Good, Fair, Poor
   final Map<String, double> breakdown;
   final List<String> insights;
-  final String? aiAnalysis; // GPT-generated analysis from Groq
+  final String? aiAnalysis; // AI-generated analysis from Sarvam
 
   HealthScore({
     required this.totalScore,

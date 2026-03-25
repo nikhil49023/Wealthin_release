@@ -48,18 +48,16 @@ class PythonBridgeService {
     if (_configured || !_isAndroid) return;
     try {
       final sarvamKey = await AppSecrets.getSarvamApiKeyAsync();
-      final govMsmeKey = await AppSecrets.getGovMsmeApiKeyAsync();
-      final groqKey = await AppSecrets.getGroqApiKeyAsync();
 
-      if (groqKey.isEmpty && sarvamKey.isEmpty) {
+      if (sarvamKey.isEmpty) {
         debugPrint('[PythonBridge] ⚠ No AI API keys available to inject');
         return;
       }
 
       await setConfig({
         'sarvam_api_key': sarvamKey,
-        'gov_msme_api_key': govMsmeKey,
-        'groq_api_key': groqKey,
+        'sarvam_chat_model': AppSecrets.sarvamChatModel,
+        'sarvam_vision_model': AppSecrets.sarvamVisionModel,
       });
       _configured = true;
     } catch (e) {
@@ -362,7 +360,7 @@ class PythonBridgeService {
   }
 
   Future<Map<String, dynamic>> extractReceiptFromPath(String filePath) async {
-    // Ensure API keys are injected for Sarvam/Groq vision calls
+    // Ensure API keys are injected for Sarvam vision calls
     await ensureConfigured();
     // Prefer direct path extractor for better OCR parsing.
     final result = await _callPython('extract_receipt_from_path', {
@@ -534,7 +532,7 @@ class PythonBridgeService {
     return List<Map<String, dynamic>>.from(_mudraCache[userId] ?? const []);
   }
 
-  /// Generate AI-powered financial analysis using Groq GPT-OSS
+  /// Generate AI-powered financial analysis using Sarvam AI
   Future<Map<String, dynamic>> generateAiAnalysis({
     required double income,
     required double expenses,

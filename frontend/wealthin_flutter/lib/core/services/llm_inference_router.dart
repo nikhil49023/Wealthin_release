@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'python_bridge_service.dart';
 
-/// LLM Inference Router - Android embedded inference only.
+/// LLM Inference Router - All inference via Sarvam AI
 ///
 /// Model Routing:
-///   - AI Advisor: Sarvam-M (embedded via Chaquopy) or backend fallback
-///   - Ideas (Brainstorm): GPT-OSS 20B (backend via Groq OpenAI API)
-///   - Analysis: GPT-OSS 20B (backend via Groq OpenAI API)
+///   - AI Advisor: Sarvam AI (via Chaquopy bridge + Python backend)
+///   - Ideas (Brainstorm): Sarvam AI
+///   - Analysis: Sarvam AI
 class LLMInferenceRouter {
   static final LLMInferenceRouter _instance = LLMInferenceRouter._internal();
   factory LLMInferenceRouter() => _instance;
@@ -23,7 +23,7 @@ class LLMInferenceRouter {
   Future<void> initialize({
     InferenceMode preferredMode = InferenceMode.embedded,
     String? cloudEndpoint,
-    String? openaiApiKey,
+    String? sarvamApiKey,
     bool allowFallback = true,
   }) async {
     _preferredMode = InferenceMode.embedded;

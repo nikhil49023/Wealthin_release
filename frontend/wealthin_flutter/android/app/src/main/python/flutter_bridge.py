@@ -27,8 +27,9 @@ except ImportError:
 # Keys are injected at runtime via set_config() from Flutter's secure storage
 # DO NOT hardcode API keys here — they are managed by Android KeyStore
 _sarvam_api_key = ""  # Set via set_config()
-_groq_api_key = ""    # Set via set_config()
 _gov_msme_api_key = ""  # Set via set_config() - data.gov.in MSME/UDYAM API
+_sarvam_chat_model = "sarvam-m"
+_sarvam_vision_model = "sarvam-m"
 _zoho_creds = {
     "project_id": "24392000000011167",
     "org_id": "60056122667",
@@ -39,15 +40,18 @@ _zoho_creds = {
 
 def set_config(config_json: str) -> str:
     """Set API keys and configuration dynamically."""
-    global _sarvam_api_key, _groq_api_key, _gov_msme_api_key, _zoho_creds
+    global _sarvam_api_key, _gov_msme_api_key, _zoho_creds, _sarvam_chat_model, _sarvam_vision_model
     try:
         config = json.loads(config_json)
         
         if "sarvam_api_key" in config and config["sarvam_api_key"]:
             _sarvam_api_key = config["sarvam_api_key"]
 
-        if "groq_api_key" in config and config["groq_api_key"]:
-            _groq_api_key = config["groq_api_key"]
+        if "sarvam_chat_model" in config and config["sarvam_chat_model"]:
+            _sarvam_chat_model = config["sarvam_chat_model"]
+
+        if "sarvam_vision_model" in config and config["sarvam_vision_model"]:
+            _sarvam_vision_model = config["sarvam_vision_model"]
 
         if "gov_msme_api_key" in config and config["gov_msme_api_key"]:
             _gov_msme_api_key = config["gov_msme_api_key"]
@@ -57,12 +61,12 @@ def set_config(config_json: str) -> str:
         
         # Diagnostic logging (key lengths only, never values)
         print(f"[set_config] Keys configured:")
-        print(f"  Groq: {'✓ ' + str(len(_groq_api_key)) + ' chars' if _groq_api_key else '✗ MISSING'}")
         print(f"  Sarvam: {'✓ ' + str(len(_sarvam_api_key)) + ' chars' if _sarvam_api_key else '✗ MISSING'}")
         print(f"  GovMSME: {'✓ ' + str(len(_gov_msme_api_key)) + ' chars' if _gov_msme_api_key else '✗ MISSING'}")
+        print(f"  Sarvam chat model: {_sarvam_chat_model}")
+        print(f"  Sarvam vision model: {_sarvam_vision_model}")
         
         configured_providers = []
-        if _groq_api_key: configured_providers.append("Groq")
         if _sarvam_api_key: configured_providers.append("Sarvam")
         if not configured_providers:
             print(f"[set_config] ⚠ WARNING: No AI providers configured! Chat/Analysis will fail.")
@@ -80,12 +84,11 @@ def health_check() -> str:
     Check the health of the Python environment.
     Returns status of various components for the Flutter Settings screen.
     """
-    global _sarvam_api_key, _groq_api_key, _gov_msme_api_key
+    global _sarvam_api_key, _gov_msme_api_key
     
     components = {
         "python": True,  # If we're running this, Python is working
         "sarvam_configured": bool(_sarvam_api_key),
-        "groq_configured": bool(_groq_api_key),
         "gov_msme_configured": bool(_gov_msme_api_key),
         "pdf_parser_available": False,
         "tools_count": len(AVAILABLE_TOOLS),
@@ -104,7 +107,6 @@ def health_check() -> str:
         "status": "ready",
         "components": components,
         "sarvam_configured": components["sarvam_configured"],
-        "groq_configured": components["groq_configured"],
         "pdf_parser_available": components["pdf_parser_available"],
     })
 
@@ -113,11 +115,11 @@ def health_check() -> str:
 
 def generate_ai_analysis(financial_data_json: str) -> str:
     """
-    Generate AI-powered financial analysis using Groq GPT-OSS.
+    Generate AI-powered financial analysis using Sarvam AI.
     Takes aggregated transaction data and returns personalized insights.
     Called by Flutter's getHealthScore to enrich the health report with AI analysis.
     """
-    global _groq_api_key, _sarvam_api_key
+    global _sarvam_api_key
     
     try:
         data = json.loads(financial_data_json) if isinstance(financial_data_json, str) else financial_data_json
@@ -206,18 +208,14 @@ IMPORTANT: Use ONLY the data provided. Never make up numbers. Be encouraging and
             {"role": "user", "content": prompt}
         ]
         
-        # Use Groq first, fallback to Sarvam
-        result = None
-        if _groq_api_key:
-            result = _call_groq_llm(messages, _groq_api_key)
-        if not result and _sarvam_api_key:
-            result = _call_sarvam_llm(messages, _sarvam_api_key)
+        # Use Sarvam AI for analysis
+        result = _call_sarvam_llm(messages, _sarvam_api_key) if _sarvam_api_key else None
         
         if result and result.get('content'):
             return json.dumps({
                 "success": True,
                 "analysis": result['content'],
-                "model": "groq-gpt-oss-20b" if _groq_api_key else "sarvam-m"
+                "model": "sarvam-m"
             })
         
         return json.dumps({
@@ -3151,25 +3149,18 @@ def chat_with_llm(
     if not isinstance(user_context, dict):
         user_context = None
     
-    # Use Groq for Ideas/Brainstorm (much faster via Groq LPU)
-    groq_key = _groq_api_key
-    # Fallback to Sarvam only if Groq key is missing
+    # Use Sarvam AI for all LLM calls
     sarvam_key = api_key or _sarvam_api_key
     
-    if not groq_key and not sarvam_key:
+    if not sarvam_key:
         return json.dumps({
             "success": False,
             "error": "No API key configured.",
-            "response": "I need an API key to respond. Please configure your Groq or Sarvam API key."
+            "response": "I need an API key to respond. Please configure your Sarvam API key."
         })
     
-    # Pick the LLM call function: Groq first, Sarvam fallback
+    # Use Sarvam for all LLM calls
     def _call_llm(msgs):
-        if groq_key:
-            result = _call_groq_llm(msgs, groq_key)
-            if result:
-                return result
-            print("[LLM] Groq failed, trying Sarvam fallback")
         if sarvam_key:
             return _call_sarvam_llm(msgs, sarvam_key)
         return None
@@ -3392,7 +3383,7 @@ When the user mentions supply chain, vendors, raw materials, or logistics:
             print(f"[ReAct] Iteration {iteration + 1}/{MAX_ITERATIONS}")
             
             try:
-                # Call LLM (Groq primary, Sarvam fallback)
+                # Call LLM (Sarvam)
                 llm_response = _call_llm(messages)
                 
                 if not llm_response:
@@ -3628,12 +3619,11 @@ def _clean_llm_response(text: str) -> str:
 # ==================== SARVAM VISION OCR ====================
 
 def extract_receipt_from_path(file_path: str) -> str:
-    """Extract receipt data from a local image file using Sarvam Vision or Groq fallback."""
-    global _sarvam_api_key, _groq_api_key
+    """Extract receipt data from a local image file using Sarvam Vision."""
+    global _sarvam_api_key
     
     print(f"[Receipt] Extracting from: {file_path}")
     print(f"[Receipt] Sarvam key: {'✓ ' + str(len(_sarvam_api_key)) + ' chars' if _sarvam_api_key else '✗ MISSING'}")
-    print(f"[Receipt] Groq key: {'✓ ' + str(len(_groq_api_key)) + ' chars' if _groq_api_key else '✗ MISSING'}")
     
     receipt_prompt = """You are an expert receipt/document parser. Extract ALL financial details from this image.
 Return a JSON object with these fields:
@@ -3687,7 +3677,7 @@ Return ONLY the JSON. No explanation."""
     if _sarvam_api_key:
         try:
             request_body = {
-                "model": "sarvam-m",
+                "model": _sarvam_vision_model,
                 "messages": [
                     {"role": "system", "content": receipt_prompt},
                     {
@@ -3739,80 +3729,12 @@ Return ONLY the JSON. No explanation."""
         except Exception as e:
             print(f"[Receipt] Sarvam chat error: {e}")
     
-    # Strategy 3: Try Groq multimodal (llama-4-scout supports vision)
-    if _groq_api_key:
-        try:
-            print("[Receipt] Trying Groq multimodal fallback...")
-            groq_models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"]
-            
-            for model in groq_models:
-                try:
-                    request_body = {
-                        "model": model,
-                        "messages": [
-                            {"role": "system", "content": receipt_prompt},
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "image_url",
-                                        "image_url": {"url": f"data:{content_type};base64,{image_base64}"}
-                                    },
-                                    {"type": "text", "text": extract_prompt}
-                                ]
-                            }
-                        ],
-                        "max_tokens": 2000,
-                        "temperature": 0.1
-                    }
-                    
-                    data = json.dumps(request_body).encode('utf-8')
-                    req = urllib.request.Request(
-                        "https://api.groq.com/openai/v1/chat/completions",
-                        data=data,
-                        headers={
-                            'Content-Type': 'application/json',
-                            'Authorization': f'Bearer {_groq_api_key}',
-                            'User-Agent': 'WealthIn/1.0 (Android; Chaquopy)'
-                        },
-                        method='POST'
-                    )
-                    
-                    context = ssl.create_default_context()
-                    context.check_hostname = False
-                    context.verify_mode = ssl.CERT_NONE
-                    
-                    with urllib.request.urlopen(req, timeout=60, context=context) as response:
-                        res = json.loads(response.read().decode('utf-8'))
-                        ai_content = res.get('choices', [{}])[0].get('message', {}).get('content', '')
-                        print(f"[Receipt] Groq ({model}) response: {ai_content[:200]}...")
-                        
-                        parsed = _extract_json_from_text(ai_content)
-                        if parsed:
-                            result = _map_receipt_to_transaction(parsed, file_path)
-                            return json.dumps(result)
-                        
-                        # Fallback to OCR text parsing
-                        result = _parse_and_map_receipt(ai_content, file_path)
-                        if result.get("success"):
-                            return json.dumps(result)
-                            
-                except urllib.error.HTTPError as he:
-                    print(f"[Receipt] Groq model {model} HTTP error: {he.code}")
-                    continue
-                except Exception as me:
-                    print(f"[Receipt] Groq model {model} error: {me}")
-                    continue
-                    
-        except Exception as e:
-            print(f"[Receipt] Groq fallback error: {e}")
-    
     # No AI provider available
-    if not _sarvam_api_key and not _groq_api_key:
+    if not _sarvam_api_key:
         return json.dumps({
             "success": False, 
             "error": "No AI API keys configured. Please check Settings → API Keys.",
-            "detail": "Image extraction requires either Sarvam or Groq API key."
+            "detail": "Image extraction requires Sarvam API key."
         })
     
     return json.dumps({"success": False, "error": "All extraction methods failed. Please try a clearer image."})
@@ -3829,283 +3751,53 @@ def _extract_json_from_text(text: str) -> Optional[dict]:
         if clean.endswith("```"):
             clean = clean[:-3]
         clean = clean.strip()
-        
+
+        # Direct parse first.
+        try:
+            parsed = json.loads(clean)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+        # Fallback: extract first JSON-like object.
         start = clean.find('{')
-        end = clean.rfind('}') + 1
+        end = clean.rfind('}')
         if start >= 0 and end > start:
-            return json.loads(clean[start:end])
-    except json.JSONDecodeError:
-        pass
-    return None
+            candidate = clean[start:end + 1]
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed
 
-
-def _map_receipt_to_transaction(parsed: dict, file_path: str) -> dict:
-    """Map parsed receipt JSON to the transaction format expected by Flutter."""
-    from datetime import datetime as dt
-    
-    amount = parsed.get('total_amount') or parsed.get('amount') or 0
-    if isinstance(amount, str):
-        try:
-            amount = float(amount.replace(',', ''))
-        except:
-            amount = 0
-    
-    date_str = parsed.get('date') or dt.now().strftime('%Y-%m-%d')
-    merchant = parsed.get('merchant_name') or parsed.get('merchant') or 'Unknown Merchant'
-    category = parsed.get('category') or 'Other'
-    
-    return {
-        "success": True,
-        "transaction": {
-            "date": date_str,
-            "description": merchant,
-            "amount": float(amount),
-            "type": "expense",
-            "category": category,
-            "merchant": merchant,
-        },
-        "merchant_name": merchant,
-        "total_amount": float(amount),
-        "date": date_str,
-        "category": category,
-        "items": parsed.get('items', []),
-        "confidence": 0.85,
-    }
-
-
-def _parse_and_map_receipt(ocr_text: str, file_path: str) -> dict:
-    """Parse OCR text and map it to the transaction format expected by Flutter."""
-    try:
-        result_json = _parse_receipt_from_ocr(ocr_text, file_path)
-        result = json.loads(result_json)
-        if result.get("success") and result.get("total_amount"):
-            return _map_receipt_to_transaction(result, file_path)
-        return result
+        return None
     except Exception as e:
-        return {"success": False, "error": f"Parse error: {str(e)}"}
+        print(f"[_extract_json_from_text] parse failed: {e}")
+        return None
 
-
-def _parse_receipt_from_ocr(ocr_text: str, file_path: str) -> str:
-    """Parse OCR text from receipt to extract structured transaction data."""
-    try:
-        # Try to extract JSON if the OCR text contains JSON
-        json_match = re.search(r'\{[^{}]*\}', ocr_text, re.DOTALL)
-        if json_match:
-            try:
-                data = json.loads(json_match.group())
-                data["success"] = True
-                return json.dumps(data)
-            except json.JSONDecodeError:
-                pass
-        
-        # Manual extraction using patterns
-        result = {
-            "success": True,
-            "merchant_name": None,
-            "date": None,
-            "total_amount": None,
-            "currency": "INR",
-            "category": "Other",
-            "raw_text": ocr_text
-        }
-        
-        # Extract amount patterns (₹ or Rs. followed by numbers)
-        amount_patterns = [
-            r'(?:total|grand\s*total|amount|payable)[\s:]*[₹Rs.]*\s*([\d,]+\.?\d*)',
-            r'[₹Rs.]\s*([\d,]+\.?\d*)',
-            r'(?:INR|Rs\.?)\s*([\d,]+\.?\d*)',
-        ]
-        
-        for pattern in amount_patterns:
-            match = re.search(pattern, ocr_text, re.IGNORECASE)
-            if match:
-                amount_str = match.group(1).replace(',', '')
-                try:
-                    result["total_amount"] = float(amount_str)
-                    break
-                except ValueError:
-                    continue
-        
-        # Extract date patterns
-        date_patterns = [
-            r'(\d{2}[/-]\d{2}[/-]\d{4})',  # DD/MM/YYYY or DD-MM-YYYY
-            r'(\d{4}[/-]\d{2}[/-]\d{2})',  # YYYY-MM-DD
-            r'(\d{1,2}\s+\w{3,9}\s+\d{4})',  # 12 Jan 2024
-        ]
-        
-        for pattern in date_patterns:
-            match = re.search(pattern, ocr_text, re.IGNORECASE)
-            if match:
-                result["date"] = match.group(1)
-                break
-        
-        # Try to detect merchant/store name (usually at the top)
-        lines = ocr_text.strip().split('\n')
-        for line in lines[:5]:  # Check first 5 lines
-            line = line.strip()
-            if len(line) > 3 and line[0].isupper():
-                # Skip lines that look like addresses or amounts
-                if not re.search(r'^\d+|street|road|address|ph|tel|gstin|invoice', line.lower()):
-                    result["merchant_name"] = line[:50]  # Limit length
-                    break
-        
-        # Detect category from common keywords
-        category_keywords = {
-            'Food & Dining': ['restaurant', 'cafe', 'food', 'swiggy', 'zomato', 'pizza', 'burger', 'kitchen'],
-            'Shopping': ['store', 'mart', 'shop', 'retail', 'amazon', 'flipkart'],
-            'Transport': ['uber', 'ola', 'fuel', 'petrol', 'diesel', 'parking'],
-            'Utilities': ['electricity', 'water', 'gas', 'mobile', 'recharge'],
-            'Healthcare': ['pharmacy', 'medical', 'hospital', 'doctor', 'medicine'],
-            'Entertainment': ['movie', 'cinema', 'pvr', 'inox', 'netflix'],
-        }
-        
-        ocr_lower = ocr_text.lower()
-        for category, keywords in category_keywords.items():
-            if any(kw in ocr_lower for kw in keywords):
-                result["category"] = category
-                break
-        
-        return json.dumps(result)
-        
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": f"Receipt parsing error: {str(e)}",
-            "raw_text": ocr_text[:500] if ocr_text else ""
-        })
-
-
-
-def _call_groq_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[Dict[str, Any]]:
-    """Call Groq LLM (OpenAI-compatible) with model fallback chain.
-    Tries multiple models in order: openai/gpt-oss-20b → llama-3.3-70b-versatile
-    → llama-3.1-8b-instant → mixtral-8x7b-32768
-    """
-    import time
-    
-    # Model fallback chain — if primary fails (rate limit, unavailable), try next
-    MODELS = [
-        "openai/gpt-oss-20b",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768",
-    ]
-    
-    api_url = "https://api.groq.com/openai/v1/chat/completions"
-    last_error = None
-    
-    for model in MODELS:
-        try:
-            print(f"[Groq] Trying model: {model}")
-            request_body = {
-                "model": model,
-                "messages": messages,
-                "temperature": 0.3,
-                "max_tokens": 4096,
-            }
-            
-            data = json.dumps(request_body).encode('utf-8')
-            req = urllib.request.Request(
-                api_url,
-                data=data,
-                headers={
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {api_key}',
-                    'User-Agent': 'WealthIn/1.0 (Android; Chaquopy)'
-                },
-                method='POST'
-            )
-            
-            context = ssl.create_default_context()
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-            
-            with urllib.request.urlopen(req, timeout=45, context=context) as response:
-                resp_body = response.read().decode('utf-8')
-                response_data = json.loads(resp_body)
-            
-            if 'choices' in response_data and len(response_data['choices']) > 0:
-                content = response_data['choices'][0]['message'].get('content', '')
-                print(f"[Groq] Response received from {model} ({len(content)} chars)")
-                return {"content": content, "model": model}
-            
-            print(f"[Groq] No choices from {model}: {json.dumps(response_data)[:200]}")
-            continue  # Try next model
-            
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode('utf-8', errors='replace')[:500]
-            print(f"[Groq] HTTP Error {e.code} for {model}: {error_body}")
-            last_error = f"HTTP {e.code}: {error_body[:100]}"
-            
-            # Handle tool_use_failed: the model tried native tool calling
-            # Extract the tool call from the error's failed_generation field
-            if e.code == 400 and 'tool_use_failed' in error_body:
-                try:
-                    error_data = json.loads(error_body)
-                    failed_gen = error_data.get('error', {}).get('failed_generation', '')
-                    if failed_gen:
-                        print(f"[Groq] Recovered tool call from failed_generation: {failed_gen[:200]}")
-                        try:
-                            tool_data = json.loads(failed_gen)
-                            tool_call_json = json.dumps({"tool_call": tool_data})
-                            return {"content": f"```json\n{tool_call_json}\n```", "model": model}
-                        except json.JSONDecodeError:
-                            return {"content": failed_gen, "model": model}
-                except Exception as parse_err:
-                    print(f"[Groq] Failed to parse error body: {parse_err}")
-            
-            # Rate limit (429) or server error (5xx) → wait briefly, try next model
-            if e.code == 429:
-                print(f"[Groq] Rate limited on {model}, waiting 2s before trying next model")
-                time.sleep(2)
-                continue
-            elif e.code >= 500:
-                print(f"[Groq] Server error on {model}, trying next model")
-                continue
-            elif e.code == 400:
-                # Bad request but not tool_use — could be model-specific issue, try next
-                print(f"[Groq] Bad request on {model}, trying next model")
-                continue
-            else:
-                # 401 (auth), 403 (forbidden) etc — don't retry, key issue
-                print(f"[Groq] Auth/permission error {e.code}, stopping retries")
-                return None
-                
-        except Exception as e:
-            print(f"[Groq] Error with {model}: {e}")
-            last_error = str(e)
-            continue  # Try next model
-    
-    print(f"[Groq] All models failed. Last error: {last_error}")
-    return None
 
 
 def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[Dict[str, Any]]:
-    """Call Sarvam LLM and return message content. (Fallback / non-Ideas usage)"""
+    """Call Sarvam LLM and return message content."""
+    model = _sarvam_chat_model or "sarvam-m"
     try:
-        # Try SDK first
         if _HAS_SARVAM_SDK:
             try:
                 client = SarvamAI(api_subscription_key=api_key)
-                res = client.chat.completions(
-                    model="sarvam-m",
-                    messages=messages
-                )
-                print(f"[Sarvam] SDK response received")
-                return {"content": res.choices[0].message.content, "model": "sarvam-m"}
+                res = client.chat.completions(model=model, messages=messages)
+                content = res.choices[0].message.content if res and res.choices else ""
+                if content:
+                    return {"content": content, "model": model}
             except Exception as sdk_e:
                 print(f"[Sarvam] SDK error: {sdk_e}, trying urllib")
-        
-        # urllib fallback
-        print(f"[Sarvam] Calling via urllib (key length: {len(api_key)})")
+
         api_url = "https://api.sarvam.ai/v1/chat/completions"
         request_body = {
-            "model": "sarvam-m",
+            "model": model,
             "messages": messages,
             "temperature": 0.3,
             "max_tokens": 4096,
         }
-        
+
         data = json.dumps(request_body).encode('utf-8')
         req = urllib.request.Request(
             api_url,
@@ -4118,169 +3810,22 @@ def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[D
             },
             method='POST'
         )
-        
+
         context = ssl.create_default_context()
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
-        
+
         with urllib.request.urlopen(req, timeout=45, context=context) as response:
-            resp_body = response.read().decode('utf-8')
-            response_data = json.loads(resp_body)
-        
+            response_data = json.loads(response.read().decode('utf-8'))
+
         if 'choices' in response_data and len(response_data['choices']) > 0:
             content = response_data['choices'][0]['message'].get('content', '')
-            print(f"[Sarvam] Response received ({len(content)} chars)")
-            return {"content": content, "model": "sarvam-m"}
-        
-        print(f"[Sarvam] No choices in response: {json.dumps(response_data)[:200]}")
-        return None
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8', errors='replace')[:500]
-        print(f"[Sarvam] HTTP Error {e.code}: {error_body}")
+            return {"content": content, "model": model}
+
         return None
     except Exception as e:
-        print(f"[Sarvam] LLM call error: {type(e).__name__}: {e}")
+        print(f"[Sarvam] LLM call failed: {e}")
         return None
-
-
-def _build_react_system_prompt(user_context: Dict[str, Any] = None) -> str:
-    """Build system prompt for ReAct (Reasoning + Acting) loop.
-    Exposes ALL available tools for maximum agent capability.
-    """
-    
-    # Expose ALL tools for ReAct (not just the essentials)
-    tool_list = "\n".join([f"- **{t['name']}**: {t['description']}" for t in AVAILABLE_TOOLS])
-    
-    prompt = f"""You are WealthIn AI — a smart, agentic financial advisor for Indian users, specializing in personal finance and wealth creation.
-
-## CORE CAPABILITIES
-✅ DPR (Detailed Project Report) drafting — section by section
-✅ Government scheme eligibility (MUDRA/PMEGP/Stand-Up India/PM Vishwakarma)
-✅ Business & personal loan calculations (EMI, SIP, FD, DSCR)
-✅ GST rates, compliance, invoicing queries
-✅ Web search for live data (prices, rates, news, schemes)
-✅ Shopping & price comparison (Amazon, Flipkart, Myntra)
-✅ Budget creation, transaction tracking, savings goals
-✅ **Supply Chain Optimization** — local vendor sourcing via data.gov.in, logistics, cost analysis
-
-## AVAILABLE TOOLS
-{tool_list}
-
-## ⚡ TOOL CALL FORMAT (CRITICAL — FOLLOW EXACTLY)
-When you need to use a tool, respond with ONLY this JSON block and NOTHING else:
-
-```json
-{{"tool_call": {{"name": "TOOL_NAME", "arguments": {{"param": "value"}}}}}}
-```
-
-### CORRECT tool call examples:
-- User: "search for phones under 15000"
-```json
-{{"tool_call": {{"name": "search_amazon", "arguments": {{"query": "best phone under 15000"}}}}}}
-```
-
-- User: "what's the SIP return for 5000/month for 10 years?"
-```json
-{{"tool_call": {{"name": "calculate_sip", "arguments": {{"monthly_investment": 5000, "expected_return_rate": 12, "years": 10}}}}}}
-```
-
-- User: "find solar panel vendors in Jaipur"
-```json
-{{"tool_call": {{"name": "search_local_vendors", "arguments": {{"state": "RAJASTHAN", "district": "JAIPUR", "industry_keyword": "solar"}}}}}}
-```
-
-- User: "logistics options for textile business in Tirupur"
-```json
-{{"tool_call": {{"name": "search_supply_chain_data", "arguments": {{"location": "Tirupur", "industry": "textiles", "requirement_type": "all"}}}}}}
-```
-
-### WRONG tool call examples (NEVER do this):
-❌ Adding text before/after the JSON
-❌ Using markdown formatting around the JSON
-❌ Putting thinking/reasoning in the "query" parameter
-❌ Making up data instead of searching
-
-## WHEN TO CALL TOOLS (AUTO-EXECUTE — DON'T ASK PERMISSION)
-1. **Shopping/prices** → `search_amazon`, `search_flipkart`, `search_myntra`
-2. **Finance rates, schemes, news** → `web_search`
-3. **Calculate SIP/EMI/FD** → `calculate_sip`, `calculate_emi`, etc.
-4. **Budget/goal/transaction** → `create_budget`, `create_savings_goal`, `add_transaction`
-5. **DPR creation** → `generate_dpr`
-6. **Enterprise lookup** → `search_msme_directory`
-7. **Local vendor sourcing** → `search_local_vendors` (uses data.gov.in UDYAM API)
-8. **Supply chain data (logistics/warehousing)** → `search_supply_chain_data`
-
-## RESPONSE STYLE (when not calling tools)
-- Keep responses SHORT: 2-4 sentences, use • bullet points
-- Use ₹ for Indian Rupees
-- Be warm and conversational — like a trusted CA/advisor
-- End with a follow-up question
-- **NEVER use markdown tables** — use bullet lists or comparison cards instead
-
-## ANTI-HALLUCINATION
-1. **NEVER make up** interest rates, scheme criteria, prices, or GST rates
-2. **ALWAYS use web_search** for live data, govt scheme details, prices
-3. **Caveat** financial advice: "Please verify with your CA before filing"
-
-## DPR GENERATION FLOW (6 PHASES)
-When user wants a DPR, follow this phased approach:
-
-### Phase 1: Discovery (Understand the Project)
-Ask targeted questions:
-- "What is the primary objective — business launch, expansion, or infrastructure setup?"
-- "Which industry does this project belong to — manufacturing, tech, agriculture, healthcare?"
-- "Where is the project based? (City/State)"
-
-### Phase 2: Data Collection (Section-by-Section)
-Collect data step-by-step. Each section stays 🔒 LOCKED until all required fields are filled.
-- Section 1: Executive Summary → business name, nature, enterprise category, project cost, loan
-- Section 2: Promoter Profile → name, qualification, experience, Udyam, PAN
-- Section 3: Market Analysis → product, target market, competitive advantage, pricing
-- Section 4: Technical Aspects → process, raw materials, capacity, manpower
-
-### Phase 3: Supply Chain Optimization (NEW — data.gov.in Powered)
-Ask the user:
-- "What are your key supply chain requirements? (raw materials, machinery, transportation)"
-- "Should I search for local vendors within your district using government databases?"
-- "Would you like to compare local vs. national vendor pricing?"
-
-Then AUTO-EXECUTE:
-1. `search_local_vendors` — fetch vendors from data.gov.in for user's location + industry
-2. `search_supply_chain_data` — find logistics, warehousing, raw material pricing
-3. Present results as vendor cards with: Name, Contact, Address, Services, GST Status
-4. Ask: "Would you like to add these vendors to your DPR or refine the search?"
-5. Store confirmed vendors in supply_chain section: vendor_list, logistics_plan, cost_comparison
-
-### Phase 4: Financial Projections
-- Revenue, costs, ROI for years 1-3
-- Break-even analysis, DSCR calculation
-
-### Phase 5: Risk Assessment & Compliance
-- Key risks + mitigation strategies
-- Udyam registration, GST registration, ISO certifications
-
-### Phase 6: Compile & Generate DPR
-Call `generate_dpr` with all collected data. Show progress: "6/10 sections unlocked ✅"
-The DPR includes a dedicated **Supply Chain Optimization** section with:
-- **Local Vendor Sourcing**: List of shortlisted vendors (from data.gov.in API)
-- **Cost-Benefit Analysis**: Local procurement vs. outsourcing savings
-- **Logistics Plan**: Transportation routes, lead times, warehousing
-- **Compliance**: Vendor GST/ISO certifications verified
-
-"""
-    
-    # Add user's financial context if available
-    if user_context:
-        prompt += "\n## USER'S FINANCIAL PROFILE\n"
-        prompt += "Use this data to give personalized advice:\n\n"
-        for key, value in user_context.items():
-            if key == 'financial_profile' or 'context' in key.lower():
-                prompt += f"{value}\n"
-            else:
-                prompt += f"- {key}: {value}\n"
-        prompt += "\n"
-    
-    return prompt
 
 
 def _build_system_prompt(user_context: Dict[str, Any] = None) -> str:
@@ -4907,17 +4452,9 @@ CATEGORY_KEYWORDS = {
     'Transport': [
         # Ride Sharing
         'uber', 'ola', 'rapido', 'meru', 'mega cabs', 'indrive', 'blu smart', 'jugnoo',
-        # Fuel
-        'petrol', 'diesel', 'fuel', 'indian oil', 'bharat petroleum', 'hp petrol', 'ioc', 'bpcl', 'hpcl',
-        'cng', 'ev charging', 'ather', 'tata power charging', 'reliance bp',
-        # Public Transport
-        'irctc', 'indian railways', 'metro', 'delhi metro', 'mumbai metro', 'bangalore metro',
-        'hyderabad metro', 'chennai metro', 'kolkata metro', 'uber metro', 'bus', 'redbus',
         'abhibus', 'paytm bus', 'apsrtc', 'ksrtc', 'msrtc', 'upsrtc', 'tsrtc', 'gsrtc',
         # Bikes & Autos
         'auto', 'rickshaw', 'bike taxi', 'bounce', 'vogo', 'yulu',
-        # Toll & Parking
-        'fastag', 'toll', 'parking', 'nhai', 'paytm fastag', 'airtel fastag',
         # Air & Rail
         'flight', 'airline', 'indigo', 'spicejet', 'air india', 'vistara', 'goair', 'akasa',
         'makemytrip', 'cleartrip', 'ixigo', 'goibibo', 'easemytrip', 'yatra', 'via',
@@ -4925,7 +4462,6 @@ CATEGORY_KEYWORDS = {
     ],
     'Shopping': [
         # E-commerce
-        'amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'meesho', 'snapdeal', 'shopclues',
         'tatacliq', 'reliance digital', 'croma', 'vijay sales', 'poorvika', 'sangeetha',
         # Fashion
         'zara', 'h&m', 'uniqlo', 'westside', 'shoppers stop', 'lifestyle', 'pantaloons',

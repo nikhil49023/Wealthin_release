@@ -418,7 +418,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
           _isAnalyzing = false;
         });
         _addResearchLog(
-          'OpenAI analysis complete! Score: $score/100',
+          'Sarvam analysis complete! Score: $score/100',
           isHighlight: true,
         );
         _loadSavedIdeas();

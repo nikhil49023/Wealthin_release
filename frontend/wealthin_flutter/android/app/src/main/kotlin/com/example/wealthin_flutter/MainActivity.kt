@@ -158,12 +158,6 @@ class MainActivity: FlutterActivity() {
                     if (BuildConfig.SARVAM_API_KEY.isNotBlank()) {
                         secrets["sarvam_api_key"] = BuildConfig.SARVAM_API_KEY
                     }
-                    if (BuildConfig.GOV_MSME_API_KEY.isNotBlank()) {
-                        secrets["gov_msme_api_key"] = BuildConfig.GOV_MSME_API_KEY
-                    }
-                    if (BuildConfig.GROQ_API_KEY.isNotBlank()) {
-                        secrets["groq_api_key"] = BuildConfig.GROQ_API_KEY
-                    }
                     result.success(secrets)
                 }
                 else -> result.notImplemented()

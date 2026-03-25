@@ -729,6 +729,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             greeting: _greeting,
             onTap: () => _showUpdatesSheet(context),
           ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95)),
+          const SizedBox(height: 14),
+
+          _buildFinancialPulseCard(theme)
+              .animate()
+              .fadeIn(delay: 120.ms)
+              .slideY(begin: 0.05, end: 0),
           const SizedBox(height: 16),
 
           // Daily Streak Card
@@ -826,6 +832,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFinancialPulseCard(ThemeData theme) {
+    final income = _data?.totalIncome ?? 0;
+    final expense = _data?.totalExpense ?? 0;
+    final net = income - expense;
+    final savingsRate = (_data?.savingsRate ?? 0).clamp(0, 100);
+    final isPositive = net >= 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primary.withValues(alpha: 0.95),
+            theme.colorScheme.secondary.withValues(alpha: 0.85),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Financial Pulse',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.92),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${isPositive ? '+' : '-'}₹${net.abs().toStringAsFixed(0)}',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: (savingsRate as num).toDouble() / 100,
+              minHeight: 8,
+              backgroundColor: Colors.white.withValues(alpha: 0.25),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _PulseStat(
+                  label: 'Income',
+                  value: '₹${income.toStringAsFixed(0)}',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PulseStat(
+                  label: 'Expenses',
+                  value: '₹${expense.toStringAsFixed(0)}',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PulseStat(
+                  label: 'Savings',
+                  value: '${savingsRate.toStringAsFixed(0)}%',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1103,6 +1195,44 @@ class _QuickActionButton extends StatefulWidget {
 
   @override
   State<_QuickActionButton> createState() => _QuickActionButtonState();
+}
+
+class _PulseStat extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _PulseStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.82),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _QuickActionButtonState extends State<_QuickActionButton> {
