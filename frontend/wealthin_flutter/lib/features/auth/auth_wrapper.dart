@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../../main.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/wealthin_theme.dart';
@@ -19,6 +20,31 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  Timer? _verificationBannerTimer;
+  String? _verificationBannerUserId;
+  bool _showVerificationBanner = true;
+
+  @override
+  void dispose() {
+    _verificationBannerTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startVerificationBannerTimer(String userId) {
+    if (_verificationBannerUserId == userId && _verificationBannerTimer != null) {
+      return;
+    }
+
+    _verificationBannerTimer?.cancel();
+    _verificationBannerUserId = userId;
+    _showVerificationBanner = true;
+
+    _verificationBannerTimer = Timer(const Duration(seconds: 12), () {
+      if (!mounted || _verificationBannerUserId != userId) return;
+      setState(() => _showVerificationBanner = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -41,7 +67,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
               if (onboardingComplete) {
                 // Show email verification prompt if not verified, but allow app access
                 if (!authService.isEmailVerified) {
-                  return _buildAppWithVerificationPrompt(context, user.email ?? 'your email');
+                  _startVerificationBannerTimer(user.uid);
+                  return _buildAppWithVerificationPrompt(context, user.uid, user.email ?? 'your email');
                 }
                 return widget.child;
               } else {
@@ -66,7 +93,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
     );
   }
 
-  Widget _buildAppWithVerificationPrompt(BuildContext context, String email) {
+  Widget _buildAppWithVerificationPrompt(BuildContext context, String userId, String email) {
+    if (!_showVerificationBanner) {
+      return widget.child;
+    }
+
     return Stack(
       children: [
         widget.child,
@@ -124,6 +155,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Dismiss',
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    color: Colors.blue[700],
+                    onPressed: () => setState(() => _showVerificationBanner = false),
+                  ),
                   TextButton.icon(
                     onPressed: () async {
                       try {

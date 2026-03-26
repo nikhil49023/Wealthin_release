@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/theme/indian_theme.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/indian_patterns.dart';
 import '../../core/providers/locale_provider.dart';
+import '../../core/config/secrets.dart';
 import '../../core/services/data_service.dart';
+import '../../core/services/ai_agent_service.dart';
 import '../../core/services/python_bridge_service.dart';
 import '../../core/models/models.dart';
 import '../../main.dart' show themeModeNotifier, authService;
@@ -111,8 +113,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         body: Container(
           decoration: BoxDecoration(
             gradient: isDark
-                ? IndianTheme.peacockGradient
-                : IndianTheme.sacredMorningGradient,
+                ? AppTheme.peacockGradient
+                : AppTheme.sacredMorningGradient,
           ),
           child: const Center(child: CircularProgressIndicator()),
         ),
@@ -126,8 +128,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         child: Container(
           decoration: BoxDecoration(
             gradient: isDark
-                ? IndianTheme.peacockGradient
-                : IndianTheme.sacredMorningGradient,
+                ? AppTheme.peacockGradient
+                : AppTheme.sacredMorningGradient,
           ),
           child: CustomScrollView(
             slivers: [
@@ -153,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       'WealthIn v2.4.0',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
-                        color: IndianTheme.templeStone.withValues(alpha: 0.6),
+                        color: AppTheme.templeStone.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -176,7 +178,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
-            gradient: IndianTheme.sunriseGradient,
+            gradient: AppTheme.sunriseGradient,
           ),
           child: SafeArea(
             child: Padding(
@@ -219,11 +221,11 @@ class _ProfileScreenState extends State<ProfileScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          gradient: IndianTheme.royalGradient,
+          gradient: AppTheme.royalGradient,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: IndianTheme.royalGold.withValues(alpha: 0.3),
+              color: AppTheme.royalGold.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -238,10 +240,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 height: 80,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: IndianTheme.lotusGradient,
+                  gradient: AppTheme.lotusGradient,
                   boxShadow: [
                     BoxShadow(
-                      color: IndianTheme.lotusPink.withValues(alpha: 0.4),
+                      color: AppTheme.lotusPink.withValues(alpha: 0.4),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -321,8 +323,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: IndianTheme.premiumCardDecoration(
-          gradient: IndianTheme.templeSunsetGradient,
+        decoration: AppTheme.premiumCardDecorationStatic(
+          gradient: AppTheme.templeSunsetGradient,
         ),
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -453,7 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: IndianTheme.marbleCardDecoration(),
+        decoration: AppTheme.marbleCardDecoration(),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -467,7 +469,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          gradient: IndianTheme.prosperityGradient,
+                          gradient: AppTheme.prosperityGradient,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -482,7 +484,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         style: GoogleFonts.playfairDisplay(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: IndianTheme.templeGranite,
+                          color: AppTheme.templeGranite,
                         ),
                       ),
                     ],
@@ -501,7 +503,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       'View All',
                       style: GoogleFonts.poppins(
                         fontSize: 13,
-                        color: IndianTheme.peacockBlue,
+                        color: AppTheme.peacockBlue,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -516,14 +518,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                       Icon(
                         Icons.flag_outlined,
                         size: 48,
-                        color: IndianTheme.templeStone.withValues(alpha: 0.4),
+                        color: AppTheme.templeStone.withValues(alpha: 0.4),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         'No goals yet',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
-                          color: IndianTheme.templeStone,
+                          color: AppTheme.templeStone,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -564,7 +566,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            IndianTheme.goldShimmer,
+            AppTheme.goldShimmer,
             Colors.white,
           ],
           begin: Alignment.topLeft,
@@ -572,7 +574,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: IndianTheme.champagneGold.withValues(alpha: 0.5),
+          color: AppTheme.champagneGold.withValues(alpha: 0.5),
           width: 1.5,
         ),
       ),
@@ -588,14 +590,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: IndianTheme.templeGranite,
+                    color: AppTheme.templeGranite,
                   ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  gradient: IndianTheme.sunriseGradient,
+                  gradient: AppTheme.sunriseGradient,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -615,9 +617,9 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: LinearProgressIndicator(
               value: goal.progress,
               minHeight: 8,
-              backgroundColor: IndianTheme.templeStone.withValues(alpha: 0.2),
+              backgroundColor: AppTheme.templeStone.withValues(alpha: 0.2),
               valueColor: const AlwaysStoppedAnimation<Color>(
-                IndianTheme.mehendiGreen,
+                AppTheme.mehendiGreen,
               ),
             ),
           ),
@@ -630,14 +632,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: IndianTheme.mehendiGreen,
+                  color: AppTheme.mehendiGreen,
                 ),
               ),
               Text(
                 '₹${_formatAmount(goal.targetAmount)}',
                 style: GoogleFonts.poppins(
                   fontSize: 13,
-                  color: IndianTheme.templeStone,
+                  color: AppTheme.templeStone,
                 ),
               ),
             ],
@@ -651,7 +653,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: IndianTheme.marbleCardDecoration(),
+        decoration: AppTheme.marbleCardDecoration(),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -661,7 +663,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 children: [
                   Icon(
                     Icons.account_balance_wallet_rounded,
-                    color: IndianTheme.peacockBlue,
+                    color: AppTheme.peacockBlue,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -670,7 +672,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     style: GoogleFonts.playfairDisplay(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: IndianTheme.templeGranite,
+                      color: AppTheme.templeGranite,
                     ),
                   ),
                 ],
@@ -678,7 +680,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               const SizedBox(height: 16),
               _buildFinancialLinkTile(
                 icon: Icons.pie_chart_rounded,
-                iconColor: IndianTheme.saffron,
+                iconColor: AppTheme.saffron,
                 title: 'Budgets',
                 subtitle: 'Track spending by category',
                 onTap: () => Navigator.push(
@@ -691,7 +693,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               const Divider(height: 1),
               _buildFinancialLinkTile(
                 icon: Icons.flag_rounded,
-                iconColor: IndianTheme.mehendiGreen,
+                iconColor: AppTheme.mehendiGreen,
                 title: 'Savings Goals',
                 subtitle: 'Track progress towards goals',
                 onTap: () => Navigator.push(
@@ -704,7 +706,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               const Divider(height: 1),
               _buildFinancialLinkTile(
                 icon: Icons.event_note_rounded,
-                iconColor: IndianTheme.peacockTeal,
+                iconColor: AppTheme.peacockTeal,
                 title: 'Scheduled Payments',
                 subtitle: 'Manage recurring bills',
                 onTap: () => Navigator.push(
@@ -743,19 +745,19 @@ class _ProfileScreenState extends State<ProfileScreen>
         style: GoogleFonts.poppins(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: IndianTheme.templeGranite,
+          color: AppTheme.templeGranite,
         ),
       ),
       subtitle: Text(
         subtitle,
         style: GoogleFonts.poppins(
           fontSize: 12,
-          color: IndianTheme.templeStone,
+          color: AppTheme.templeStone,
         ),
       ),
       trailing: Icon(
         Icons.chevron_right_rounded,
-        color: IndianTheme.templeStone.withValues(alpha: 0.5),
+        color: AppTheme.templeStone.withValues(alpha: 0.5),
       ),
       onTap: onTap,
     );
@@ -765,7 +767,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: IndianTheme.marbleCardDecoration(),
+        decoration: AppTheme.marbleCardDecoration(),
         child: Column(
           children: [
             _buildSettingsTile(
@@ -780,7 +782,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       themeModeNotifier.value =
                           value ? ThemeMode.dark : ThemeMode.light;
                     },
-                    activeThumbColor: IndianTheme.peacockBlue,
+                    activeThumbColor: AppTheme.peacockBlue,
                   );
                 },
               ),
@@ -820,6 +822,26 @@ class _ProfileScreenState extends State<ProfileScreen>
                   MaterialPageRoute(builder: (_) => const DataSourcesScreen()),
                 );
               },
+            ),
+            const Divider(height: 1),
+            _buildSettingsTile(
+              icon: Icons.vpn_key_rounded,
+              title: 'Sarvam API Key',
+              subtitle: AppSecrets.areKeysConfigured
+                  ? 'Configured (tap to update)'
+                  : 'Not configured (tap to set)',
+              onTap: () => _showApiKeyDialog(context),
+            ),
+            const Divider(height: 1),
+            _buildSettingsTile(
+              icon: authService.isEmailVerified
+                  ? Icons.mark_email_read_rounded
+                  : Icons.mark_email_unread_rounded,
+              title: 'Email Verification',
+              subtitle: authService.isEmailVerified
+                  ? 'Verified'
+                  : 'Pending verification',
+              onTap: () => _showEmailVerificationDialog(context),
             ),
             const Divider(height: 1),
             _buildSettingsTile(
@@ -865,13 +887,13 @@ class _ProfileScreenState extends State<ProfileScreen>
     VoidCallback? onTap,
   }) {
     return ListTile(
-      leading: Icon(icon, color: IndianTheme.peacockBlue),
+      leading: Icon(icon, color: AppTheme.peacockBlue),
       title: Text(
         title,
         style: GoogleFonts.poppins(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: IndianTheme.templeGranite,
+          color: AppTheme.templeGranite,
         ),
       ),
       subtitle: subtitle != null
@@ -879,7 +901,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               subtitle,
               style: GoogleFonts.poppins(
                 fontSize: 12,
-                color: IndianTheme.templeStone,
+                color: AppTheme.templeStone,
               ),
             )
           : null,
@@ -887,7 +909,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           (onTap != null
               ? Icon(
                   Icons.chevron_right_rounded,
-                  color: IndianTheme.templeStone.withValues(alpha: 0.5),
+                  color: AppTheme.templeStone.withValues(alpha: 0.5),
                 )
               : null),
       onTap: onTap,
@@ -905,7 +927,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: IndianTheme.marbleCardDecoration(),
+        decoration: AppTheme.marbleCardDecoration(),
         child: Column(
           children: [
             _buildSettingsTile(
@@ -985,12 +1007,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                         Text('Profile updated!'),
                       ],
                     ),
-                    backgroundColor: IndianTheme.mehendiGreen,
+                    backgroundColor: AppTheme.mehendiGreen,
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: IndianTheme.peacockBlue,
+                backgroundColor: AppTheme.peacockBlue,
               ),
               child: const Text('Save'),
             ),
@@ -1050,14 +1072,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Sign out failed: $e'),
-                        backgroundColor: IndianTheme.vermillion,
+                        backgroundColor: AppTheme.vermillion,
                       ),
                     );
                   }
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: IndianTheme.vermillion,
+                backgroundColor: AppTheme.vermillion,
               ),
               child: const Text('Sign Out'),
             ),
@@ -1124,7 +1146,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       applicationIcon: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          gradient: IndianTheme.sunriseGradient,
+          gradient: AppTheme.sunriseGradient,
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(
@@ -1154,6 +1176,159 @@ class _ProfileScreenState extends State<ProfileScreen>
   void _showNotificationSettings(BuildContext context) {
     // Implementation same as before
     // ... (keeping existing implementation)
+  }
+
+  void _showApiKeyDialog(BuildContext context) {
+    final keyController = TextEditingController();
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> saveKey() async {
+              final apiKey = keyController.text.trim();
+              if (apiKey.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid API key')),
+                );
+                return;
+              }
+
+              setDialogState(() => isSaving = true);
+              try {
+                final success = await AppSecrets.setSarvamApiKey(apiKey);
+                if (success) {
+                  await aiAgentService.reinjectKeys();
+                  if (mounted) {
+                    setState(() {});
+                  }
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Sarvam API key updated successfully')),
+                    );
+                  }
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to save API key')),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error saving key: $e')),
+                  );
+                }
+              } finally {
+                if (context.mounted) {
+                  setDialogState(() => isSaving = false);
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                'Configure Sarvam API Key',
+                style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Paste your Sarvam API key. It will be stored securely on this device.',
+                    style: GoogleFonts.poppins(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: keyController,
+                    decoration: const InputDecoration(
+                      labelText: 'Sarvam API Key',
+                      prefixIcon: Icon(Icons.key_rounded),
+                    ),
+                    obscureText: true,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : saveKey,
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEmailVerificationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Email Verification',
+          style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          authService.isEmailVerified
+              ? 'Your email is already verified.'
+              : 'Your email is not verified yet. You can resend the verification email and refresh the status after verifying.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          if (!authService.isEmailVerified)
+            TextButton.icon(
+              onPressed: () async {
+                try {
+                  await authService.resendVerificationEmail();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Verification email resent')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to resend email: $e')),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.send_rounded, size: 18),
+              label: const Text('Resend'),
+            ),
+          if (!authService.isEmailVerified)
+            ElevatedButton.icon(
+              onPressed: () async {
+                await authService.reloadCurrentUser();
+                if (mounted) setState(() {});
+                if (context.mounted) Navigator.pop(context);
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('I Verified'),
+            ),
+        ],
+      ),
+    );
   }
 
   void _showPrivacySettings(BuildContext context) {
@@ -1191,7 +1366,7 @@ class _SystemHealthCardState extends State<_SystemHealthCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: IndianTheme.marbleCardDecoration(),
+      decoration: AppTheme.marbleCardDecoration(),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1210,7 +1385,7 @@ class _SystemHealthCardState extends State<_SystemHealthCard> {
                         style: GoogleFonts.playfairDisplay(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: IndianTheme.templeGranite,
+                          color: AppTheme.templeGranite,
                         ),
                       ),
                       if (!_isLoading && _health != null)
@@ -1278,7 +1453,7 @@ class _SystemHealthCardState extends State<_SystemHealthCard> {
                 ? Icons.check_circle_rounded
                 : Icons.radio_button_unchecked_rounded,
             size: 20,
-            color: isReady ? IndianTheme.mehendiGreen : IndianTheme.templeStone,
+            color: isReady ? AppTheme.mehendiGreen : AppTheme.templeStone,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1286,7 +1461,7 @@ class _SystemHealthCardState extends State<_SystemHealthCard> {
               name,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: IndianTheme.templeGranite,
+                color: AppTheme.templeGranite,
               ),
             ),
           ),
@@ -1295,8 +1470,8 @@ class _SystemHealthCardState extends State<_SystemHealthCard> {
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: isReady
-                  ? IndianTheme.mehendiGreen
-                  : IndianTheme.templeStone.withValues(alpha: 0.7),
+                  ? AppTheme.mehendiGreen
+                  : AppTheme.templeStone.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -1321,18 +1496,18 @@ class _SystemHealthCardState extends State<_SystemHealthCard> {
   }
 
   Color _getStatusColor() {
-    if (_isLoading) return IndianTheme.templeStone;
+    if (_isLoading) return AppTheme.templeStone;
     switch (_health?.status) {
       case SystemHealthStatus.ready:
-        return IndianTheme.mehendiGreen;
+        return AppTheme.mehendiGreen;
       case SystemHealthStatus.initializing:
-        return IndianTheme.turmeric;
+        return AppTheme.turmeric;
       case SystemHealthStatus.unavailable:
-        return IndianTheme.templeStone;
+        return AppTheme.templeStone;
       case SystemHealthStatus.error:
-        return IndianTheme.vermillion;
+        return AppTheme.vermillion;
       default:
-        return IndianTheme.templeStone;
+        return AppTheme.templeStone;
     }
   }
 }

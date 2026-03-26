@@ -50,3 +50,4 @@ app.*.map.json
 
 # Build logs
 build_log.txt
+.env.sarvam_keys

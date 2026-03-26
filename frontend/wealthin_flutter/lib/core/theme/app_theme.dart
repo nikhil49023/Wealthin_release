@@ -2,57 +2,90 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'indian_theme.dart';
 
-/// WealthIn — "Artha" Premium Fintech Theme  
+/// WealthIn — "Artha" Premium Fintech Theme
 /// AMOLED-native, Indian cultural heritage, dark-first.
 /// Typography: Syne (headings) + DM Sans (body)
 /// Colour philosophy: Deep onyx backgrounds, muted saffron-gold accents,
 /// peacock-teal primary — elegant and readable on every Android display.
+///
+/// **UNIFIED THEME**: Use this theme across ALL screens for consistency
 class AppTheme {
   // ============================================================
-  //  COLOUR ALIASES (delegates to IndianTheme)
+  //  PRIMARY COLOR PALETTE - DARK MODE
   // ============================================================
 
-  // Primary palette
-  static const saffron         = IndianTheme.saffron;
-  static const royalGold       = IndianTheme.royalGold;
-  static const mutedGold       = IndianTheme.mutedGold;
-  static const champagneGold   = IndianTheme.champagneGold;
-  static const peacockTeal     = IndianTheme.peacockTeal;
-  static const peacockLight    = IndianTheme.peacockLight;
-  static const lotusPink       = IndianTheme.lotusPink;
+  // Primary - Peacock Teal (Intelligence, Growth, Finance)
+  static const peacockTeal     = Color(0xFF0A7070);
+  static const peacockLight    = Color(0xFF2AACAC);
+  static const peacockFeather  = Color(0xFF062E2E);
+  static const peacockGreen    = Color(0xFF0F7A5A);
 
-  // Dark surfaces
-  static const deepOnyx        = IndianTheme.deepOnyx;
-  static const richNavy        = IndianTheme.richNavy;
-  static const deepSlate       = IndianTheme.deepSlate;
-  static const inkSlate        = IndianTheme.inkSlate;
+  // Secondary - Royal Gold (Premium, Wealth, Prosperity)
+  static const royalGold       = Color(0xFFC9A84C);
+  static const champagneGold   = Color(0xFFE0C070);
+  static const mutedGold       = Color(0xFFB8923E);
+  static const goldShimmer     = Color(0xFFF4E4C7);
 
-  // Text
-  static const pearlWhite      = IndianTheme.pearlWhite;
-  static const silverMist      = IndianTheme.silverMist;
+  // Tertiary - Saffron (Indian heritage, Energy)
+  static const saffron         = Color(0xFFD4622A);
+  static const saffronLight    = Color(0xFFE8804A);
 
-  // Semantic
+  // Accent - Lotus Pink (Feminine, Insights, AI)
+  static const lotusPink       = Color(0xFFC1446A);
+  static const lotusMagenta    = Color(0xFFD4567E);
+
+  // Dark surfaces (AMOLED-optimized)
+  static const deepOnyx        = Color(0xFF060608); // True AMOLED black
+  static const richNavy        = Color(0xFF0D1117); // Main scaffold
+  static const deepSlate       = Color(0xFF141924); // Card surface
+  static const inkSlate        = Color(0xFF1C2433); // Elevated card
+
+  // Dark text
+  static const pearlWhite      = Color(0xFFE8EDF5); // Primary text
+  static const silverMist      = Color(0xFF8A96A8); // Secondary text
+
+  // ============================================================
+  //  PRIMARY COLOR PALETTE - LIGHT MODE
+  // ============================================================
+
+  // Light surfaces (Warm, paper-like feel)
+  static const lightSurface    = Color(0xFFF6F3EC); // Background
+  static const lightCard       = Color(0xFFFFFCF6); // Card surface
+  static const lightElevated   = Color(0xFFF8F4EC); // Elevated card
+  static const lightBorder     = Color(0xFFE6D9C4); // Borders
+
+  // Light text
+  static const lightTextPrimary = Color(0xFF1B1A17);   // Primary text
+  static const lightTextSecondary = Color(0xFF62594C); // Secondary text
+
+  // Light mode accents (adjusted for readability)
+  static const peacockTealLight = Color(0xFF0A7070); // Darker for contrast
+  static const royalGoldLight   = Color(0xFFB8923E); // Muted for light bg
+
+  // ============================================================
+  //  SEMANTIC COLORS (Work in both themes)
+  // ============================================================
+
   static const success         = Color(0xFF2E8B5A);   // Emerald green (growth)
-  static const successLight    = Color(0xFF4CAF85);
-  static const error           = Color(0xFFCC3340);   // Deep crimson
+  static const successLight    = Color(0xFF4CAF85);   // Light success
+  static const error           = Color(0xFFCC3340);   // Deep crimson (expense)
+  static const errorLight      = Color(0xFFEF4444);   // Light error
   static const warning         = Color(0xFFCF9B00);   // Turmeric amber
-  static const info            = Color(0xFF2196F3);
+  static const warningLight    = Color(0xFFF59E0B);   // Light warning
+  static const info            = Color(0xFF2196F3);   // Info blue
+  static const infoLight       = Color(0xFF60A5FA);   // Light info
 
-  // Light-mode surfaces (modern + traditional Indian blend)
-  static const lightSurface    = Color(0xFFF6F3EC);
-  static const lightCard       = Color(0xFFFFFCF6);
-  static const lightBorder     = Color(0xFFE6D9C4);
-  static const lightTextPrimary = Color(0xFF1B1A17);
-  static const lightTextSecondary = Color(0xFF62594C);
+  // ============================================================
+  //  BACKWARD COMPATIBILITY ALIASES (Legacy support)
+  // ============================================================
 
-  // --- Backward Compatibility Aliases (for sovereign_widgets.dart) ---
-  static const glassWhite      = Color(0x1AFFFFFF); // Very subtle white overlay
-  static const glassMint       = Color(0x1A4CAF85); // Subtle success tint
+  static const glassWhite      = Color(0x1AFFFFFF);
+  static const glassMint       = Color(0x1A4CAF85);
   static const glassBorder     = Color(0x33FFFFFF);
   static const glassShadow     = Color(0x66000000);
-  static const royalPurple     = peacockTeal;       // Intelligence accent map
-  static const purpleGlow      = peacockLight;      // Glow accent map
-  static const purpleLight     = Color(0xFFE0B0FF); // Mauve (rarely used)
+  static const royalPurple     = peacockTeal;
+  static const purpleGlow      = peacockLight;
+  static const purpleLight     = Color(0xFFE0B0FF);
   static const forestLight     = successLight;
   static const forestGreen     = success;
   static const forestMuted     = silverMist;
@@ -74,12 +107,76 @@ class AppTheme {
   static const slate500        = silverMist;
   static const slate900        = pearlWhite;
 
-  // Gradient helpers
-  static LinearGradient get sunriseGradient => IndianTheme.sunriseGradient;
-  static LinearGradient get peacockGradient => IndianTheme.peacockGradient;
-  static LinearGradient get lotusGradient   => IndianTheme.lotusGradient;
-  static LinearGradient get royalGradient   => IndianTheme.royalGradient;
-  static LinearGradient get amoledGradient  => IndianTheme.amoledGradient;
+  // IndianTheme compatibility
+  static const peacockBlue     = Color(0xFF0B4F6C);
+  static const peacockFeatherCompat = peacockFeather;
+  static const templeStone     = Color(0xFF7A6A58);
+  static const templeGranite   = Color(0xFF3A3A3A);
+  static const marbleCream     = Color(0xFFF8F4EC);
+  static const mehendiGreen    = Color(0xFF3D6B3D); // Forest green
+  static const vermillion      = Color(0xFFCC3333); // Sindoor red
+  static const turmeric        = Color(0xFFCF9B00); // Turmeric yellow
+
+  // ============================================================
+  //  GRADIENT DEFINITIONS
+  // ============================================================
+
+  /// Sunrise — Saffron to gold (premium CTAs, headers)
+  static const sunriseGradient = LinearGradient(
+    colors: [Color(0xFFAA4A1E), Color(0xFFC9A84C), Color(0xFF8A6820)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Peacock — Deep teal gradient (finance cards, primary actions)
+  static const peacockGradient = LinearGradient(
+    colors: [Color(0xFF062030), Color(0xFF0A7070), Color(0xFF052828)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Lotus — Magenta gradient (AI/insights, special features)
+  static const lotusGradient = LinearGradient(
+    colors: [Color(0xFF5A1430), Color(0xFFC1446A), Color(0xFF3A0D1E)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Royal — Purple to gold (premium features)
+  static const royalGradient = LinearGradient(
+    colors: [Color(0xFF1A0A30), Color(0xFF5A2D82), Color(0xFFC9A84C)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// AMOLED background gradient (very subtle depth)
+  static const amoledGradient = LinearGradient(
+    colors: [Color(0xFF060608), Color(0xFF0A0C10), Color(0xFF060608)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  /// Sacred Morning — Light mode background gradient
+  static const sacredMorningGradient = LinearGradient(
+    colors: [Color(0xFFFCF7EA), Color(0xFFF3E6CC), Color(0xFFEDE2CE)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  /// Temple Sunset — Deep burnt sienna palette (premium headers)
+  static const templeSunsetGradient = LinearGradient(
+    colors: [Color(0xFF4A1208), Color(0xFF8B3A1A), Color(0xFFC9A84C)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    stops: [0.0, 0.5, 1.0],
+  );
+
+  /// Prosperity — Growth and success gradient
+  static const prosperityGradient = LinearGradient(
+    colors: [Color(0xFF0A2A0A), Color(0xFF3D6B3D), Color(0xFF0A7070)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   static LinearGradient get premiumGradient => const LinearGradient(
     colors: [IndianTheme.peacockTeal, IndianTheme.peacockBlue],
@@ -385,6 +482,144 @@ class AppTheme {
   //  SHARED DECORATIONS
   // ============================================================
 
+  // ============================================================
+  //  CONTEXT-AWARE HELPER METHODS
+  // ============================================================
+
+  /// Get primary color based on theme mode
+  static Color primaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? peacockTeal
+        : peacockTealLight;
+  }
+
+  /// Get surface color based on theme mode
+  static Color surfaceColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? deepSlate
+        : lightCard;
+  }
+
+  /// Get scaffold background based on theme mode
+  static Color scaffoldColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? deepOnyx
+        : lightSurface;
+  }
+
+  /// Get text primary color based on theme mode
+  static Color textPrimary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? pearlWhite
+        : lightTextPrimary;
+  }
+
+  /// Get text secondary color based on theme mode
+  static Color textSecondary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? silverMist
+        : lightTextSecondary;
+  }
+
+  /// Get border color based on theme mode
+  static Color borderColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? inkSlate.withValues(alpha: 0.8)
+        : lightBorder;
+  }
+
+  /// Get accent gradient based on theme mode
+  static LinearGradient accentGradient(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? peacockGradient
+        : sacredMorningGradient;
+  }
+
+  // ============================================================
+  //  BOXDECORATION HELPERS
+  // ============================================================
+
+  /// Standard card decoration with theme awareness
+  static BoxDecoration cardDecoration(BuildContext context, {
+    bool useGradient = false,
+    double borderRadius = 16,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return BoxDecoration(
+      color: useGradient ? null : (isDark ? deepSlate : lightCard),
+      gradient: useGradient ? (isDark ? peacockGradient : null) : null,
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: isDark
+            ? royalGold.withValues(alpha: 0.15)
+            : lightBorder,
+        width: 1,
+      ),
+      boxShadow: isDark ? null : [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+
+  /// Premium card with gold accent border
+  static BoxDecoration premiumCardDecoration(BuildContext context, {
+    Gradient? gradient,
+    double borderRadius = 20,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return BoxDecoration(
+      gradient: gradient ?? (isDark ? sunriseGradient : royalGradient),
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: royalGold.withValues(alpha: isDark ? 0.35 : 0.50),
+        width: 1.5,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: royalGold.withValues(alpha: isDark ? 0.12 : 0.20),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    );
+  }
+
+  /// Glass morphism card decoration
+  static BoxDecoration glassCardDecoration(BuildContext context, {
+    double borderRadius = 16,
+    double opacity = 0.9,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return BoxDecoration(
+      color: isDark
+          ? inkSlate.withValues(alpha: opacity)
+          : lightCard.withValues(alpha: opacity),
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: isDark
+            ? royalGold.withValues(alpha: 0.18)
+            : lightBorder,
+        width: 1,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  //  LEGACY DECORATIONS (Backward compatibility - no context)
+  // ============================================================
+
+  /// Legacy glass decoration (dark mode only, for backward compatibility)
   static BoxDecoration glassDecoration({
     double opacity = 0.9,
     double borderRadius = 20,
@@ -411,11 +646,7 @@ class AppTheme {
 
   static BoxDecoration aiGlassDecoration({double borderRadius = 20}) {
     return BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [IndianTheme.deepSlate, IndianTheme.inkSlate],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
+      gradient: peacockGradient,
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
         color: peacockTeal.withValues(alpha: 0.25),
@@ -428,6 +659,48 @@ class AppTheme {
           offset: const Offset(0, 4),
         ),
       ],
+    );
+  }
+
+  /// Marble card decoration (legacy compatibility)
+  static BoxDecoration marbleCardDecoration() {
+    return BoxDecoration(
+      color: lightCard,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: lightBorder, width: 1),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+
+  /// Premium card decoration (static, no context - for IndianTheme compatibility)
+  static BoxDecoration premiumCardDecorationStatic({
+    Gradient? gradient,
+    Color? borderColor,
+    double borderRadius = 20,
+    bool hasShadow = true,
+  }) {
+    return BoxDecoration(
+      gradient: gradient ?? sunriseGradient,
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: borderColor ?? royalGold.withValues(alpha: 0.35),
+        width: 1.5,
+      ),
+      boxShadow: hasShadow
+          ? [
+              BoxShadow(
+                color: royalGold.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ]
+          : null,
     );
   }
 
@@ -480,24 +753,25 @@ class AppTheme {
   //  BACKGROUND DECORATIONS
   // ============================================================
 
-  static BoxDecoration get frostedGradientBackground => const BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [AppTheme.lightSurface, AppTheme.lightCard, AppTheme.lightSurface],
-    ),
-  );
-
-  static BoxDecoration get frostedGradientBackgroundDark => const BoxDecoration(
-    gradient: IndianTheme.amoledGradient,
-  );
-
   // Legacy progress gradient
   static LinearGradient progressGradient(double progress) => LinearGradient(
     colors: [peacockTeal, peacockLight, royalGold.withValues(alpha: 0.6)],
     stops: [0, progress.clamp(0.0, 0.8), 1.0],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
+  );
+
+  /// Frosted gradient backgrounds
+  static BoxDecoration get frostedGradientBackground => const BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [lightSurface, lightCard, lightSurface],
+    ),
+  );
+
+  static BoxDecoration get frostedGradientBackgroundDark => const BoxDecoration(
+    gradient: amoledGradient,
   );
 }
 
