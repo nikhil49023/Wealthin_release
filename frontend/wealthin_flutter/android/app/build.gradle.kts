@@ -58,6 +58,15 @@ android {
         buildConfig = true
     }
 
+    // Native C++ build is intentionally disabled.
+    // This app runs AI inference through hosted APIs.
+    // externalNativeBuild {
+    //     cmake {
+    //         path = file("src/main/cpp/CMakeLists.txt")
+    //         version = "3.22.1"
+    //     }
+    // }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.wealthin_flutter"

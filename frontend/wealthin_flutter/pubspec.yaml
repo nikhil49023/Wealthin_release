@@ -39,6 +39,7 @@ dependencies:
   file_picker: ^10.3.10
   http: ^1.6.0
   http_parser: ^4.1.0
+  crypto: ^3.0.3  # For response cache hashing
   intl: ^0.20.2
   shared_preferences: ^2.3.5
   path_provider: ^2.1.5
@@ -88,6 +89,7 @@ flutter:
   assets:
     - assets/config.json
     - assets/wealthin_logo.png
+    - assets/memory.md
 dependency_overrides:
   flutter_secure_storage: ^10.0.0
 
