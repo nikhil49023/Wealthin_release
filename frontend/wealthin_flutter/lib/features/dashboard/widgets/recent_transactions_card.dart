@@ -216,36 +216,46 @@ class RecentTransactionsCard extends StatelessWidget {
   IconData _getCategoryIcon(String category) {
     final cat = category.toLowerCase();
     if (cat.contains('food') || cat.contains('dining')) return Icons.restaurant;
-    if (cat.contains('grocery') || cat.contains('groceries'))
+    if (cat.contains('grocery') || cat.contains('groceries')) {
       return Icons.local_grocery_store;
+    }
     if (cat.contains('transport') ||
         cat.contains('travel') ||
-        cat.contains('commute'))
+        cat.contains('commute')) {
       return Icons.directions_car;
+    }
     if (cat.contains('shopping')) return Icons.shopping_bag;
-    if (cat.contains('bill') || cat.contains('utilities'))
+    if (cat.contains('bill') || cat.contains('utilities')) {
       return Icons.receipt_long;
-    if (cat.contains('entertainment') || cat.contains('movie'))
+    }
+    if (cat.contains('entertainment') || cat.contains('movie')) {
       return Icons.movie;
+    }
     if (cat.contains('health') ||
         cat.contains('medical') ||
-        cat.contains('pharmacy'))
+        cat.contains('pharmacy')) {
       return Icons.medical_services;
-    if (cat.contains('education') || cat.contains('school'))
+    }
+    if (cat.contains('education') || cat.contains('school')) {
       return Icons.school;
-    if (cat.contains('salary') || cat.contains('income'))
+    }
+    if (cat.contains('salary') || cat.contains('income')) {
       return Icons.attach_money;
+    }
     if (cat.contains('invest') ||
         cat.contains('stock') ||
-        cat.contains('trading'))
+        cat.contains('trading')) {
       return Icons.trending_up;
+    }
     if (cat.contains('rent') ||
         cat.contains('house') ||
-        cat.contains('housing'))
+        cat.contains('housing')) {
       return Icons.home;
+    }
     if (cat.contains('insurance')) return Icons.security;
-    if (cat.contains('loan') || cat.contains('emi'))
+    if (cat.contains('loan') || cat.contains('emi')) {
       return Icons.account_balance;
+    }
     if (cat.contains('care') || cat.contains('salon')) return Icons.spa;
     if (cat.contains('transfer')) return Icons.swap_horiz;
 

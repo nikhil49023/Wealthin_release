@@ -1,157 +1,204 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/wealthin_theme.dart';
+import '../theme/app_theme.dart';
 
-/// Service for categorizing transactions based on description keywords.
-/// Runs natively in Dart (offline).
+/// Transaction Categorizer — RegExp-based pipeline with confidence scoring
+/// Runs offline in Dart. Categories aligned with Indian spending patterns.
 class TransactionCategorizer {
-  
-  static const String otherParams = "Other";
 
-  static const Map<String, List<String>> _categoryKeywords = {
-    "Food & Dining": [
-      "swiggy", "zomato", "restaurant", "cafe", "food", "dining", "lunch", "dinner",
-      "breakfast", "biryani", "pizza", "burger", "chai", "coffee", "tea", "snacks",
-      "mess", "canteen", "dhaba", "hotel", "eatsure", "dominos", "kfc", "mcdonalds",
-      "subway", "haldiram", "barbeque", "freshmen", "behrouz", "starbucks", "burger king",
-      "pizza hut", "bistro", "diner", "coffee day", "ccd", "tim hortons", "taco bell",
-      "oven story", "faasos", "box8", "wow momo"
-    ],
-    "Groceries": [
-      "bigbasket", "grofers", "blinkit", "zepto", "dmart", "reliance fresh",
-      "more megastore", "grocery", "vegetables", "fruits", "kirana", "supermarket",
-      "provision", "ration", "jiomart", "amazon fresh", "nature's basket", "spencer's",
-      "daily needs", "milk", "dairy", "bakery", "meat", "fish"
-    ],
-    "Transportation": [
-      "uber", "ola", "rapido", "metro", "bus", "railway", "irctc", "petrol", "diesel",
-      "fuel", "parking", "toll", "fastag", "auto", "cab", "taxi", "flight", "air",
-      "indigo", "spicejet", "vistara", "redbus", "makemytrip", "cleartrip", "goibibo",
-      "yatra", "ixigo", "blue smart", "indriver", "rly", "rail", "shell", "hpcl", "bpcl", "ioc"
-    ],
-    "Shopping": [
-      "amazon", "flipkart", "myntra", "ajio", "nykaa", "meesho", "snapdeal",
-      "shopclues", "paytm mall", "tata cliq", "lifestyle", "westside", "pantaloons",
-      "max", "h&m", "zara", "uniqlo", "decathlon", "croma", "reliance digital",
-      "trends", "zudio", "nike", "adidas", "puma", "skechers", "levi's", "marks & spencer"
-    ],
-    "Entertainment": [
-      "netflix", "prime video", "hotstar", "disney", "youtube", "spotify", "gaana",
-      "jio saavn", "pvr", "inox", "bookmyshow", "cinema", "movie", "games", "pubg",
-      "dream11", "fantasy", "subscription", "ott", "cinepolis", "apple music", "audible",
-      "sony liv", "zee5", "gaming", "steam", "playstation", "xbox"
-    ],
-    "Utilities": [
-      "electricity", "water", "gas", "broadband", "internet", "wifi", "jio", "airtel",
-      "vi", "vodafone", "bsnl", "act fibernet", "tata sky", "dish tv", "dth",
-      "mobile recharge", "postpaid", "prepaid", "phone bill", "bescom", "bwssb",
-      "mahavitaran", "adhani", "torrent power", "billdesk", "razorpay"
-    ],
-    "Healthcare": [
-      "hospital", "clinic", "doctor", "pharma", "pharmacy", "medicine", "apollo",
-      "medplus", "netmeds", "1mg", "pharmeasy", "tata 1mg", "diagnostic", "lab",
-      "pathology", "consultation", "health", "medical", "dental", "eye", "practo",
-      "cult.fit", "gym", "fitness"
-    ],
-    "Education": [
-      "school", "college", "university", "course", "udemy", "coursera", "unacademy",
-      "byju", "vedantu", "books", "stationery", "tuition", "coaching", "exam",
-      "fees", "library", "kindle", "skillshare"
-    ],
-    "Investment": [
-      "mutual fund", "sip", "zerodha", "groww", "upstox", "angel", "stocks", "shares",
-      "trading", "demat", "nse", "bse", "investment", "fd", "fixed deposit",
-      "ppf", "nps", "bonds", "gold", "sovereign", "smallcase", "kuvera", "indmoney"
-    ],
-    "Insurance": [
-      "insurance", "lic", "hdfc life", "icici pru", "max life", "term", "health insurance",
-      "motor insurance", "policy", "premium", "policybazaar", "digit", "acko", "navi"
-    ],
-    "EMI & Loans": [
-      "emi", "loan", "installment", "credit card", "bajaj", "hdfc", "icici", "sbi",
-      "home loan", "car loan", "personal loan", "education loan", "bnpl", "simpl", "lazypay"
-    ],
-    "Salary & Income": [
-      "salary", "wages", "income", "payroll", "credit", "inward", "received",
-      "payment received", "freelance", "bonus", "incentive", "commission", "refund", "interest"
-    ],
-    "Transfer": [
-      "transfer", "neft", "imps", "rtgs", "upi", "gpay", "phonepe", "paytm",
-      "bhim", "self transfer", "fund transfer", "account transfer", "cred"
-    ],
-    "Rent & Housing": [
-      "rent", "house rent", "pg", "hostel", "accommodation", "maintenance",
-      "society", "apartment", "flat", "deposit", "caution", "nobroker"
-    ],
-    "Personal Care": [
-      "salon", "spa", "parlour", "haircut", "beauty", "cosmetics", "skincare",
-      "grooming", "urban company", "looks", "javed habib"
-    ]
-  };
+  static const String other = 'Other';
 
-  /// Get list of all supported categories
-  static List<String> get categories => _categoryKeywords.keys.toList();
+  // Each entry: category → list of regex patterns (compiled once)
+  // Brand/merchant exact names have higher rank (checked first)
+  static final Map<String, List<RegExp>> _categoryRegex = _buildRegex({
+    'Food & Dining': [
+      r'\b(swiggy|zomato|eatsure|faasos|box8|wow[ -]?momo|behrouz|oven[ -]?story)\b',
+      r'\b(dominos?|kfc|mcdonalds?|subway|pizza[ -]?hut|burger[ -]?king|taco[ -]?bell)\b',
+      r'\b(starbucks|ccd|coffee[ -]?day|bistro|diner|haldiram|barbeque[ -]?nation)\b',
+      r'\b(restaurant|cafe|food|dining|lunch|dinner|breakfast|snack|canteen|dhaba|mess)\b',
+      r'\b(biryani|pizza|burger|chai|coffee|tea)\b',
+    ],
+    'Groceries': [
+      r'\b(bigbasket|grofers|blinkit|zepto|jiomart|amazon[ -]?fresh|nature.?s[ -]?basket)\b',
+      r'\b(dmart|reliance[ -]?fresh|more[ -]?megastore|spencer.?s)\b',
+      r'\b(grocery|groceries|vegetable|fruit|kirana|supermarket|provision|ration|dairy|bakery)\b',
+      r'\b(milk|meat|fish|eggs?)\b',
+    ],
+    'Transportation': [
+      r'\b(uber|ola|rapido|indriver|blue[ -]?smart)\b',
+      r'\b(irctc|redbus|makemytrip|cleartrip|goibibo|yatra|ixigo)\b',
+      r'\b(indigo|spicejet|vistara|air[ -]?india|go[ -]?air)\b',
+      r'\b(fastag|petrol|diesel|fuel|hpcl|bpcl|ioc|shell)\b',
+      r'\b(metro|bus|railway|rly|auto|cab|taxi|parking|toll)\b',
+    ],
+    'Shopping': [
+      r'\b(amazon|flipkart|myntra|ajio|nykaa|meesho|snapdeal|shopclues|tata[ -]?cliq)\b',
+      r'\b(lifestyle|westside|pantaloons|max|h&m|zara|uniqlo|levi.?s|marks?[ -]?spencer)\b',
+      r'\b(decathlon|croma|reliance[ -]?digital|trends|zudio)\b',
+      r'\b(nike|adidas|puma|skechers)\b',
+      r'\b(shopping|purchase)\b',
+    ],
+    'Entertainment': [
+      r'\b(netflix|prime[ -]?video|hotstar|disney|youtube|spotify|gaana|jio[ -]?saavn|apple[ -]?music|audible)\b',
+      r'\b(pvr|inox|bookmyshow|cinepolis|cinema|movie)\b',
+      r'\b(dream11|fantasy|pubg|steam|playstation|xbox|gaming)\b',
+      r'\b(sony[ -]?liv|zee5|ott|subscription)\b',
+    ],
+    'Utilities': [
+      r'\b(jio|airtel|vi|vodafone|bsnl|act[ -]?fibernet)\b',
+      r'\b(tata[ -]?sky|dish[ -]?tv|dth)\b',
+      r'\b(bescom|bwssb|mahavitaran|torrent[ -]?power|adani[ -]?electricity)\b',
+      r'\b(electricity|water[ -]?bill|gas[ -]?bill|broadband|internet|wifi)\b',
+      r'\b(mobile[ -]?recharge|postpaid|prepaid|phone[ -]?bill|billdesk)\b',
+    ],
+    'Healthcare': [
+      r'\b(apollo|medplus|netmeds|1mg|pharmeasy|tata[ -]?1mg|practo|cult\.?fit)\b',
+      r'\b(hospital|clinic|doctor|pharmacy|pharma|medicine|diagnostic|lab|patholog)\b',
+      r'\b(dental|optical|gym|fitness|health|medical|consultation)\b',
+    ],
+    'Education': [
+      r'\b(udemy|coursera|unacademy|byjus?|vedantu|skillshare|kindle)\b',
+      r'\b(school|college|university|coaching|tuition|exam[ -]?fee)\b',
+      r'\b(books?|stationer|library|course[ -]?fee)\b',
+    ],
+    'SIP / Mutual Fund': [
+      r'\b(sip|systematic[ -]?investment|mutual[ -]?fund|zerodha|groww|upstox|angel[ -]?one)\b',
+      r'\b(smallcase|kuvera|indmoney|paytm[ -]?money|coin[ -]?zerodha)\b',
+    ],
+    'Investment': [
+      r'\b(ppf|nps|elss|sgb|sovereign[ -]?gold|scss|nsc|fixed[ -]?deposit|fd|rd)\b',
+      r'\b(stocks?|shares?|trading|demat|nse|bse|bonds?|gold[ -]?fund)\b',
+      r'\b(investment|invest)\b',
+    ],
+    'Insurance': [
+      r'\b(lic|hdfc[ -]?life|icici[ -]?pru|max[ -]?life|term[ -]?plan|health[ -]?insurance)\b',
+      r'\b(motor[ -]?insurance|policybazaar|digit[ -]?insurance|acko|navi)\b',
+      r'\b(insurance|insured|premium[ -]?paid|policy)\b',
+    ],
+    'EMI & Loans': [
+      r'\b(emi|equated[ -]?monthly|home[ -]?loan|car[ -]?loan|personal[ -]?loan|education[ -]?loan)\b',
+      r'\b(bajaj[ -]?finance|hdfc[ -]?bank|icici[ -]?bank|sbi|kotak|axis[ -]?bank)\b',
+      r'\b(bnpl|simpl|lazypay|installment|repayment|loan[ -]?repay)\b',
+    ],
+    'Salary & Income': [
+      r'\b(salary|wages|payroll|stipend|remuneration)\b',
+      r'\b(interest[ -]?credit|dividend|bonus|incentive|commission)\b',
+      r'\b(refund|cashback|reward|payment[ -]?received)\b',
+    ],
+    'Transfer': [
+      r'\b(neft|imps|rtgs|upi|gpay|google[ -]?pay|phonepe|paytm|bhim|cred)\b',
+      r'\b(fund[ -]?transfer|self[ -]?transfer|account[ -]?transfer)\b',
+    ],
+    'Rent & Housing': [
+      r'\b(house[ -]?rent|pg|paying[ -]?guest|hostel|accommodation|society[ -]?maintenance)\b',
+      r'\b(nobroker|magicbricks|99acres|flat[ -]?rent|apartment[ -]?rent|deposit)\b',
+      r'\b(rent)\b',
+    ],
+    'Personal Care': [
+      r'\b(urban[ -]?company|looks|javed[ -]?habib|naturals[ -]?salon)\b',
+      r'\b(salon|spa|parlour|haircut|beauty|cosmetics?|skincare|grooming)\b',
+    ],
+    'ATM / Cash': [
+      r'\b(atm[ -]?withdrawal|cash[ -]?withdrawal|atm)\b',
+    ],
+    'Crypto': [
+      r'\b(bitcoin|btc|ethereum|eth|crypto|wazirx|coindcx|binance|usdt)\b',
+    ],
+  });
 
-  /// Categorize transaction based on description
-  static String categorize(String description) {
-    if (description.isEmpty) return otherParams;
-    
-    final descLower = description.toLowerCase();
-    
-    for (final entry in _categoryKeywords.entries) {
-      final category = entry.key;
-      final keywords = entry.value;
-      
-      for (final keyword in keywords) {
-        if (descLower.contains(keyword)) {
-          return category;
+  static Map<String, List<RegExp>> _buildRegex(Map<String, List<String>> raw) {
+    return raw.map((cat, patterns) => MapEntry(
+      cat,
+      patterns.map((p) => RegExp(p, caseSensitive: false)).toList(),
+    ));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  PUBLIC API
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// All supported category names
+  static List<String> get categories => _categoryRegex.keys.toList();
+
+  /// Categorize a transaction description, returning category + confidence.
+  static CategorizeResult categorize(String description) {
+    if (description.isEmpty) return CategorizeResult(category: other, confidence: 0.0);
+
+    // Check each category in order; first-match wins within a category
+    for (final entry in _categoryRegex.entries) {
+      for (int i = 0; i < entry.value.length; i++) {
+        if (entry.value[i].hasMatch(description)) {
+          // Earlier patterns = brand-level match = higher confidence
+          final confidence = i == 0 ? 1.0 : (i == 1 ? 0.9 : 0.75);
+          return CategorizeResult(category: entry.key, confidence: confidence);
         }
       }
     }
-    
-    return otherParams;
+    return CategorizeResult(category: other, confidence: 0.0);
   }
+
+  /// Convenience: returns just the category string (backwards compatible)
+  static String categorizeSimple(String description) =>
+      categorize(description).category;
 
   /// Get icon for category
   static IconData getIcon(String category) {
     switch (category) {
-      case "Food & Dining": return Icons.restaurant;
-      case "Groceries": return Icons.local_grocery_store;
-      case "Transportation": return Icons.directions_car;
-      case "Shopping": return Icons.shopping_bag;
-      case "Entertainment": return Icons.movie;
-      case "Utilities": return Icons.lightbulb;
-      case "Healthcare": return Icons.medical_services;
-      case "Education": return Icons.school;
-      case "Investment": return Icons.trending_up;
-      case "Insurance": return Icons.security;
-      case "EMI & Loans": return Icons.credit_card;
-      case "Salary & Income": return Icons.attach_money;
-      case "Transfer": return Icons.compare_arrows;
-      case "Rent & Housing": return Icons.home;
-      case "Personal Care": return Icons.face;
-      default: return Icons.category;
+      case 'Food & Dining':        return Icons.restaurant_rounded;
+      case 'Groceries':            return Icons.local_grocery_store_rounded;
+      case 'Transportation':       return Icons.directions_car_rounded;
+      case 'Shopping':             return Icons.shopping_bag_rounded;
+      case 'Entertainment':        return Icons.movie_rounded;
+      case 'Utilities':            return Icons.bolt_rounded;
+      case 'Healthcare':           return Icons.medical_services_rounded;
+      case 'Education':            return Icons.school_rounded;
+      case 'SIP / Mutual Fund':    return Icons.trending_up_rounded;
+      case 'Investment':           return Icons.show_chart_rounded;
+      case 'Insurance':            return Icons.security_rounded;
+      case 'EMI & Loans':          return Icons.credit_card_rounded;
+      case 'Salary & Income':      return Icons.account_balance_rounded;
+      case 'Transfer':             return Icons.compare_arrows_rounded;
+      case 'Rent & Housing':       return Icons.home_rounded;
+      case 'Personal Care':        return Icons.face_rounded;
+      case 'ATM / Cash':           return Icons.local_atm_rounded;
+      case 'Crypto':               return Icons.currency_bitcoin_rounded;
+      default:                     return Icons.category_rounded;
     }
   }
 
-  /// Get color for category
+  /// Get theme-palette colour for category
   static Color getColor(String category) {
     switch (category) {
-      case "Food & Dining": return Colors.orange;
-      case "Groceries": return Colors.green;
-      case "Transportation": return Colors.blue;
-      case "Shopping": return Colors.pink;
-      case "Entertainment": return Colors.purple;
-      case "Utilities": return Colors.yellow[700]!;
-      case "Healthcare": return Colors.red;
-      case "Education": return Colors.teal;
-      case "Investment": return WealthInTheme.emerald;
-      case "Insurance": return Colors.indigo;
-      case "EMI & Loans": return Colors.deepOrange;
-      case "Salary & Income": return Colors.green[800]!;
-      case "Transfer": return Colors.grey;
-      case "Rent & Housing": return Colors.brown;
-      case "Personal Care": return Colors.pinkAccent;
-      default: return Colors.grey;
+      case 'Food & Dining':        return AppTheme.saffron;
+      case 'Groceries':            return AppTheme.success;
+      case 'Transportation':       return AppTheme.peacockTeal;
+      case 'Shopping':             return AppTheme.lotusPink;
+      case 'Entertainment':        return const Color(0xFF9966CC);
+      case 'Utilities':            return AppTheme.warning;
+      case 'Healthcare':           return AppTheme.error;
+      case 'Education':            return AppTheme.peacockLight;
+      case 'SIP / Mutual Fund':    return AppTheme.successLight;
+      case 'Investment':           return AppTheme.success;
+      case 'Insurance':            return const Color(0xFF5C6BC0);
+      case 'EMI & Loans':          return const Color(0xFFEF6C00);
+      case 'Salary & Income':      return AppTheme.champagneGold;
+      case 'Transfer':             return AppTheme.silverMist;
+      case 'Rent & Housing':       return const Color(0xFF795548);
+      case 'Personal Care':        return AppTheme.lotusPink;
+      case 'ATM / Cash':           return const Color(0xFF78909C);
+      case 'Crypto':               return const Color(0xFFF7931A);
+      default:                     return AppTheme.silverMist;
     }
   }
+}
+
+/// Result of a categorization operation
+class CategorizeResult {
+  final String category;
+  /// Confidence: 1.0 = brand-exact match, 0.75 = keyword match, 0.0 = unmatched
+  final double confidence;
+
+  const CategorizeResult({required this.category, required this.confidence});
+
+  bool get isConfident => confidence >= 0.75;
+  bool get isMatched   => category != TransactionCategorizer.other;
 }

@@ -624,7 +624,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFD4AF37).withOpacity(0.3),
+                            color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -635,7 +635,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Image.asset(
                           'assets/wealthin_logo.png',
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Center(
+                          errorBuilder: (_, _, _) => Center(
                             child: ShaderMask(
                               shaderCallback: (bounds) => const LinearGradient(
                                 colors: [Color(0xFFD4AF37), Color(0xFFF5E6A3)],
@@ -696,17 +696,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        theme.colorScheme.primary.withOpacity(0.2),
-                        theme.colorScheme.primary.withOpacity(0.1),
+                        theme.colorScheme.primary.withValues(alpha: 0.2),
+                        theme.colorScheme.primary.withValues(alpha: 0.1),
                       ],
                     ),
                     border: Border.all(
-                      color: theme.colorScheme.primary.withOpacity(0.3),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
                       width: 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: theme.colorScheme.primary.withOpacity(0.2),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -885,7 +885,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
-              value: (savingsRate as num).toDouble() / 100,
+              value: (savingsRate).toDouble() / 100,
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),

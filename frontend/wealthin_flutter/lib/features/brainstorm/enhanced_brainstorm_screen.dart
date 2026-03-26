@@ -1002,17 +1002,6 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
           ),
           // Language selector (text only, no icons)
           PopupMenuButton<String>(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(
-                _preferredLanguage,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white70,
-                ),
-              ),
-            ),
             tooltip: 'Response Language',
             onSelected: (lang) => setState(() => _preferredLanguage = lang),
             itemBuilder: (context) => _languageOptions.keys.map((lang) {
@@ -1036,6 +1025,17 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 ),
               );
             }).toList(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                _preferredLanguage,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
           ),
           // Location selector for Gov API enrichment
           IconButton(
@@ -1158,7 +1158,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       decoration: BoxDecoration(
         color: isDark ? theme.colorScheme.surface : theme.colorScheme.surfaceContainerHighest,
         border: Border(
-          right: BorderSide(color: theme.colorScheme.outline.withOpacity(0.3)),
+          right: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
         ),
       ),
       child: Column(
@@ -1400,7 +1400,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                       height: 32,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        separatorBuilder: (_, _) => const SizedBox(width: 6),
                         itemCount: _starterPrompts.length,
                         itemBuilder: (context, index) {
                           final prompt = _starterPrompts[index];
@@ -1440,7 +1440,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
               border: Border(
                 bottom: BorderSide(
                   color: isDark ? Colors.white10 : Colors.black12,
@@ -1541,7 +1541,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                         Icon(
                           Icons.dashboard_customize_outlined,
                           size: 64,
-                          color: Colors.grey.withOpacity(0.3),
+                          color: Colors.grey.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         const Text(
@@ -1590,11 +1590,11 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.15) : Colors.transparent,
+          color: isActive ? color.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isActive
-                ? color.withOpacity(0.5)
+                ? color.withValues(alpha: 0.5)
                 : (isDark ? Colors.white12 : Colors.black12),
             width: isActive ? 1.5 : 1,
           ),
@@ -1627,7 +1627,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
+        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? Colors.white12 : Colors.black12,
@@ -2671,10 +2671,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark
-            ? cardColor.withOpacity(0.15)
-            : cardColor.withOpacity(0.1),
+            ? cardColor.withValues(alpha: 0.15)
+            : cardColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cardColor.withOpacity(0.3)),
+        border: Border.all(color: cardColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2684,7 +2684,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: cardColor.withOpacity(0.3),
+                  color: cardColor.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -2763,8 +2763,8 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [
-                    (_personas[_currentPersona]!['color'] as Color).withOpacity(0.2),
-                    (_personas[_currentPersona]!['color'] as Color).withOpacity(0.05),
+                    (_personas[_currentPersona]!['color'] as Color).withValues(alpha: 0.2),
+                    (_personas[_currentPersona]!['color'] as Color).withValues(alpha: 0.05),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -2801,11 +2801,11 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: isDark
-                    ? Colors.amber.withOpacity(0.08)
-                    : Colors.amber.withOpacity(0.06),
+                    ? Colors.amber.withValues(alpha: 0.08)
+                    : Colors.amber.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.amber.withOpacity(0.2),
+                  color: Colors.amber.withValues(alpha: 0.2),
                 ),
               ),
               child: Row(
@@ -2831,7 +2831,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.04) : Colors.grey.withOpacity(0.06),
+                color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -3042,7 +3042,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                   ),
                 ),
                 backgroundColor: isDark
-                    ? Colors.white.withOpacity(0.06)
+                    ? Colors.white.withValues(alpha: 0.06)
                     : Colors.grey[100],
                 side: BorderSide.none,
                 padding: EdgeInsets.zero,
@@ -3058,7 +3058,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                 final section = _editableSections[i];
                 buffer.writeln(
                     '${i + 1}. ${section['title'] ?? 'Section ${i + 1}'}');
-                buffer.writeln('${'=' * 40}');
+                buffer.writeln('=' * 40);
                 final content =
                     section['content'] as Map<String, dynamic>? ?? {};
                 for (final entry in content.entries) {
@@ -3128,7 +3128,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                             ),
                             decoration: BoxDecoration(
                               color: isActive
-                                  ? WealthInColors.primary.withOpacity(0.1)
+                                  ? WealthInColors.primary.withValues(alpha: 0.1)
                                   : null,
                               border: Border(
                                 left: BorderSide(
@@ -3193,7 +3193,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                         Icon(
                           Icons.description_outlined,
                           size: 64,
-                          color: Colors.grey.withOpacity(0.3),
+                          color: Colors.grey.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         const Text(
@@ -3236,13 +3236,13 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: _activeSectionIndex == index
-                ? WealthInColors.primary.withOpacity(0.3)
+                ? WealthInColors.primary.withValues(alpha: 0.3)
                 : (isDark ? Colors.white10 : Colors.grey.shade200),
             width: _activeSectionIndex == index ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -3258,7 +3258,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: WealthInColors.primary.withOpacity(0.12),
+                    color: WealthInColors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
@@ -3348,7 +3348,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                         ),
                         filled: true,
                         fillColor: isDark
-                            ? Colors.white.withOpacity(0.03)
+                            ? Colors.white.withValues(alpha: 0.03)
                             : Colors.grey[50],
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -3369,7 +3369,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
-                            color: WealthInColors.primary.withOpacity(0.5),
+                            color: WealthInColors.primary.withValues(alpha: 0.5),
                             width: 1.5,
                           ),
                         ),

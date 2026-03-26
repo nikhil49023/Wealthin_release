@@ -183,7 +183,7 @@ class WealthInTheme {
 
   /// AI Glow effect for agent avatar
   static BoxShadow aiGlowShadow = BoxShadow(
-    color: emeraldGlow.withOpacity(0.6),
+    color: emeraldGlow.withValues(alpha: 0.6),
     blurRadius: 15,
     spreadRadius: 5,
   );
@@ -205,11 +205,11 @@ class WealthInTheme {
       colorScheme: ColorScheme.light(
         primary: trueEmerald,
         onPrimary: Colors.white,
-        primaryContainer: emeraldGlow.withOpacity(0.15),
+        primaryContainer: emeraldGlow.withValues(alpha: 0.15),
         onPrimaryContainer: trueEmerald,
         secondary: vintageGold,
         onSecondary: Colors.white,
-        secondaryContainer: vintageGold.withOpacity(0.15),
+        secondaryContainer: vintageGold.withValues(alpha: 0.15),
         onSecondaryContainer: vintageGold,
         tertiary: info,
         onTertiary: Colors.white,
@@ -376,7 +376,7 @@ class WealthInTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: ivoryMist,
-        selectedColor: trueEmerald.withOpacity(0.15),
+        selectedColor: trueEmerald.withValues(alpha: 0.15),
         labelStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: jadeShadow),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -392,7 +392,7 @@ class WealthInTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: paperWhite,
-        indicatorColor: trueEmerald.withOpacity(0.12),
+        indicatorColor: trueEmerald.withValues(alpha: 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return GoogleFonts.plusJakartaSans(
@@ -450,11 +450,11 @@ class WealthInTheme {
       colorScheme: ColorScheme.dark(
         primary: cyanGlow, // Using cyan for dark mode (better contrast)
         onPrimary: deepObsidian,
-        primaryContainer: cyanGlow.withOpacity(0.2),
+        primaryContainer: cyanGlow.withValues(alpha: 0.2),
         onPrimaryContainer: cyanGlow,
         secondary: regalGold,
         onSecondary: deepObsidian,
-        secondaryContainer: regalGold.withOpacity(0.2),
+        secondaryContainer: regalGold.withValues(alpha: 0.2),
         onSecondaryContainer: regalGold,
         tertiary: emeraldGlow, // Keep emerald for tertiary/income
         onTertiary: deepObsidian,
@@ -622,7 +622,7 @@ class WealthInTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Color(0xFF132B1C),
-        selectedColor: emeraldGlow.withOpacity(0.2),
+        selectedColor: emeraldGlow.withValues(alpha: 0.2),
         labelStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: Color(0xFFB0D0BC)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -639,7 +639,7 @@ class WealthInTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: vaultGreen,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: emeraldGlow.withOpacity(0.15),
+        indicatorColor: emeraldGlow.withValues(alpha: 0.15),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return GoogleFonts.plusJakartaSans(
@@ -728,7 +728,7 @@ class WealthInTheme {
           ? null
           : [
               BoxShadow(
-                color: deepForest.withOpacity(0.04),
+                color: deepForest.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: Offset(0, 2),
               ),
@@ -748,14 +748,14 @@ class WealthInTheme {
       boxShadow: isDark
           ? [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: Offset(0, 4),
               ),
             ]
           : [
               BoxShadow(
-                color: deepForest.withOpacity(0.08),
+                color: deepForest.withValues(alpha: 0.08),
                 blurRadius: 16,
                 offset: Offset(0, 4),
               ),
@@ -768,13 +768,13 @@ class WealthInTheme {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
       color: isDark 
-          ? vaultGreen.withOpacity(0.85) 
-          : paperWhite.withOpacity(0.85),
+          ? vaultGreen.withValues(alpha: 0.85) 
+          : paperWhite.withValues(alpha: 0.85),
       borderRadius: BorderRadius.circular(20),
       border: Border.all(
         color: isDark 
-            ? Colors.white.withOpacity(0.1) 
-            : Colors.white.withOpacity(0.5),
+            ? Colors.white.withValues(alpha: 0.1) 
+            : Colors.white.withValues(alpha: 0.5),
         width: 1,
       ),
     );
@@ -794,7 +794,7 @@ class WealthInTheme {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return LinearGradient(
       colors: isDark
-          ? [Color(0xFFF87171).withOpacity(0.8), Color(0xFFF87171)]
+          ? [Color(0xFFF87171).withValues(alpha: 0.8), Color(0xFFF87171)]
           : [Color(0xFFF87171), expense],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -804,7 +804,7 @@ class WealthInTheme {
   /// AI/Chat gradient
   static LinearGradient aiGradient(BuildContext context) {
     return LinearGradient(
-      colors: [info.withOpacity(0.8), info],
+      colors: [info.withValues(alpha: 0.8), info],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );

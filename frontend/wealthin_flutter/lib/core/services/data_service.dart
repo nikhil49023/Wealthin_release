@@ -2029,7 +2029,7 @@ class DataService {
             );
             final txnCount = currentMonthTxns.length;
             final avgPerDay = txnCount / daysSinceStart;
-            frequencyInfo = '${txnCount} transactions this month (avg ${avgPerDay.toStringAsFixed(1)}/day)';
+            frequencyInfo = '$txnCount transactions this month (avg ${avgPerDay.toStringAsFixed(1)}/day)';
           } catch (_) {}
 
           // === LARGEST SINGLE TRANSACTIONS ===
@@ -2189,10 +2189,11 @@ $emiRecommendation
           for (var t in txs) {
             String type = (t['type']?.toString().toLowerCase() ?? 'debit');
             // Normalize type
-            if (type.contains('credit') || type.contains('cr'))
+            if (type.contains('credit') || type.contains('cr')) {
               type = 'income';
-            else
+            } else {
               type = 'expense';
+            }
 
             final row = {
               'amount': (t['amount'] as num?)?.toDouble() ?? 0.0,

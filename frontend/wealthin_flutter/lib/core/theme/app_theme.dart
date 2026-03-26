@@ -1,717 +1,524 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'indian_theme.dart';
 
-/// WealthIn 2026 "Luxury Finance" Theme
-/// Premium glassmorphism design with psychologically calming luxury colors
+/// WealthIn — "Artha" Premium Fintech Theme  
+/// AMOLED-native, Indian cultural heritage, dark-first.
+/// Typography: Syne (headings) + DM Sans (body)
+/// Colour philosophy: Deep onyx backgrounds, muted saffron-gold accents,
+/// peacock-teal primary — elegant and readable on every Android display.
 class AppTheme {
-  // ============== LUXURY COLOR PALETTE ==============
-  
-  // Mint & Emerald Family (Growth, Prosperity)
-  static const mintWhisper = Color(0xFFF7F9F8);      // Very soft mint-gray (neutral)
-  static const emeraldGreen = Color(0xFF2E7D32);     // Rich emerald primary
-  static const emeraldLight = Color(0xFF4CAF50);     // Light emerald accent
-  static const darkEvergreen = Color(0xFF1B5E20);    // Deep forest
+  // ============================================================
+  //  COLOUR ALIASES (delegates to IndianTheme)
+  // ============================================================
 
-  // Purple & Amethyst Family (Luxury, Creativity)
-  static const lilacMist = Color(0xFFE1BEE7);        // Soft lilac surface
-  static const softViolet = Color(0xFF9575CD);       // Gentle violet
-  static const royalAmethyst = Color(0xFF7B1FA2);    // Royal purple primary
-  static const midnightPlum = Color(0xFF4A148C);     // Deep plum for dark mode
+  // Primary palette
+  static const saffron         = IndianTheme.saffron;
+  static const royalGold       = IndianTheme.royalGold;
+  static const mutedGold       = IndianTheme.mutedGold;
+  static const champagneGold   = IndianTheme.champagneGold;
+  static const peacockTeal     = IndianTheme.peacockTeal;
+  static const peacockLight    = IndianTheme.peacockLight;
+  static const lotusPink       = IndianTheme.lotusPink;
 
-  // Rose & Coral Family (Warmth, Energy)
-  static const softBlush = Color(0xFFFCE4EC);        // Soft pink surface
-  static const roseGold = Color(0xFFE8B4B8);         // Elegant rose gold
-  static const crimsonSilk = Color(0xFFE57373);      // Silk red accent
-  static const rubyRed = Color(0xFFC62828);          // Ruby for emphasis
-  static const deepBordeaux = Color(0xFF7F0000);     // Deep wine
+  // Dark surfaces
+  static const deepOnyx        = IndianTheme.deepOnyx;
+  static const richNavy        = IndianTheme.richNavy;
+  static const deepSlate       = IndianTheme.deepSlate;
+  static const inkSlate        = IndianTheme.inkSlate;
 
-  // Blue & Sapphire Family (Trust, Stability)
-  static const iceBlue = Color(0xFFE3F2FD);          // Ice blue surface
-  static const powderBlue = Color(0xFF90CAF9);       // Gentle blue accent
-  static const sapphire = Color(0xFF1976D2);         // Sapphire primary
-  static const deepNavy = Color(0xFF0D1B2A);         // Navy for dark mode
+  // Text
+  static const pearlWhite      = IndianTheme.pearlWhite;
+  static const silverMist      = IndianTheme.silverMist;
 
-  // Copper & Mahogany Family (Premium, Grounded)
-  static const mutedCopper = Color(0xFFBCAAA4);      // Soft copper
-  static const darkMahogany = Color(0xFF4E342E);     // Deep brown
+  // Semantic
+  static const success         = Color(0xFF2E8B5A);   // Emerald green (growth)
+  static const successLight    = Color(0xFF4CAF85);
+  static const error           = Color(0xFFCC3340);   // Deep crimson
+  static const warning         = Color(0xFFCF9B00);   // Turmeric amber
+  static const info            = Color(0xFF2196F3);
 
-  // ============== THEME ALIASES ==============
-  // Light Theme Base
-  static const cream = Color(0xFFFBFCFB);            // Very soft off-white
-  static const white = Color(0xFFFCFDFC);
-  static const surface = Color(0xFFF5F7F6);          // Muted light gray-mint
-  static const warmCream = Color(0xFFFAF9F7);
+  // Light-mode surfaces (modern + traditional Indian blend)
+  static const lightSurface    = Color(0xFFF6F3EC);
+  static const lightCard       = Color(0xFFFFFCF6);
+  static const lightBorder     = Color(0xFFE6D9C4);
+  static const lightTextPrimary = Color(0xFF1B1A17);
+  static const lightTextSecondary = Color(0xFF62594C);
 
-  // Dark Theme Base (Deep Navy, NOT pure black)
-  static const oceanDeep = deepNavy;
-  static const oceanMid = Color(0xFF1B263B);
-  static const oceanLight = Color(0xFF415A77);
-  static const oceanMist = Color(0xFF778DA9);
+  // --- Backward Compatibility Aliases (for sovereign_widgets.dart) ---
+  static const glassWhite      = Color(0x1AFFFFFF); // Very subtle white overlay
+  static const glassMint       = Color(0x1A4CAF85); // Subtle success tint
+  static const glassBorder     = Color(0x33FFFFFF);
+  static const glassShadow     = Color(0x66000000);
+  static const royalPurple     = peacockTeal;       // Intelligence accent map
+  static const purpleGlow      = peacockLight;      // Glow accent map
+  static const purpleLight     = Color(0xFFE0B0FF); // Mauve (rarely used)
+  static const forestLight     = successLight;
+  static const forestGreen     = success;
+  static const forestMuted     = silverMist;
+  static const mintDark        = richNavy;
+  static const emerald         = success;
+  static const mint            = peacockLight;
+  static const emeraldLight    = successLight;
+  static const gradientEnd     = peacockTeal;
+  static const gradientStart   = peacockLight;
+  static const expenseRed      = error;
+  static const incomeGreen     = success;
+  static const primary         = peacockTeal;
+  static const secondary       = royalGold;
+  static const navy            = richNavy;
+  static const deepNavy        = deepOnyx;
+  static const gold            = royalGold;
+  static const sereneTeal      = peacockTeal;
+  static const sageGreen       = success;
+  static const slate500        = silverMist;
+  static const slate900        = pearlWhite;
 
-  // Primary Semantic
-  static const primary = emeraldGreen;
-  static const primaryLight = emeraldLight;
-  static const sereneTeal = Color(0xFF2A9D8F);
-  static const sereneTealLight = Color(0xFF40B4A4);
-  static const sereneTealDark = Color(0xFF1A7A70);
+  // Gradient helpers
+  static LinearGradient get sunriseGradient => IndianTheme.sunriseGradient;
+  static LinearGradient get peacockGradient => IndianTheme.peacockGradient;
+  static LinearGradient get lotusGradient   => IndianTheme.lotusGradient;
+  static LinearGradient get royalGradient   => IndianTheme.royalGradient;
+  static LinearGradient get amoledGradient  => IndianTheme.amoledGradient;
 
-  // Secondary Semantic
-  static const secondary = royalAmethyst;
-  static const secondaryLight = softViolet;
-  static const lavender = lilacMist;
-  static const lavenderLight = Color(0xFFCE93D8);
-  static const lavenderMist = lilacMist;
+  static LinearGradient get premiumGradient => const LinearGradient(
+    colors: [IndianTheme.peacockTeal, IndianTheme.peacockBlue],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Accent
-  static const accent = roseGold;
-  static const accentLight = softBlush;
-  static const warmCoral = Color(0xFFE07A5F);
-  static const peach = Color(0xFFF2CC8F);
-  static const tertiary = cream;
+  static LinearGradient get aiGradient => const LinearGradient(
+    colors: [Color(0xFF5A1430), Color(0xFF0A7070)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Success/Income
-  static const sageGreen = Color(0xFF81B29A);
-  static const sageLight = Color(0xFFA8D5BA);
-  static const success = emeraldGreen;
-  static const incomeGreen = emeraldGreen;
-  static const emerald = emeraldGreen; // Alias for backward compatibility
+  static LinearGradient get growthGradient => const LinearGradient(
+    colors: [Color(0xFF0A2A0A), Color(0xFF2E8B5A)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Error/Expense
-  static const mutedRose = crimsonSilk;
-  static const coral = rubyRed;
-  static const coralLight = Color(0xFFEF5350);
-  static const error = rubyRed;
-  static const expenseRed = crimsonSilk;
+  // ============================================================
+  //  TEXT THEMES
+  // ============================================================
 
-  // Warning/Info
-  static const warning = Color(0xFFFFA726);
-  static const info = sapphire;
+  static TextTheme get _darkTextTheme => TextTheme(
+    displayLarge:  GoogleFonts.syne(fontSize: 38, fontWeight: FontWeight.bold,  color: pearlWhite, letterSpacing: -1.0, height: 1.2),
+    displayMedium: GoogleFonts.syne(fontSize: 30, fontWeight: FontWeight.w700,  color: pearlWhite, letterSpacing: -0.5),
+    displaySmall:  GoogleFonts.syne(fontSize: 24, fontWeight: FontWeight.w600,  color: pearlWhite),
+    headlineLarge: GoogleFonts.syne(fontSize: 22, fontWeight: FontWeight.w700,  color: pearlWhite),
+    headlineMedium:GoogleFonts.syne(fontSize: 20, fontWeight: FontWeight.w600,  color: pearlWhite),
+    headlineSmall: GoogleFonts.syne(fontSize: 18, fontWeight: FontWeight.w600,  color: pearlWhite),
+    titleLarge:    GoogleFonts.dmSans(fontSize: 17, fontWeight: FontWeight.w600, color: pearlWhite),
+    titleMedium:   GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w500, color: silverMist),
+    titleSmall:    GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w500, color: silverMist),
+    bodyLarge:     GoogleFonts.dmSans(fontSize: 16, height: 1.6,  color: pearlWhite),
+    bodyMedium:    GoogleFonts.dmSans(fontSize: 14, height: 1.55, color: silverMist),
+    bodySmall:     GoogleFonts.dmSans(fontSize: 12, height: 1.4,  color: silverMist),
+    labelLarge:    GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: pearlWhite),
+    labelMedium:   GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: silverMist),
+    labelSmall:    GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w500, color: silverMist),
+  );
 
-  // Typography Scale
-  static const slate900 = Color(0xFF1E293B);
-  static const slate700 = Color(0xFF475569);
-  static const slate500 = Color(0xFF64748B);
-  static const slate300 = Color(0xFFCBD5E1);
-  static const slate100 = Color(0xFFF1F5F9);
+  static TextTheme get _lightTextTheme => TextTheme(
+    displayLarge:  GoogleFonts.syne(fontSize: 38, fontWeight: FontWeight.bold,  color: lightTextPrimary, letterSpacing: -1.0, height: 1.2),
+    displayMedium: GoogleFonts.syne(fontSize: 30, fontWeight: FontWeight.w700,  color: lightTextPrimary, letterSpacing: -0.5),
+    displaySmall:  GoogleFonts.syne(fontSize: 24, fontWeight: FontWeight.w600,  color: lightTextPrimary),
+    headlineLarge: GoogleFonts.syne(fontSize: 22, fontWeight: FontWeight.w700,  color: lightTextPrimary),
+    headlineMedium:GoogleFonts.syne(fontSize: 20, fontWeight: FontWeight.w600,  color: lightTextPrimary),
+    headlineSmall: GoogleFonts.syne(fontSize: 18, fontWeight: FontWeight.w600,  color: lightTextPrimary),
+    titleLarge:    GoogleFonts.dmSans(fontSize: 17, fontWeight: FontWeight.w600, color: lightTextPrimary),
+    titleMedium:   GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w500, color: lightTextSecondary),
+    titleSmall:    GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w500, color: lightTextSecondary),
+    bodyLarge:     GoogleFonts.dmSans(fontSize: 16, height: 1.6,  color: lightTextPrimary),
+    bodyMedium:    GoogleFonts.dmSans(fontSize: 14, height: 1.55, color: lightTextSecondary),
+    bodySmall:     GoogleFonts.dmSans(fontSize: 12, height: 1.4,  color: lightTextSecondary),
+    labelLarge:    GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: lightTextPrimary),
+    labelMedium:   GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: lightTextSecondary),
+    labelSmall:    GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w500, color: lightTextSecondary),
+  );
 
-  // Legacy Aliases
-  static const navy = oceanDeep;
-  static const navyLight = oceanMid;
-  static const navyDark = Color(0xFF0A1628);
-  static const gold = roseGold;
-  static const goldLight = Color(0xFFF7DBA7);
-  static const goldDark = Color(0xFFD4A574);
-  static const royalPurple = royalAmethyst;
-  static const purpleLight = softViolet;
-  static const purpleDark = midnightPlum;
-  static const purpleGlow = Color(0x33CE93D8);
-  static const forestGreen = slate900;
-  static const forestLight = slate700;
-  static const forestMuted = slate500;
-  static const mint = cream;
-  static const mintLight = surface;
-  static const mintDark = slate300;
+  // ============================================================
+  //  DARK THEME (primary — AMOLED optimised)
+  // ============================================================
 
-  // Gradient Colors
-  static const gradientStart = darkEvergreen;
-  static const gradientMiddle = emeraldGreen;
-  static const gradientEnd = emeraldLight;
-
-  // Glassmorphism System
-  static const glassWhite = Color(0xFFFAFCFB);
-  static const glassMint = mintWhisper;
-  static const glassBorder = Color(0x20000000);
-  static const glassShadow = Color(0x10000000);
-
-  // Scribble/Decorative
-  static const scribblePrimary = emeraldGreen;
-  static const scribbleSecondary = royalAmethyst;
-  static const scribbleTertiary = sapphire;
-
-  // ============== GLASSMORPHISM DECORATIONS ==============
-  
-  /// Luxury Glass Card - Multi-layer effect
-  static BoxDecoration luxuryGlassDecoration({
-    double opacity = 0.85,
-    double borderRadius = 24,
-    bool isDark = false,
-  }) {
-    return BoxDecoration(
-      // Layer 1: Gradient Fill
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-          ? [oceanMid.withValues(alpha: opacity), oceanDeep.withValues(alpha: opacity * 0.9)]
-          : [glassWhite.withValues(alpha: opacity), glassMint.withValues(alpha: opacity * 0.95)],
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: const ColorScheme.dark(
+        primary:           peacockTeal,
+        primaryContainer:  IndianTheme.peacockFeather,
+        secondary:         royalGold,
+        secondaryContainer:IndianTheme.goldShimmer,
+        tertiary:          lotusPink,
+        surface:           richNavy,
+        onPrimary:         pearlWhite,
+        onSecondary:       deepOnyx,
+        onSurface:         pearlWhite,
+        onSurfaceVariant:  silverMist,
+        error:             error,
+        onError:           pearlWhite,
+        outline:           IndianTheme.inkSlate,
+        outlineVariant:    IndianTheme.deepSlate,
       ),
-      borderRadius: BorderRadius.circular(borderRadius),
-      // Layer 2: Border for glass frame
-      border: Border.all(
-        color: isDark ? oceanLight.withValues(alpha: 0.3) : glassBorder,
-        width: 1.5,
+      textTheme: _darkTextTheme,
+      scaffoldBackgroundColor: deepOnyx,
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: GoogleFonts.syne(
+          fontSize: 20, fontWeight: FontWeight.w700,
+          color: pearlWhite, letterSpacing: -0.3,
+        ),
+        iconTheme: const IconThemeData(color: pearlWhite),
       ),
-      // Layer 3: Inner Shadow (simulated via box shadow)
-      boxShadow: [
-        // Outer shadow for lift
-        BoxShadow(
-          color: isDark ? Colors.black.withValues(alpha: 0.4) : glassShadow,
-          blurRadius: 20,
-          spreadRadius: -2,
-          offset: const Offset(0, 8),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: inkSlate,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: royalGold.withValues(alpha: 0.12), width: 1),
         ),
-        // Inner light for glass effect
-        BoxShadow(
-          color: isDark ? oceanLight.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.6),
-          blurRadius: 0,
-          spreadRadius: 0,
-          offset: const Offset(0, -1),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: deepSlate,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: inkSlate.withValues(alpha: 0.8)),
         ),
-      ],
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: inkSlate.withValues(alpha: 0.8)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: royalGold, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        hintStyle: GoogleFonts.dmSans(color: silverMist, fontSize: 14),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: peacockTeal,
+          foregroundColor: pearlWhite,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: peacockLight,
+          side: const BorderSide(color: peacockTeal, width: 1.5),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: peacockTeal,
+        foregroundColor: pearlWhite,
+        elevation: 4,
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: deepSlate,
+        selectedColor: peacockTeal.withValues(alpha: 0.3),
+        labelStyle: GoogleFonts.dmSans(fontSize: 13, color: pearlWhite),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        side: BorderSide(color: inkSlate.withValues(alpha: 0.8)),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: richNavy,
+        selectedItemColor: peacockLight,
+        unselectedItemColor: silverMist,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+      ),
+      dividerTheme: DividerThemeData(
+        color: inkSlate.withValues(alpha: 0.8),
+        thickness: 1,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: deepSlate,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: inkSlate,
+        contentTextStyle: GoogleFonts.dmSans(color: pearlWhite),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        behavior: SnackBarBehavior.floating,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: deepSlate,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
     );
   }
 
-  /// Premium Gradient Button
-  static LinearGradient get premiumGradient => const LinearGradient(
-    colors: [emeraldGreen, sereneTeal],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  /// Amethyst Gradient for AI/Special elements
-  static LinearGradient get amethystGradient => const LinearGradient(
-    colors: [royalAmethyst, softViolet],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  /// Growth Gradient
-  static LinearGradient get growthGradient => const LinearGradient(
-    colors: [emeraldGreen, emeraldLight],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  /// Subtle Background Gradient
-  static LinearGradient get subtleGradient => LinearGradient(
-    colors: [mintWhisper, surface, glassWhite],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
-
-  /// AI Advisor Gradient
-  static LinearGradient get aiGradient => const LinearGradient(
-    colors: [royalAmethyst, sapphire],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  // Premium text themes: Playfair Display (luxury serif headlines) + DM Sans (modern body)
-  static TextTheme get _modernTextTheme => GoogleFonts.dmSansTextTheme();
+  // ============================================================
+  //  LIGHT THEME (modern Indian blend)
+  // ============================================================
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: sereneTeal,
-        primary: sereneTeal,
-        secondary: lavender,
-        tertiary: sageGreen,
-        surface: cream, // Soft sage-cream, not plain white
-        onSurface: slate900,
-        primaryContainer: sereneTealLight.withValues(alpha: 0.2),
-        secondaryContainer: lavenderMist,
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.light(
+        primary:           peacockTeal,
+        primaryContainer:  const Color(0xFFDDEFEA),
+        secondary:         royalGold,
+        secondaryContainer:const Color(0xFFF4E8CC),
+        tertiary:          lotusPink,
+        surface:           lightSurface,
+        onPrimary:         Colors.white,
+        onSecondary:       const Color(0xFF2D2416),
+        onSurface:         lightTextPrimary,
+        onSurfaceVariant:  lightTextSecondary,
+        error:             error,
+        onError:           Colors.white,
+        outline:           lightBorder,
       ),
-      textTheme: _modernTextTheme.copyWith(
-        // Luxury serif for large display text
-        displayLarge: GoogleFonts.playfairDisplay(
-          fontSize: 36,
-          fontWeight: FontWeight.bold,
-          color: slate900,
-          letterSpacing: -0.5,
-        ),
-        displayMedium: GoogleFonts.playfairDisplay(
-          fontSize: 28,
-          fontWeight: FontWeight.w600,
-          color: slate900,
-          letterSpacing: -0.3,
-        ),
-        // Modern sans for headlines
-        headlineMedium: GoogleFonts.dmSans(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: slate900,
-        ),
-        titleLarge: GoogleFonts.dmSans(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: slate900,
-        ),
-        titleMedium: GoogleFonts.dmSans(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: slate700,
-        ),
-        // Clean body text
-        bodyLarge: GoogleFonts.dmSans(
-          fontSize: 16,
-          color: slate700,
-          height: 1.5,
-        ),
-        bodyMedium: GoogleFonts.dmSans(
-          fontSize: 14,
-          color: slate500,
-          height: 1.5,
-        ),
-        labelLarge: GoogleFonts.dmSans(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: slate900,
-        ),
-      ),
-      scaffoldBackgroundColor: cream, // Soft sage-cream background
+      textTheme: _lightTextTheme,
+      scaffoldBackgroundColor: lightSurface,
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: lightCard,
         elevation: 0,
-        centerTitle: false,
-        titleTextStyle: GoogleFonts.poppins(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: slate900,
+        titleTextStyle: GoogleFonts.syne(
+          fontSize: 20, fontWeight: FontWeight.w700,
+          color: lightTextPrimary, letterSpacing: -0.3,
         ),
-        iconTheme: const IconThemeData(color: slate900),
+        iconTheme: const IconThemeData(color: lightTextPrimary),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
+        color: lightCard,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: lightBorder, width: 1),
         ),
-        color: white, // Warm white cards on sage background
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: white,
+        fillColor: lightCard,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: slate300.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: lightBorder.withValues(alpha: 0.8)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: slate300.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: lightBorder.withValues(alpha: 0.8)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: sereneTeal, width: 2),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: royalGold, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        hintStyle: TextStyle(color: slate500.withValues(alpha: 0.6)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        hintStyle: GoogleFonts.dmSans(color: lightTextSecondary, fontSize: 14),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: sereneTeal,
-          foregroundColor: Colors.white,
+          backgroundColor: peacockTeal,
+          foregroundColor: pearlWhite,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: GoogleFonts.poppins(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: sereneTeal,
-          side: const BorderSide(color: sereneTeal, width: 1.5),
+          foregroundColor: peacockTeal,
+          side: const BorderSide(color: peacockTeal, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: sereneTeal,
-        foregroundColor: Colors.white,
+        backgroundColor: peacockTeal,
+        foregroundColor: pearlWhite,
         elevation: 4,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: surface,
-        selectedColor: sereneTeal.withValues(alpha: 0.15),
-        labelStyle: GoogleFonts.sourceSans3(
-          fontSize: 13,
-          color: slate900,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        backgroundColor: lightCard,
+        selectedColor: peacockTeal.withValues(alpha: 0.16),
+        labelStyle: GoogleFonts.dmSans(fontSize: 13, color: lightTextPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        side: BorderSide(color: lightBorder),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: white,
-        selectedItemColor: sereneTeal,
-        unselectedItemColor: slate500,
+        backgroundColor: lightSurface,
+        selectedItemColor: peacockTeal,
+        unselectedItemColor: lightTextSecondary,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
       dividerTheme: DividerThemeData(
-        color: sageGreen.withValues(alpha: 0.2),
+        color: lightBorder,
         thickness: 1,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: lightCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: lightCard,
+        contentTextStyle: GoogleFonts.dmSans(color: lightTextPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        behavior: SnackBarBehavior.floating,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: lightCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
       ),
     );
   }
 
-  static ThemeData get darkTheme {
-    // Deep Ocean Blue theme - calming, reduces eye strain, improves focus
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: sereneTeal,
-        brightness: Brightness.dark,
-        primary: sereneTealLight,
-        secondary: lavenderLight,
-        tertiary: sageLight,
-        surface: oceanDeep, // Deep ocean blue, NOT pure black
-        onSurface: const Color(0xFFE0E7ED),
-        primaryContainer: oceanMid,
-        secondaryContainer: oceanLight.withValues(alpha: 0.3),
-      ),
-      textTheme: GoogleFonts.dmSansTextTheme(ThemeData.dark().textTheme).copyWith(
-        // Luxury serif for display text
-        displayLarge: GoogleFonts.playfairDisplay(
-          fontSize: 36,
-          fontWeight: FontWeight.bold,
-          color: const Color(0xFFE8EEF4),
-          letterSpacing: -0.5,
-        ),
-        displayMedium: GoogleFonts.playfairDisplay(
-          fontSize: 28,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFE8EEF4),
-          letterSpacing: -0.3,
-        ),
-        // Modern sans for headlines & body
-        headlineMedium: GoogleFonts.dmSans(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFFE8EEF4),
-        ),
-        titleLarge: GoogleFonts.dmSans(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFE8EEF4),
-        ),
-        titleMedium: GoogleFonts.dmSans(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: oceanMist,
-        ),
-        bodyLarge: GoogleFonts.dmSans(
-          fontSize: 16,
-          color: oceanMist,
-          height: 1.5,
-        ),
-        bodyMedium: GoogleFonts.dmSans(
-          fontSize: 14,
-          color: const Color(0xFF94A3B8),
-          height: 1.5,
-        ),
-        labelLarge: GoogleFonts.dmSans(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFE8EEF4),
-        ),
-      ),
-      scaffoldBackgroundColor: oceanDeep, // Deep ocean blue background
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: GoogleFonts.plusJakartaSans(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFE8EEF4),
-        ),
-        iconTheme: const IconThemeData(color: Color(0xFFE8EEF4)),
-      ),
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        color: oceanMid, // Slightly lighter ocean blue for cards
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: oceanMid,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: oceanLight.withValues(alpha: 0.3)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: oceanLight.withValues(alpha: 0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: sereneTealLight, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 16,
-        ),
-        hintStyle: TextStyle(color: oceanMist.withValues(alpha: 0.6)),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: sereneTeal,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: sereneTealLight,
-          side: const BorderSide(color: sereneTeal, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: sereneTeal,
-        foregroundColor: Colors.white,
-        elevation: 4,
-      ),
-      chipTheme: ChipThemeData(
-        backgroundColor: oceanMid,
-        selectedColor: sereneTeal.withValues(alpha: 0.3),
-        labelStyle: GoogleFonts.inter(
-          fontSize: 13,
-          color: const Color(0xFFE8EEF4),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: oceanDeep,
-        selectedItemColor: sereneTealLight,
-        unselectedItemColor: oceanMist,
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
-      ),
-      dividerTheme: DividerThemeData(
-        color: oceanLight.withValues(alpha: 0.2),
-        thickness: 1,
-      ),
-    );
-  }
+  // ============================================================
+  //  SHARED DECORATIONS
+  // ============================================================
 
-  // ============== GLASSMORPHISM DECORATIONS ==============
-
-  /// Premium Glass Container - The "Glass Dashboard" effect
   static BoxDecoration glassDecoration({
-    double opacity = 0.85,
+    double opacity = 0.9,
     double borderRadius = 20,
     bool hasShadow = true,
-    bool hasMintTint = false,
   }) {
     return BoxDecoration(
-      color: hasMintTint
-          ? glassMint.withValues(alpha: opacity)
-          : glassWhite.withValues(alpha: opacity),
+      color: inkSlate.withValues(alpha: opacity),
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
-        color: glassBorder,
-        width: 1.5,
+        color: royalGold.withValues(alpha: 0.15),
+        width: 1,
       ),
       boxShadow: hasShadow
           ? [
               BoxShadow(
-                color: glassShadow,
-                blurRadius: 24,
-                spreadRadius: 0,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: glassWhite.withValues(alpha: 0.6),
-                blurRadius: 0,
-                spreadRadius: 0,
-                offset: const Offset(0, -1),
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ]
           : null,
     );
   }
 
-  /// AI/Agentic Glass Container - Teal tinted
-  static BoxDecoration aiGlassDecoration({
-    double opacity = 0.95,
-    double borderRadius = 20,
-  }) {
+  static BoxDecoration aiGlassDecoration({double borderRadius = 20}) {
     return BoxDecoration(
-      gradient: LinearGradient(
-        colors: [
-          glassWhite.withValues(alpha: opacity),
-          purpleLight.withValues(alpha: 0.05),
-        ],
+      gradient: const LinearGradient(
+        colors: [IndianTheme.deepSlate, IndianTheme.inkSlate],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
-        color: royalPurple.withValues(alpha: 0.2),
+        color: peacockTeal.withValues(alpha: 0.25),
         width: 1.5,
       ),
       boxShadow: [
         BoxShadow(
-          color: royalPurple.withValues(alpha: 0.08),
+          color: peacockTeal.withValues(alpha: 0.10),
           blurRadius: 20,
-          spreadRadius: 0,
           offset: const Offset(0, 4),
         ),
       ],
     );
   }
 
-  // ============== GRADIENTS ==============
+  static BoxDecoration luxuryGlassDecoration({
+    double opacity = 0.85,
+    double borderRadius = 24,
+    bool isDark = true,
+  }) => glassDecoration(opacity: opacity, borderRadius: borderRadius);
 
-  /// Progress bar gradient with AI glow projection
-  static LinearGradient progressGradient(double progress) => LinearGradient(
-    colors: [
-      emeraldGreen,
-      emeraldLight,
-      purpleGlow.withValues(alpha: 0.6), // AI projection
-    ],
-    stops: [0, progress.clamp(0.0, 0.8), 1.0],
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-  );
+  // ============================================================
+  //  SHADOWS
+  // ============================================================
 
-  // ============== SHADOWS ==============
-
-  /// Soft elevation shadow
   static List<BoxShadow> get softShadow => [
     BoxShadow(
-      color: forestGreen.withValues(alpha: 0.06),
+      color: Colors.black.withValues(alpha: 0.4),
       blurRadius: 16,
       offset: const Offset(0, 4),
     ),
   ];
 
-  /// Teal glow for AI elements
   static List<BoxShadow> get aiGlow => [
     BoxShadow(
-      color: royalPurple.withValues(alpha: 0.15),
+      color: peacockTeal.withValues(alpha: 0.20),
       blurRadius: 20,
       spreadRadius: 2,
     ),
   ];
 
-  /// Green glow for success/wealth elements
-  static List<BoxShadow> get successGlow => [
+  static List<BoxShadow> get goldGlow => [
     BoxShadow(
-      color: emeraldGreen.withValues(alpha: 0.2),
+      color: royalGold.withValues(alpha: 0.25),
       blurRadius: 16,
       spreadRadius: 1,
     ),
   ];
 
-  // ============== FROSTED BLUR GRADIENT BACKGROUND ==============
-  
-  /// Frosted blur gradient decoration for light theme scaffolds
-  /// Creates a frozen mint/teal gradient with glassmorphism effect
-  static BoxDecoration get frostedGradientBackground => BoxDecoration(
+  static List<BoxShadow> get successGlow => [
+    BoxShadow(
+      color: success.withValues(alpha: 0.20),
+      blurRadius: 16,
+      spreadRadius: 1,
+    ),
+  ];
+
+  // Legacy alias
+  static List<BoxShadow> get successGlowDeprecated => successGlow;
+
+  // ============================================================
+  //  BACKGROUND DECORATIONS
+  // ============================================================
+
+  static BoxDecoration get frostedGradientBackground => const BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [
-        const Color(0xFFE8F5F0), // Soft mint-teal
-        const Color(0xFFF0F7F5), // Light frosted
-        const Color(0xFFE5F2EE), // Gentle sage
-        const Color(0xFFF5F9F8), // Icy mint
-      ],
-      stops: const [0.0, 0.35, 0.7, 1.0],
+      colors: [AppTheme.lightSurface, AppTheme.lightCard, AppTheme.lightSurface],
     ),
   );
 
-  /// Dark frosted gradient for dark mode
-  static BoxDecoration get frostedGradientBackgroundDark => BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        oceanDeep,
-        oceanMid,
-        const Color(0xFF162536),
-        oceanDeep,
-      ],
-      stops: const [0.0, 0.35, 0.7, 1.0],
-    ),
+  static BoxDecoration get frostedGradientBackgroundDark => const BoxDecoration(
+    gradient: IndianTheme.amoledGradient,
+  );
+
+  // Legacy progress gradient
+  static LinearGradient progressGradient(double progress) => LinearGradient(
+    colors: [peacockTeal, peacockLight, royalGold.withValues(alpha: 0.6)],
+    stops: [0, progress.clamp(0.0, 0.8), 1.0],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
   );
 }
 
-/// FrostedGradientBackground - A widget that provides a frosted blur gradient background
-/// Use this to wrap screens for a premium frosted glass effect
+/// FrostedGradientBackground widget — wraps screens with AMOLED-safe BG
 class FrostedGradientBackground extends StatelessWidget {
   final Widget child;
   final bool isDark;
-  final double blurAmount;
 
   const FrostedGradientBackground({
     super.key,
     required this.child,
-    this.isDark = false,
-    this.blurAmount = 80.0,
+    this.isDark = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isActuallyDark = isDark || theme.brightness == Brightness.dark;
-
     return Container(
-      decoration: isActuallyDark
+      decoration: isDark
           ? AppTheme.frostedGradientBackgroundDark
           : AppTheme.frostedGradientBackground,
-      child: Stack(
-        children: [
-          // Frosted blur overlay for light theme
-          if (!isActuallyDark)
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.4),
-                      Colors.white.withValues(alpha: 0.1),
-                      Colors.white.withValues(alpha: 0.3),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          // Main content
-          child,
-        ],
-      ),
+      child: child,
     );
   }
 }
-

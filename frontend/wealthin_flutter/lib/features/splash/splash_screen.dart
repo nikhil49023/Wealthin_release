@@ -1,27 +1,25 @@
-import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/theme/indian_theme.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/wealthin_logo.dart';
 
-/// WealthIn Minimalistic Splash Screen
-/// Clean, fast, and elegant — logo + name + progress
+/// Premium AMOLED-Safe Splash Screen
+/// Features: Dark-first aesthetic, canvas-drawn logo bloom, Syne typography
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
-  
+
   const SplashScreen({super.key, required this.onComplete});
-  
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _logoFade;
-  late Animation<double> _logoScale;
-  late Animation<double> _textFade;
-  late Animation<double> _progressValue;
-  Timer? _completionTimer;
+class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+  late AnimationController _logoController;
+  late AnimationController _textController;
 
   @override
   void initState() {
@@ -34,199 +32,228 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    _controller = AnimationController(
+    _logoController = AnimationController(
+      duration: const Duration(milliseconds: 2500),
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
     );
 
-    // Logo fade + scale
-    _logoFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
-      ),
+    _textController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
     );
 
-    _logoScale = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOutBack),
-      ),
-    );
+    _startSequence();
+  }
 
-    // Text fade (after logo)
-    _textFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.3, 0.6, curve: Curves.easeOut),
-      ),
-    );
+  void _startSequence() async {
+    // 1. Start logo scale and rotation
+    _logoController.forward();
 
-    // Progress bar
-    _progressValue = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeInOut),
-      ),
-    );
+    // 2. Start text fade in
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (mounted) _textController.forward();
 
-    _controller.forward();
-
-    _completionTimer = Timer(const Duration(milliseconds: 2000), () {
-      if (!mounted) return;
-      widget.onComplete();
-    });
+    // 3. Complete splash
+    await Future.delayed(const Duration(milliseconds: 2200));
+    if (mounted) widget.onComplete();
   }
 
   @override
   void dispose() {
-    _completionTimer?.cancel();
-    _controller.dispose();
+    _logoController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0F1E),
-      body: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Center(
-            child: Column(
+      backgroundColor: IndianTheme.deepOnyx,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: IndianTheme.amoledGradient,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Background: Subtle pulsing mandala rings
+            _buildBackgroundMandala(),
+
+            // Content
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Spacer(flex: 3),
-
-                // Logo
-                Opacity(
-                  opacity: _logoFade.value,
-                  child: Transform.scale(
-                    scale: _logoScale.value,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF10B981)
-                                .withValues(alpha: 0.2 * _logoFade.value),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Image.asset(
-                          'assets/wealthin_logo.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, error, stackTrace) => Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'W',
-                                style: TextStyle(
-                                  fontSize: 48,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // App name
-                Opacity(
-                  opacity: _textFade.value,
-                  child: Column(
-                    children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            Color(0xFF10B981),
-                            Color(0xFF34D399),
-                          ],
-                        ).createShader(bounds),
-                        child: Text(
-                          'WealthIn',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Wealth Creation & Financial Planner',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: const Color(0xFF6B7280),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 2.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Spacer(flex: 2),
-
-                // Progress bar
-                Opacity(
-                  opacity: _textFade.value,
-                  child: SizedBox(
-                    width: 160,
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 2,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(1),
-                          ),
-                          child: Stack(
-                            children: [
-                              FractionallySizedBox(
-                                widthFactor: _progressValue.value,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF10B981),
-                                        Color(0xFF34D399),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(1),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                // Animated Logo Glyph
+                _buildAnimatedLogo(),
 
                 const SizedBox(height: 48),
+
+                // App Name (Syne font)
+                _buildAppName(),
+
+                const SizedBox(height: 12),
+
+                // Premium Tagline (DM Sans)
+                _buildTagline(),
               ],
+            ),
+
+            // Bottom loading detail
+            _buildBottomIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackgroundMandala() {
+    return Opacity(
+      opacity: 0.05,
+      child: AnimatedBuilder(
+        animation: _logoController,
+        builder: (context, child) {
+          return Transform.rotate(
+            angle: _logoController.value * 0.2,
+            child: CustomPaint(
+              size: const Size(600, 600),
+              painter: _MandalaBackdropPainter(color: AppTheme.saffron),
             ),
           );
         },
       ),
     );
   }
+
+  Widget _buildAnimatedLogo() {
+    return ScaleTransition(
+      scale: CurvedAnimation(
+        parent: _logoController,
+        curve: Curves.elasticOut,
+      ),
+      child: RotationTransition(
+        turns: CurvedAnimation(
+          parent: _logoController,
+          curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.peacockTeal.withValues(alpha: 0.2),
+                blurRadius: 40,
+                spreadRadius: 20,
+              ),
+            ],
+          ),
+          child: SizedBox(
+            width: 120,
+            height: 120,
+            child: WealthInLogo(size: 100),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppName() {
+    return FadeTransition(
+      opacity: _textController,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.4),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic)),
+        child: Text(
+          'WealthIn',
+          style: GoogleFonts.syne(
+            fontSize: 42,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.pearlWhite,
+            letterSpacing: -1,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagline() {
+    return FadeTransition(
+      opacity: _textController,
+      child: Text(
+        'The Dharma of Financial Growth',
+        style: GoogleFonts.dmSans(
+          fontSize: 15,
+          color: AppTheme.silverMist,
+          letterSpacing: 2,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomIndicator() {
+    return Positioned(
+      bottom: 60,
+      child: FadeTransition(
+        opacity: _textController,
+        child: Column(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.saffron.withValues(alpha: 0.5)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Artha Intelligence Initializing',
+              style: GoogleFonts.dmSans(
+                fontSize: 10,
+                color: AppTheme.silverMist.withValues(alpha: 0.4),
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MandalaBackdropPainter extends CustomPainter {
+  final Color color;
+  _MandalaBackdropPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    for (int i = 0; i < 8; i++) {
+      canvas.drawCircle(center, radius * (i + 1) / 8, paint);
+    }
+
+    for (int i = 0; i < 24; i++) {
+      final angle = (i * 2 * pi) / 24;
+      canvas.drawLine(
+        center + Offset(cos(angle), sin(angle)) * (radius * 0.1),
+        center + Offset(cos(angle), sin(angle)) * radius,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:wealthin_flutter/core/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -172,7 +171,7 @@ class _SchemeCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: (scheme['color'] as Color).withOpacity(0.2),
+          backgroundColor: (scheme['color'] as Color).withValues(alpha: 0.2),
           child: Icon(
             scheme['icon'] as IconData,
             color: scheme['color'] as Color,
@@ -369,7 +368,7 @@ class _VerifyTabState extends State<_VerifyTab> {
         children: [
           // Info card
           Card(
-            color: AppTheme.gold.withOpacity(0.1),
+            color: AppTheme.gold.withValues(alpha: 0.1),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -449,7 +448,7 @@ class _VerifyTabState extends State<_VerifyTab> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: color.withOpacity(0.2),
+                  backgroundColor: color.withValues(alpha: 0.2),
                   child: Icon(icon, color: color),
                 ),
                 const SizedBox(width: 12),

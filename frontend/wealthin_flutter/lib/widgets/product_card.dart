@@ -110,12 +110,12 @@ class ProductCard extends StatelessWidget {
                   height: 120,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
+                  placeholder: (_, _) => Container(
                     height: 120,
                     color: theme.colorScheme.surfaceContainerHighest,
                     child: const Center(child: CircularProgressIndicator()),
                   ),
-                  errorWidget: (_, __, ___) => _buildImagePlaceholder(theme),
+                  errorWidget: (_, _, _) => _buildImagePlaceholder(theme),
                   memCacheHeight: 240,  // Cache at 2x height for quality
                 ),
               )
@@ -303,7 +303,7 @@ class ProductCardList extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final product = products[index];
               return SizedBox(

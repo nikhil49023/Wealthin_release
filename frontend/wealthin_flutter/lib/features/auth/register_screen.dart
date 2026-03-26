@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/wealthin_theme.dart';
 
 /// Premium Register Screen with Firebase Auth - Simple single-step form
 class RegisterScreen extends StatefulWidget {
@@ -77,12 +76,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A202C)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -92,11 +96,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppTheme.gradientEnd.withValues(alpha: 0.1),
-              Colors.white,
-              AppTheme.gradientStart.withValues(alpha: 0.1),
-            ],
+            colors: isDark
+                ? [
+                    AppTheme.deepOnyx,
+                    AppTheme.richNavy,
+                    AppTheme.deepSlate,
+                  ]
+                : [
+                    AppTheme.lightSurface,
+                    AppTheme.lightCard,
+                    AppTheme.lightSurface,
+                  ],
           ),
         ),
         child: SafeArea(
@@ -108,9 +118,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildHeader(),
+                    _buildHeader(isDark),
                     const SizedBox(height: 32),
-                    _buildForm(),
+                    _buildForm(isDark),
                   ],
                 ),
               ),
@@ -121,7 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isDark) {
     return Column(
       children: [
         Container(
@@ -153,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'Create Account',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF1A202C),
+            color: isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary,
           ),
         ).animate().fadeIn(delay: 200.ms),
         const SizedBox(height: 8),
@@ -161,22 +171,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'Fill in your details to get started',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: WealthInTheme.gray600,
+            color: isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary,
           ),
         ).animate().fadeIn(delay: 300.ms),
       ],
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.inkSlate : AppTheme.lightCard,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -355,15 +365,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // Divider with "or"
             Row(
               children: [
-                Expanded(child: Divider(color: Colors.grey[300])),
+                Expanded(child: Divider(color: AppTheme.lightBorder)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
                     'or',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    style: TextStyle(
+                      color: isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
-                Expanded(child: Divider(color: Colors.grey[300])),
+                Expanded(child: Divider(color: AppTheme.lightBorder)),
               ],
             ),
             const SizedBox(height: 24),
@@ -373,23 +386,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onPressed: _isLoading ? null : _handleGoogleRegister,
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                side: BorderSide(color: Colors.grey[300]!),
+                side: BorderSide(color: isDark ? AppTheme.deepSlate : AppTheme.lightBorder),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                backgroundColor: Colors.white,
+                backgroundColor: isDark ? AppTheme.richNavy : AppTheme.lightCard,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  _GoogleLogo(),
-                  SizedBox(width: 12),
+                children: [
+                  const _GoogleLogo(),
+                  const SizedBox(width: 12),
                   Text(
                     'Sign up with Google',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A202C),
+                      color: isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary,
                     ),
                   ),
                 ],
@@ -402,7 +415,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               'By creating an account, you agree to our Terms of Service and Privacy Policy',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: WealthInTheme.gray500,
+                color: isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary,
                 fontSize: 12,
               ),
             ),

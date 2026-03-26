@@ -28,10 +28,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         // If user is logged in, show main app or onboarding
         if (user != null) {
-          if (!authService.isEmailVerified) {
-            return _buildVerificationPendingScreen(context, user.email ?? 'your email');
-          }
-
           return FutureBuilder<bool>(
             future: _checkOnboardingComplete(),
             builder: (context, snapshot) {
@@ -41,8 +37,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
               }
 
               final onboardingComplete = snapshot.data ?? false;
-              
+
               if (onboardingComplete) {
+                // Show email verification prompt if not verified, but allow app access
+                if (!authService.isEmailVerified) {
+                  return _buildAppWithVerificationPrompt(context, user.email ?? 'your email');
+                }
                 return widget.child;
               } else {
                 return OnboardingScreen(
@@ -66,86 +66,97 @@ class _AuthWrapperState extends State<AuthWrapper> {
     );
   }
 
-  Widget _buildVerificationPendingScreen(BuildContext context, String email) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.mark_email_unread_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 32,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Verify your email to continue',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'We sent a verification link to $email. Complete verification, then tap refresh.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
+  Widget _buildAppWithVerificationPrompt(BuildContext context, String email) {
+    return Stack(
+      children: [
+        widget.child,
+        // Non-blocking verification prompt banner
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.blue[300]!,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.mail_outline,
+                    color: Colors.blue[600],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              try {
-                                await authService.resendVerificationEmail();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Verification email resent.')),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.toString())),
-                                  );
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.send_outlined),
-                            label: const Text('Resend'),
+                        Text(
+                          'Verify your email',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue[900],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () async {
-                              await authService.reloadCurrentUser();
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Refresh'),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Check your inbox for a verification link',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.blue[700],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () async {
-                        await authService.signOut();
-                      },
-                      child: const Text('Use another account'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () async {
+                      try {
+                        await authService.resendVerificationEmail();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Verification email resent'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.toString())),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.send, size: 16),
+                    label: const Text('Resend'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blue[600],
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 

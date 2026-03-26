@@ -54,9 +54,15 @@ class AuthService extends ChangeNotifier {
 
       await credential.user?.reload();
       final refreshedUser = FirebaseAuth.instance.currentUser;
+
+      // Send verification email if not verified, but allow login to proceed
       if (refreshedUser != null && !refreshedUser.emailVerified) {
-        await refreshedUser.sendEmailVerification();
-        throw 'Please verify your email before signing in. A new verification link has been sent.';
+        try {
+          await refreshedUser.sendEmailVerification();
+          debugPrint('[AuthService] Verification email sent to ${refreshedUser.email}');
+        } catch (e) {
+          debugPrint('[AuthService] Failed to send verification email: $e');
+        }
       }
 
       return credential;
@@ -70,13 +76,21 @@ class AuthService extends ChangeNotifier {
   /// Sign in with Google
   Future<UserCredential> signInWithGoogle() async {
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        // Web Client ID from Firebase Console (for proper Android OAuth)
+        clientId: '1078484188114-i9ljp9s8clrumn6jmiv6p7fui81h4c8a.apps.googleusercontent.com',
+        scopes: ['email', 'profile'],
+      );
+
+      debugPrint('[AuthService] Starting Google Sign-In...');
       final googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
+        debugPrint('[AuthService] Google Sign-In was cancelled by user');
         throw 'Google Sign In was cancelled';
       }
 
+      debugPrint('[AuthService] Google Sign-In successful: ${googleUser.email}');
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -85,10 +99,13 @@ class AuthService extends ChangeNotifier {
 
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
+      debugPrint('[AuthService] Firebase auth successful for ${userCredential.user?.email}');
       return userCredential;
     } on FirebaseAuthException catch (e) {
+      debugPrint('[AuthService] Firebase auth error: ${e.code} - ${e.message}');
       throw _handleFirebaseError(e);
     } catch (e) {
+      debugPrint('[AuthService] Google Sign-In error: $e');
       throw 'Google Sign In failed: $e';
     }
   }

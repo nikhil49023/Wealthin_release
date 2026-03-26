@@ -175,7 +175,7 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
     }
 
     return Card(
-      color: statusColor.withOpacity(0.1),
+      color: statusColor.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -294,11 +294,11 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                     drawVerticalLine: true,
                     horizontalInterval: (maxY - minY) / 5,
                     getDrawingHorizontalLine: (value) => FlLine(
-                      color: Colors.grey.withOpacity(0.2),
+                      color: Colors.grey.withValues(alpha: 0.2),
                       strokeWidth: 1,
                     ),
                     getDrawingVerticalLine: (value) => FlLine(
-                      color: Colors.grey.withOpacity(0.2),
+                      color: Colors.grey.withValues(alpha: 0.2),
                       strokeWidth: 1,
                     ),
                   ),
@@ -364,8 +364,8 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.emerald.withOpacity(0.3),
-                            AppTheme.secondary.withOpacity(0.1),
+                            AppTheme.emerald.withValues(alpha: 0.3),
+                            AppTheme.secondary.withValues(alpha: 0.1),
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -403,7 +403,7 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
 
   Widget _buildWarningsCard() {
     return Card(
-      color: Colors.orange.withOpacity(0.1),
+      color: Colors.orange.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -445,8 +445,8 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: balance < 0
-                              ? Colors.red.withOpacity(0.1)
-                              : Colors.orange.withOpacity(0.1),
+                              ? Colors.red.withValues(alpha: 0.1)
+                              : Colors.orange.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:wealthin_flutter/core/services/data_service.dart';
+import 'package:wealthin_flutter/core/theme/app_theme.dart';
 
 /// FinBite Card - AI-powered daily financial insight widget
 class FinBiteCard extends StatelessWidget {
@@ -76,7 +77,7 @@ class FinBiteCard extends StatelessWidget {
                         Text(
                           'AI FinBite',
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: AppTheme.pearlWhite.withValues(alpha: 0.9),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -87,7 +88,7 @@ class FinBiteCard extends StatelessWidget {
                         onPressed: isLoading ? null : onRefresh,
                         icon: Icon(
                           Icons.refresh,
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: AppTheme.pearlWhite.withValues(alpha: 0.8),
                           size: 20,
                         ),
                         padding: EdgeInsets.zero,
@@ -104,7 +105,7 @@ class FinBiteCard extends StatelessWidget {
                   Text(
                     displayInsight.headline,
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppTheme.pearlWhite,
                       fontWeight: FontWeight.bold,
                     ),
                   ).animate().fadeIn(duration: 300.ms),
@@ -125,7 +126,7 @@ class FinBiteCard extends StatelessWidget {
                   Text(
                     displayInsight.insightText,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.95),
+                      color: AppTheme.pearlWhite.withValues(alpha: 0.95),
                       height: 1.4,
                     ),
                     maxLines: 3,
@@ -150,7 +151,7 @@ class FinBiteCard extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: AppTheme.pearlWhite.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -159,14 +160,14 @@ class FinBiteCard extends StatelessWidget {
                         Icon(
                           Icons.tips_and_updates,
                           size: 16,
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: AppTheme.pearlWhite.withValues(alpha: 0.9),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             displayInsight.recommendation,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
+                              color: AppTheme.pearlWhite.withValues(alpha: 0.9),
                               fontStyle: FontStyle.italic,
                             ),
                             maxLines: 2,
@@ -221,16 +222,16 @@ class _TrendIcon extends StatelessWidget {
     switch (trend) {
       case 'up':
         icon = Icons.trending_up;
-        bgColor = Colors.white.withValues(alpha: 0.2);
+        bgColor = AppTheme.pearlWhite.withValues(alpha: 0.2);
         break;
       case 'down':
         icon = Icons.trending_down;
-        bgColor = Colors.white.withValues(alpha: 0.2);
+        bgColor = AppTheme.pearlWhite.withValues(alpha: 0.2);
         break;
       case 'stable':
       default:
         icon = Icons.trending_flat;
-        bgColor = Colors.white.withValues(alpha: 0.2);
+        bgColor = AppTheme.pearlWhite.withValues(alpha: 0.2);
         break;
     }
 
@@ -242,7 +243,7 @@ class _TrendIcon extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            color: Colors.white,
+            color: AppTheme.pearlWhite,
             size: 18,
           ),
         )
@@ -268,7 +269,7 @@ class _CategoryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: AppTheme.pearlWhite.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -277,13 +278,13 @@ class _CategoryChip extends StatelessWidget {
           Icon(
             _getCategoryIcon(category),
             size: 14,
-            color: Colors.white,
+            color: AppTheme.pearlWhite,
           ),
           const SizedBox(width: 6),
           Text(
             category,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppTheme.pearlWhite,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -293,7 +294,7 @@ class _CategoryChip extends StatelessWidget {
             Text(
               '₹${_formatAmount(amount!)}',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.pearlWhite,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -346,14 +347,14 @@ class _LoadingShimmer extends StatelessWidget {
           height: height,
           width: width,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.3),
+            color: AppTheme.pearlWhite.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(4),
           ),
         )
         .animate(onPlay: (c) => c.repeat())
         .shimmer(
           duration: 1200.ms,
-          color: Colors.white.withValues(alpha: 0.5),
+          color: AppTheme.pearlWhite.withValues(alpha: 0.5),
         );
   }
 }

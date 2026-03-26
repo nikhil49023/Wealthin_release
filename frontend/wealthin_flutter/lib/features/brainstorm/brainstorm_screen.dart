@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_theme.dart';
@@ -565,7 +564,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
         color: isDark ? WealthInColors.blackCard : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -745,7 +744,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
               boxShadow: [
                 if (!isDark)
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -762,7 +761,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _getScoreColor(message.score!).withOpacity(0.2),
+                      color: _getScoreColor(message.score!).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -832,7 +831,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
         .animate(onPlay: (c) => c.repeat())
         .shimmer(
           duration: 1200.ms,
-          color: WealthInColors.primary.withOpacity(0.3),
+          color: WealthInColors.primary.withValues(alpha: 0.3),
         );
   }
 
@@ -867,7 +866,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
         color: isDark ? WealthInColors.blackCard : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -991,7 +990,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isDark
-              ? WealthInColors.primary.withOpacity(0.2)
+              ? WealthInColors.primary.withValues(alpha: 0.2)
               : Colors.grey.shade200,
         ),
       ),
@@ -1058,7 +1057,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1140,7 +1139,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
             color: isDark ? WealthInColors.blackCard : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _getScoreColor(item.score).withOpacity(0.3),
+              color: _getScoreColor(item.score).withValues(alpha: 0.3),
               width: 2,
             ),
           ),
@@ -1409,7 +1408,7 @@ class _IdeaAnalysisCard extends StatelessWidget {
                       Text(
                         'Viability Score',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       Text(
@@ -1520,7 +1519,7 @@ class _ScoreCircle extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.4),
+            color: color.withValues(alpha: 0.4),
             blurRadius: 12,
             spreadRadius: 2,
           ),
@@ -1535,7 +1534,7 @@ class _ScoreCircle extends StatelessWidget {
             child: CircularProgressIndicator(
               value: 1.0,
               strokeWidth: 6,
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
             ),
           ),
           SizedBox(
@@ -1578,10 +1577,10 @@ class _InfoTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -1589,7 +1588,7 @@ class _InfoTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -1608,7 +1607,7 @@ class _InfoTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withOpacity(0.6),
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1653,7 +1652,7 @@ class _AnalysisSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 18, color: color),
@@ -1681,15 +1680,15 @@ class _AnalysisSection extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.05),
+                      color: color.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: color.withOpacity(0.2)),
+                      border: Border.all(color: color.withValues(alpha: 0.2)),
                     ),
                     child: Text(
                       item,
                       style: TextStyle(
                         color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white.withOpacity(0.9)
+                            ? Colors.white.withValues(alpha: 0.9)
                             : Colors.black87,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -1720,10 +1719,10 @@ class _ResearchLogPanel extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 180),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.black.withOpacity(0.6)
-            : Colors.grey.shade900.withOpacity(0.9),
+            ? Colors.black.withValues(alpha: 0.6)
+            : Colors.grey.shade900.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: WealthInColors.primary.withOpacity(0.3)),
+        border: Border.all(color: WealthInColors.primary.withValues(alpha: 0.3)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -1733,10 +1732,10 @@ class _ResearchLogPanel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 border: Border(
                   bottom: BorderSide(
-                    color: WealthInColors.primary.withOpacity(0.2),
+                    color: WealthInColors.primary.withValues(alpha: 0.2),
                   ),
                 ),
               ),
@@ -1745,7 +1744,7 @@ class _ResearchLogPanel extends StatelessWidget {
                   Icon(
                     Icons.terminal,
                     size: 14,
-                    color: WealthInColors.primary.withOpacity(0.8),
+                    color: WealthInColors.primary.withValues(alpha: 0.8),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -1753,7 +1752,7 @@ class _ResearchLogPanel extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontFamily: 'monospace',
                     ),
                   ),
@@ -1766,7 +1765,7 @@ class _ResearchLogPanel extends StatelessWidget {
                       color: WealthInColors.success,
                       boxShadow: [
                         BoxShadow(
-                          color: WealthInColors.success.withOpacity(0.5),
+                          color: WealthInColors.success.withValues(alpha: 0.5),
                           blurRadius: 4,
                         ),
                       ],
@@ -1808,7 +1807,7 @@ class _ResearchLogPanel extends StatelessWidget {
                                       : FontWeight.normal,
                                   color: log.isHighlight
                                       ? WealthInColors.primary
-                                      : Colors.white.withOpacity(0.85),
+                                      : Colors.white.withValues(alpha: 0.85),
                                 ),
                               ),
                             ),

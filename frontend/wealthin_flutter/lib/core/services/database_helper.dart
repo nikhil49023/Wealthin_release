@@ -25,7 +25,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -232,6 +232,20 @@ class DatabaseHelper {
       ''');
       debugPrint('Created app_settings table (v9)');
     }
+    if (oldVersion < 10) {
+      // Agentic memory table for Artha AI
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS user_memory (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE(user_id, key)
+        )
+      ''');
+      debugPrint('Created user_memory table (v10)');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -401,6 +415,18 @@ class DatabaseHelper {
       )
     ''');
 
+    // Agentic memory table for Artha AI
+    await db.execute('''
+      CREATE TABLE user_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(user_id, key)
+      )
+    ''');
+
     debugPrint('Database tables created successfully');
   }
 
@@ -416,7 +442,7 @@ class DatabaseHelper {
       final amount = (row['amount'] as num?)?.toDouble() ?? 0.0;
 
       if (category == null || category == 'Other' || category.isEmpty) {
-        category = TransactionCategorizer.categorize(description);
+        category = TransactionCategorizer.categorize(description).category;
       }
       category = Categories.normalize(category);
 

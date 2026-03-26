@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:ui';
-
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
+import 'core/widgets/wealthin_logo.dart';
 import 'core/services/python_bridge_service.dart';
 import 'core/services/startup_permissions_service.dart';
 
@@ -16,19 +17,19 @@ import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/finance/finance_hub_screen.dart';
 import 'features/ai_hub/ai_hub_screen.dart';
-import 'features/brainstorm/enhanced_brainstorm_screen.dart';
-import 'core/services/ai_agent_service.dart';
+import 'core/services/hybrid_ai_service.dart';
 import 'core/services/data_service.dart';
 import 'core/config/secrets.dart';
 import 'core/utils/responsive_utils.dart';
-import 'features/analysis/analysis_screen.dart';
+import 'features/analysis/analysis_screen_redesign.dart';
+import 'features/profile/profile_screen.dart';
 
 /// Global auth service for Firebase authentication
 late final AuthService authService;
 
-/// Global theme mode notifier
+/// Global theme mode notifier — AMOLED dark by default
 final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(
-  ThemeMode.light,
+  ThemeMode.dark,
 );
 
 /// Global data service for convenience
@@ -133,8 +134,8 @@ Future<void> _initializeDeferredServices() async {
 
   await Future.wait<void>([dataTasks, secureStorageTask, pythonTask]);
 
-  await _runStartupTask('AI agent service', () async {
-    await aiAgentService.initialize();
+  await _runStartupTask('Hybrid AI service (Sarvam)', () async {
+    await hybridAI.initialize();
   });
 
   debugPrint('[App] ✓ All startup services initialized');
@@ -226,8 +227,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     FinanceHubScreen(),
     AiHubScreen(),
     AnalysisScreen(),
-    EnhancedBrainstormScreen(),
-    // ProfileScreen removed - accessible from dashboard header
+    ProfileScreen(),
   ];
 
   @override
@@ -251,39 +251,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         body: Row(
           children: [
             SafeArea(
-              child: NavigationRail(
-                selectedIndex: _selectedIndex,
-                onDestinationSelected: (index) =>
-                    setState(() => _selectedIndex = index),
-                labelType: NavigationRailLabelType.all,
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.dashboard_outlined),
-                    selectedIcon: Icon(Icons.dashboard_rounded),
-                    label: Text('Home'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.account_balance_wallet_outlined),
-                    selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-                    label: Text('Finance'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.auto_awesome_outlined),
-                    selectedIcon: Icon(Icons.auto_awesome_rounded),
-                    label: Text('AI'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.analytics_outlined),
-                    selectedIcon: Icon(Icons.analytics_rounded),
-                    label: Text('Analysis'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.lightbulb_outline),
-                    selectedIcon: Icon(Icons.lightbulb_rounded),
-                    label: Text('Ideas'),
-                  ),
-                ],
-              ),
+              child: _buildPremiumNavigationRail(),
             ),
             const VerticalDivider(width: 1),
             Expanded(child: _buildAnimatedBody()),
@@ -293,38 +261,196 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
 
     return Scaffold(
+      extendBody: true,
       body: _buildAnimatedBody(),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) =>
-            setState(() => _selectedIndex = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Home',
+      bottomNavigationBar: _buildGlassNavigationBar(),
+    );
+  }
+
+  Widget _buildPremiumNavigationRail() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final railBg = isDark ? AppTheme.richNavy : AppTheme.lightCard;
+    final railBorder =
+        isDark ? AppTheme.royalGold.withValues(alpha: 0.18) : AppTheme.lightBorder;
+
+    return Container(
+      width: 90,
+      decoration: BoxDecoration(
+        color: railBg,
+        border: Border(
+          right: BorderSide(
+            color: railBorder,
+            width: 1,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-            label: 'Finance',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined),
-            selectedIcon: Icon(Icons.auto_awesome_rounded),
-            label: 'AI',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.analytics_outlined),
-            selectedIcon: Icon(Icons.analytics_rounded),
-            label: 'Analysis',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.lightbulb_outline),
-            selectedIcon: Icon(Icons.lightbulb_rounded),
-            label: 'Ideas',
-          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          const WealthInLogo(size: 44, showGlow: true),
+          const SizedBox(height: 32),
+          ..._buildRailItems(),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _buildRailItems() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedText = isDark ? AppTheme.champagneGold : AppTheme.peacockTeal;
+    final unselectedText = isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary;
+
+    final items = [
+      _NavItem(Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home'),
+      _NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Finance'),
+      _NavItem(Icons.auto_awesome_outlined, Icons.auto_awesome_rounded, 'AI'),
+      _NavItem(Icons.analytics_outlined, Icons.analytics_rounded, 'Analysis'),
+      _NavItem(Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+    ];
+
+    return List.generate(items.length, (index) {
+      final item = items[index];
+      final isSelected = _selectedIndex == index;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: InkWell(
+          onTap: () => setState(() => _selectedIndex = index),
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            decoration: BoxDecoration(
+              color: isSelected ? AppTheme.peacockTeal.withValues(alpha: 0.20) : null,
+              border: isSelected ? Border.all(color: AppTheme.royalGold.withValues(alpha: 0.30), width: 1) : null,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isSelected ? item.selectedIcon : item.icon,
+                  color: isSelected ? selectedText : unselectedText,
+                  size: 24,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.label,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 10,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? selectedText : unselectedText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildGlassNavigationBar() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final compactMode = screenWidth < 390;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navBg = isDark ? AppTheme.inkSlate : AppTheme.lightCard;
+    final navBorder =
+        isDark ? AppTheme.royalGold.withValues(alpha: 0.20) : AppTheme.lightBorder;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Container(
+        height: 68,
+        decoration: BoxDecoration(
+          color: navBg,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: navBorder,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home', compactMode),
+            _buildNavItem(1, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Finance', compactMode),
+            _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome_rounded, 'AI', compactMode),
+            _buildNavItem(3, Icons.analytics_outlined, Icons.analytics_rounded, 'Analysis', compactMode),
+            _buildNavItem(4, Icons.person_outline_rounded, Icons.person_rounded, 'Profile', compactMode),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+    int index,
+    IconData icon,
+    IconData selectedIcon,
+    String label,
+    bool compactMode,
+  ) {
+    final isSelected = _selectedIndex == index;
+    final showLabel = isSelected && !compactMode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedText = isDark ? AppTheme.champagneGold : AppTheme.peacockTeal;
+    final unselectedText = isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: showLabel ? 12 : 10,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+            ? (isDark
+              ? AppTheme.peacockTeal.withValues(alpha: 0.18)
+              : AppTheme.peacockTeal.withValues(alpha: 0.12))
+            : null,
+          borderRadius: BorderRadius.circular(18),
+          border: isSelected
+            ? Border.all(
+              color: isDark
+                ? AppTheme.royalGold.withValues(alpha: 0.30)
+                : AppTheme.peacockTeal.withValues(alpha: 0.25),
+              width: 1,
+            )
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : icon,
+              color: isSelected ? selectedText : unselectedText,
+              size: compactMode ? 21 : 22,
+            ),
+            if (showLabel) ...[
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  color: selectedText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -339,7 +465,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           opacity: animation,
           child: SlideTransition(
             position: Tween<Offset>(
-              begin: const Offset(0.1, 0),
+              begin: const Offset(0.05, 0),
               end: Offset.zero,
             ).animate(animation),
             child: child,
@@ -352,4 +478,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       ),
     );
   }
+}
+
+class _NavItem {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+
+  _NavItem(this.icon, this.selectedIcon, this.label);
 }

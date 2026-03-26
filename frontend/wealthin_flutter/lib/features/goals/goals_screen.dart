@@ -169,7 +169,7 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: _savingsTransactions.length,
-                              separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey[100]),
+                              separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey[100]),
                               itemBuilder: (context, index) {
                                 final tx = _savingsTransactions[index];
                                 final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
@@ -240,7 +240,7 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: _incomeTransactions.length,
-                              separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey[100]),
+                              separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey[100]),
                               itemBuilder: (context, index) {
                                 final tx = _incomeTransactions[index];
                                 final amount = (tx['amount'] as num?)?.toDouble() ?? 0;

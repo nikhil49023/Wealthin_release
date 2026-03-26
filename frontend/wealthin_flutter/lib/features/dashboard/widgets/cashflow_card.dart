@@ -214,7 +214,7 @@ class _CashflowCardState extends State<CashflowCard> {
                 Container(
                   width: 1,
                   height: 40,
-                  color: isDark ? WealthInColors.blackBorder : Colors.grey[300],
+                  color: isDark ? WealthInColors.blackBorder : WealthInTheme.gray300,
                 ),
                 Expanded(
                   child: _CashflowItem(
@@ -309,7 +309,7 @@ class _CashflowCardState extends State<CashflowCard> {
                 decoration: BoxDecoration(
                   color: (isDark
                       ? WealthInColors.blackBorder
-                      : Colors.grey[100]),
+                      : WealthInTheme.gray100),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -318,7 +318,7 @@ class _CashflowCardState extends State<CashflowCard> {
                       Icons.info_outline,
                       color: isDark
                           ? WealthInColors.textSecondaryDark
-                          : Colors.grey[600],
+                          : WealthInTheme.gray600,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -328,7 +328,7 @@ class _CashflowCardState extends State<CashflowCard> {
                         style: TextStyle(
                           color: isDark
                               ? WealthInColors.textSecondaryDark
-                              : Colors.grey[600],
+                              : WealthInTheme.gray600,
                         ),
                       ),
                     ),
@@ -428,7 +428,7 @@ class _CashflowCardState extends State<CashflowCard> {
       maxY: chartMaxY,
       barTouchData: BarTouchData(
         touchTooltipData: BarTouchTooltipData(
-          tooltipBgColor: isDark ? WealthInColors.blackCard : Colors.white,
+          tooltipBgColor: isDark ? WealthInColors.blackCard : WealthInColors.paperWhite,
           tooltipRoundedRadius: 8,
           getTooltipItem: (group, groupIndex, rod, rodIndex) {
             String label = rodIndex == 0 ? 'Income' : 'Expense';
@@ -459,7 +459,7 @@ class _CashflowCardState extends State<CashflowCard> {
                 style: TextStyle(
                   color: isDark
                       ? WealthInColors.textSecondaryDark
-                      : Colors.grey[600],
+                      : WealthInTheme.gray600,
                   fontSize: 10,
                 ),
               );
@@ -479,7 +479,7 @@ class _CashflowCardState extends State<CashflowCard> {
                     style: TextStyle(
                       color: isDark
                           ? WealthInColors.textSecondaryDark
-                          : Colors.grey[600],
+                          : WealthInTheme.gray600,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
@@ -497,7 +497,7 @@ class _CashflowCardState extends State<CashflowCard> {
         drawVerticalLine: false,
         horizontalInterval: chartInterval,
         getDrawingHorizontalLine: (value) => FlLine(
-          color: isDark ? WealthInColors.blackBorder : Colors.grey[200]!,
+          color: isDark ? WealthInColors.blackBorder : WealthInTheme.gray200,
           strokeWidth: 1,
         ),
       ),
@@ -559,7 +559,7 @@ class _PeriodSelector extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isDark ? WealthInColors.black : Colors.grey[100],
+        color: isDark ? WealthInColors.black : WealthInTheme.gray100,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -628,7 +628,7 @@ class _PeriodChip extends StatelessWidget {
                 ? Colors.white
                 : (isDark
                       ? WealthInColors.textSecondaryDark
-                      : Colors.grey[600]),
+                      : WealthInTheme.gray600),
           ),
         ),
       ),

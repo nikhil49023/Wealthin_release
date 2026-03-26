@@ -1,10 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'python_bridge_service.dart';
 import '../config/secrets.dart';
+import 'sarvam_key_manager.dart';
 
 /// AI Agent Service - Hybrid Implementation
 /// Uses Python Backend ("The Brain") for LLM & Tools
 /// Uses Native Dart for UI & Credits
+///
+/// **SARVAM AI ONLY with Multi-Key Support**
+/// - Uses multiple API keys for higher throughput
+/// - Automatic round-robin key rotation
+/// - Smart fallback on rate limits
 class AIAgentService {
   // Singleton pattern
   static final AIAgentService _instance = AIAgentService._internal();
@@ -13,6 +19,7 @@ class AIAgentService {
 
   bool _initialized = false;
   bool _keysInjected = false;
+  final SarvamAIKeyManager keyManager = SarvamAIKeyManager();
 
   /// Initialize the AI Agent Service
   Future<void> initialize({
@@ -21,14 +28,15 @@ class AIAgentService {
   }) async {
     if (_initialized) return;
     _initialized = true;
-    
+
     // Inject Secrets into Python Brain (Android Only)
     await _injectApiKeys();
-    
-    debugPrint('[AIAgentService] Initialized (Hybrid Mode)');
+
+    debugPrint('[AIAgentService] Initialized with Multi-Key Sarvam AI (Hybrid Mode)');
   }
 
   /// Inject API keys into the Python bridge.
+  /// Supports multiple keys for distributed rate limiting.
   /// Uses ASYNC getters to ensure keys are loaded from secure storage.
   /// Can be called multiple times — will only inject if not already done.
   ///
@@ -38,25 +46,36 @@ class AIAgentService {
     if (defaultTargetPlatform != TargetPlatform.android) return;
 
     try {
-      // Use async getter — it waits for secure storage to be ready
-      final sarvamKey = await AppSecrets.getSarvamApiKeyAsync();
+      // Get all available Sarvam API keys (could be multiple)
+      final sarvamKeys = await AppSecrets.getSarvamApiKeysAsync();
 
-      debugPrint('[AIAgentService] Sarvam AI status: ${sarvamKey.isNotEmpty ? "✓" : "✗"}');
+      debugPrint('[AIAgentService] Found ${sarvamKeys.length} Sarvam AI key(s)');
 
-      if (sarvamKey.isEmpty) {
-        debugPrint('[AIAgentService] ⚠ Sarvam AI key not configured!');
+      if (sarvamKeys.isEmpty) {
+        debugPrint('[AIAgentService] ⚠ Sarvam AI keys not configured!');
         return; // Don't mark as injected so we retry next time
       }
 
+      // Initialize key manager with all available keys
+      await keyManager.initialize(sarvamKeys);
+
+      // Inject primary key to Python bridge (key manager will handle rotation)
+      final primaryKey = keyManager.getNextKey();
       await pythonBridge.setConfig({
-        'sarvam_api_key': sarvamKey,
+        'sarvam_api_key': primaryKey,
         'sarvam_chat_model': AppSecrets.sarvamChatModel,
         'sarvam_vision_model': AppSecrets.sarvamVisionModel,
+        'sarvam_api_keys': sarvamKeys.join(','), // Pass all keys for Python fallback
       });
 
       _keysInjected = true;
       pythonBridge.markConfigured();
-      debugPrint('[AIAgentService] ✓ Sarvam API key injected into Python bridge');
+
+      final totalCapacity = sarvamKeys.length * 60;
+      debugPrint(
+        '[AIAgentService] ✓ Sarvam API keys configured '
+        '(${sarvamKeys.length} keys × 60 RPM = $totalCapacity RPM total)',
+      );
     } catch (e) {
       debugPrint('[AIAgentService] ⚠ Key injection failed: $e');
       // Don't mark as injected so we retry next time
@@ -67,6 +86,32 @@ class AIAgentService {
   Future<void> reinjectKeys() async {
     _keysInjected = false;
     await _injectApiKeys(force: true);
+  }
+
+  /// Get next available Sarvam API key with automatic fallback
+  String getNextAvailableKey() {
+    try {
+      return keyManager.getNextKey();
+    } catch (e) {
+      debugPrint('[AIAgentService] ⚠ Error getting next key: $e');
+      // Fallback to single key if manager fails
+      return AppSecrets.sarvamApiKey;
+    }
+  }
+
+  /// Record successful API request
+  void recordApiRequest(String key) {
+    keyManager.recordRequest(key);
+  }
+
+  /// Record rate limit error (enables fallback)
+  void recordRateLimit(String key) {
+    keyManager.recordRateLimit(key);
+  }
+
+  /// Get current key manager status (for debugging/monitoring)
+  Map<String, dynamic> getKeyManagerStatus() {
+    return keyManager.getStatus();
   }
 
   /// Main chat method - routes to Python Bridge

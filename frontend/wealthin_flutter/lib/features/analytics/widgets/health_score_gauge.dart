@@ -37,7 +37,7 @@ class HealthScoreGauge extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: scoreColor.withOpacity(0.3),
+                      color: scoreColor.withValues(alpha: 0.3),
                       blurRadius: 30,
                       spreadRadius: 5,
                     ),
@@ -69,7 +69,7 @@ class HealthScoreGauge extends StatelessWidget {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -85,7 +85,7 @@ class HealthScoreGauge extends StatelessWidget {
                     shaderCallback: (bounds) => LinearGradient(
                       colors: [
                         scoreColor,
-                        scoreColor.withOpacity(0.7),
+                        scoreColor.withValues(alpha: 0.7),
                       ],
                     ).createShader(bounds),
                     child: Text(
@@ -102,7 +102,7 @@ class HealthScoreGauge extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: scoreColor.withOpacity(0.15),
+                      color: scoreColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -179,9 +179,9 @@ class _GaugePainter extends CustomPainter {
           startAngle: -pi * 0.75,
           endAngle: pi * 0.75,
           colors: [
-            scoreColor.withOpacity(0.5),
+            scoreColor.withValues(alpha: 0.5),
             scoreColor,
-            scoreColor.withOpacity(0.8),
+            scoreColor.withValues(alpha: 0.8),
           ],
           stops: const [0.0, 0.5, 1.0],
         ).createShader(Rect.fromCircle(center: center, radius: radius))

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:wealthin_flutter/core/theme/app_theme.dart';
 
 /// Premium Interactive Banner with WealthIn branding
 /// Features ivory gradient, 3D-style floating elements, and micro-animations
@@ -82,21 +83,21 @@ class _InteractiveBannerState extends State<InteractiveBanner>
               end: Alignment.bottomRight,
               colors: isDark
                   ? [
-                      const Color(0xFF1A1A2E),
-                      const Color(0xFF16213E),
-                      const Color(0xFF0F3460),
+                      AppTheme.deepOnyx,
+                      AppTheme.richNavy,
+                      AppTheme.deepSlate,
                     ]
                   : [
-                      const Color(0xFFFFFFF0), // Ivory
-                      const Color(0xFFFFF8E7), // Cream
-                      const Color(0xFFFFE4B5), // Moccasin
+                      AppTheme.lightCard,
+                      AppTheme.lightSurface,
+                      AppTheme.lightCard,
                     ],
             ),
             boxShadow: [
               BoxShadow(
                 color: isDark 
                     ? Colors.black.withValues(alpha: 0.3)
-                    : const Color(0xFFD4AF37).withValues(alpha: 0.2),
+                    : AppTheme.royalGold.withValues(alpha: 0.18),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -197,11 +198,11 @@ class _InteractiveBannerState extends State<InteractiveBanner>
 
   Widget _build3DCoin(double size, bool isDark) {
     final goldColor = isDark 
-        ? const Color(0xFFFFD700) 
-        : const Color(0xFFD4AF37);
+      ? AppTheme.champagneGold
+      : AppTheme.royalGold;
     final shadowColor = isDark 
-        ? const Color(0xFFB8860B) 
-        : const Color(0xFFAA8C2C);
+      ? AppTheme.mutedGold
+      : AppTheme.mutedGold.withValues(alpha: 0.9);
     
     return Container(
       width: size,
@@ -238,8 +239,8 @@ class _InteractiveBannerState extends State<InteractiveBanner>
 
   Widget _build3DWallet(bool isDark) {
     final primaryColor = isDark 
-        ? const Color(0xFF4A90D9) 
-        : const Color(0xFF8B4513);
+        ? AppTheme.peacockTeal
+        : AppTheme.peacockTeal.withValues(alpha: 0.85);
     
     return Container(
       width: 45,
@@ -284,10 +285,10 @@ class _InteractiveBannerState extends State<InteractiveBanner>
               height: 10,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFFFD700),
+                color: AppTheme.royalGold,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                    color: AppTheme.royalGold.withValues(alpha: 0.5),
                     blurRadius: 4,
                   ),
                 ],
@@ -302,7 +303,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
   List<Widget> _buildSparkles(bool isDark) {
     final sparkleColor = isDark 
         ? Colors.white.withValues(alpha: 0.6) 
-        : const Color(0xFFD4AF37).withValues(alpha: 0.6);
+        : AppTheme.royalGold.withValues(alpha: 0.6);
     
     return List.generate(5, (index) {
       return AnimatedBuilder(
@@ -339,10 +340,10 @@ class _InteractiveBannerState extends State<InteractiveBanner>
   }
 
   Widget _buildContent(ThemeData theme, bool isDark) {
-    final textColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final textColor = isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary;
     final subtitleColor = isDark 
-        ? Colors.white70 
-        : const Color(0xFF1A1A2E).withValues(alpha: 0.7);
+      ? AppTheme.silverMist 
+      : AppTheme.lightTextSecondary;
     
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -356,11 +357,11 @@ class _InteractiveBannerState extends State<InteractiveBanner>
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: isDark 
-                      ? const Color(0xFFD4AF37).withValues(alpha: 0.2)
-                      : const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                      ? AppTheme.royalGold.withValues(alpha: 0.2)
+                      : AppTheme.royalGold.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
+                    color: AppTheme.royalGold.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -369,7 +370,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
                     Icon(
                       Icons.auto_awesome,
                       size: 14,
-                      color: const Color(0xFFD4AF37),
+                      color: AppTheme.royalGold,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -377,7 +378,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFFD4AF37),
+                        color: AppTheme.royalGold,
                         letterSpacing: 0.5,
                       ),
                     ),

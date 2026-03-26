@@ -224,7 +224,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                   
                   // Category Dropdown
                   DropdownButtonFormField<String>(
-                    value: selectedCategory,
+                    initialValue: selectedCategory,
                     items: categories.map((c) {
                       return DropdownMenuItem(
                         value: c,
@@ -238,8 +238,9 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                           // Try to auto-select icon based on category name logic
                           // This is a simple heuristic mapping based on _budgetIcons keys
                           final lower = val.toLowerCase();
-                          if (lower.contains('food')) selectedIcon = 'restaurant';
-                          else if (lower.contains('shop')) selectedIcon = 'shopping';
+                          if (lower.contains('food')) {
+                            selectedIcon = 'restaurant';
+                          } else if (lower.contains('shop')) selectedIcon = 'shopping';
                           else if (lower.contains('transport')) selectedIcon = 'transport';
                           else if (lower.contains('entertain')) selectedIcon = 'entertainment';
                           else if (lower.contains('health')) selectedIcon = 'health';
@@ -651,7 +652,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                           controller: scrollController,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: transactions.length,
-                          separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey[100]),
+                          separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey[100]),
                           itemBuilder: (context, index) {
                             final tx = transactions[index];
                             final amount = (tx['amount'] as num?)?.toDouble() ?? 0;

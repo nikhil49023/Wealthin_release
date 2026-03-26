@@ -33,6 +33,13 @@ class AppSecrets {
     defaultValue: '',
   );
 
+  // For multiple API keys (comma-separated)
+  // Example: flutter run --dart-define=SARVAM_API_KEYS=key1,key2,key3
+  static const String _defaultSarvamKeys = String.fromEnvironment(
+    'SARVAM_API_KEYS',
+    defaultValue: '',
+  );
+
   static const String _defaultSarvamChatModel = String.fromEnvironment(
     'SARVAM_CHAT_MODEL',
     defaultValue: 'sarvam-m',
@@ -42,6 +49,16 @@ class AppSecrets {
     'SARVAM_VISION_MODEL',
     defaultValue: 'sarvam-m',
   );
+
+  static String _firstNonEmptyKey(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '';
+    final keys = raw
+        .split(',')
+        .map((k) => k.trim())
+        .where((k) => k.isNotEmpty)
+        .toList();
+    return keys.isEmpty ? '' : keys.first;
+  }
 
   static Future<Map<String, String>> _loadAndroidBuildSecrets() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
@@ -83,8 +100,10 @@ class AppSecrets {
       await secureStorage.initialize();
 
       final androidBuildSecrets = await _loadAndroidBuildSecrets();
-      final fallbackSarvamKey =
-          androidBuildSecrets['sarvam_api_key'] ?? _defaultSarvamKey;
+      final fallbackSarvamKey = _firstNonEmptyKey(
+        androidBuildSecrets['sarvam_api_key'] ??
+            (_defaultSarvamKey.isNotEmpty ? _defaultSarvamKey : _defaultSarvamKeys),
+      );
 
       // Migrate compile-time defaults to secure storage on first run
       await secureStorage.migrateFromDefaults(
@@ -103,8 +122,16 @@ class AppSecrets {
 
   /// Sarvam AI API Key (only AI provider now)
   static String get sarvamApiKey {
-    if (!_initialized) return _defaultSarvamKey;
-    return _cachedSarvamKey ?? _defaultSarvamKey;
+    if (!_initialized) {
+      return _firstNonEmptyKey(
+        _defaultSarvamKey.isNotEmpty ? _defaultSarvamKey : _defaultSarvamKeys,
+      );
+    }
+    final cachedKey = _firstNonEmptyKey(_cachedSarvamKey);
+    if (cachedKey.isNotEmpty) return cachedKey;
+    return _firstNonEmptyKey(
+      _defaultSarvamKey.isNotEmpty ? _defaultSarvamKey : _defaultSarvamKeys,
+    );
   }
 
   /// Sarvam chat model identifier (can be overridden via --dart-define).
@@ -115,9 +142,8 @@ class AppSecrets {
 
   /// Async getter for Sarvam key
   static Future<String> getSarvamApiKeyAsync() async {
-    if (!_initialized) await initialize();
-    final key = await secureStorage.getSarvamApiKey();
-    return key ?? _defaultSarvamKey;
+    final keys = await getSarvamApiKeysAsync();
+    return keys.isNotEmpty ? keys.first : '';
   }
 
   /// Update Sarvam API key in secure storage
@@ -127,11 +153,50 @@ class AppSecrets {
     return success;
   }
 
+  /// Get all Sarvam API keys (supports multiple keys as comma-separated)
+  static Future<List<String>> getSarvamApiKeysAsync() async {
+    if (!_initialized) await initialize();
+    final keysString = await secureStorage.getSarvamApiKey();
+
+    if (keysString != null && keysString.isNotEmpty) {
+      // Split comma-separated keys
+      return keysString
+          .split(',')
+          .map((k) => k.trim())
+          .where((k) => k.isNotEmpty)
+          .toList();
+    }
+
+    // Fallback to default if set
+    if (_defaultSarvamKeys.isNotEmpty) {
+      return _defaultSarvamKeys
+          .split(',')
+          .map((k) => k.trim())
+          .where((k) => k.isNotEmpty)
+          .toList();
+    }
+
+    // Return single key if no multi-key setup
+    return sarvamApiKey.isNotEmpty ? [sarvamApiKey] : [];
+  }
+
+  /// Set multiple Sarvam API keys (stores as comma-separated)
+  static Future<bool> setSarvamApiKeys(List<String> apiKeys) async {
+    final keysString = apiKeys.where((k) => k.isNotEmpty).join(',');
+    return setSarvamApiKey(keysString);
+  }
+
   /// Check if using default/development keys
   static bool get isUsingDefaultKeys => sarvamApiKey.isEmpty;
 
   /// Check if keys are properly configured
-  static bool get areKeysConfigured => sarvamApiKey.isNotEmpty;
+  static bool get areKeysConfigured {
+    if (_cachedSarvamKey != null && _firstNonEmptyKey(_cachedSarvamKey).isNotEmpty) {
+      return true;
+    }
+    return _firstNonEmptyKey(_defaultSarvamKey).isNotEmpty ||
+        _firstNonEmptyKey(_defaultSarvamKeys).isNotEmpty;
+  }
 
   /// Clear all stored keys (for logout/reset)
   static Future<void> clearAllKeys() async {
