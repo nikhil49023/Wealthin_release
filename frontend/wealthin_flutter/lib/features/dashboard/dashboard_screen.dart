@@ -624,7 +624,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFD4AF37,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -731,10 +733,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95)),
           const SizedBox(height: 14),
 
-          _buildFinancialPulseCard(theme)
-              .animate()
-              .fadeIn(delay: 120.ms)
-              .slideY(begin: 0.05, end: 0),
+          _buildFinancialPulseCard(
+            theme,
+          ).animate().fadeIn(delay: 120.ms).slideY(begin: 0.05, end: 0),
           const SizedBox(height: 16),
 
           // Daily Streak Card
@@ -1091,30 +1092,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              TextField(
-                controller: descController,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: '₹',
+                TextField(
+                  controller: descController,
+                  decoration: const InputDecoration(labelText: 'Description'),
                 ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: selectedType,
-                decoration: const InputDecoration(labelText: 'Type'),
-                items: const [
-                  DropdownMenuItem(value: 'income', child: Text('Income')),
-                  DropdownMenuItem(value: 'expense', child: Text('Expense')),
-                ],
-                onChanged: (value) => selectedType = value!,
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: '₹',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const [
+                    DropdownMenuItem(value: 'income', child: Text('Income')),
+                    DropdownMenuItem(value: 'expense', child: Text('Expense')),
+                  ],
+                  onChanged: (value) => selectedType = value!,
+                ),
+              ],
             ),
           ),
           actions: [

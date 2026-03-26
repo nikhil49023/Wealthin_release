@@ -1,6 +1,6 @@
 #!/bin/bash
-# Test Sarvam API Keys - Verification Script
-# This script tests if your API keys are working correctly
+# Test Sarvam API Key - Verification Script
+# This script tests if your API key is configured correctly
 
 set -e
 
@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  Sarvam AI Keys - Verification Test${NC}"
+echo -e "${BLUE}  Sarvam AI Key - Verification Test${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
@@ -35,48 +35,36 @@ fi
 echo -e "${GREEN}✓ PASS${NC} - File is readable"
 echo ""
 
-# Test 3: Parse API keys
-echo -e "${BLUE}3️⃣  Testing: API keys format${NC}"
-if ! grep -q "SARVAM_API_KEYS=" .env.sarvam_keys; then
-    echo -e "${RED}✗ FAILED${NC} - Missing SARVAM_API_KEYS in file"
+# Test 3: Parse API key
+echo -e "${BLUE}3️⃣  Testing: API key format${NC}"
+if ! grep -q "SARVAM_API_KEY=" .env.sarvam_keys; then
+    echo -e "${RED}✗ FAILED${NC} - Missing SARVAM_API_KEY in file"
     exit 1
 fi
 
-KEYS=$(grep "SARVAM_API_KEYS=" .env.sarvam_keys | cut -d'=' -f2)
-NUM_KEYS=$(echo "$KEYS" | tr ',' '\n' | grep -c "sk_")
+KEY=$(grep "SARVAM_API_KEY=" .env.sarvam_keys | cut -d'=' -f2- | xargs)
 
-if [ "$NUM_KEYS" -lt 1 ]; then
-    echo -e "${RED}✗ FAILED${NC} - No valid API keys found"
+if [ -z "$KEY" ]; then
+    echo -e "${RED}✗ FAILED${NC} - No API key value found"
     exit 1
 fi
 
-echo -e "${GREEN}✓ PASS${NC} - Found ${GREEN}${NUM_KEYS}${NC} valid API keys"
-echo "   Keys in file:"
-echo "$KEYS" | tr ',' '\n' | sed 's/^/     • /'
+echo -e "${GREEN}✓ PASS${NC} - Found configured API key"
+echo "   Key preview: ${KEY:0:8}..."
 echo ""
 
 # Test 4: Check key format (should start with sk_)
-echo -e "${BLUE}4️⃣  Testing: API key format${NC}"
-INVALID_KEYS=0
-echo "$KEYS" | tr ',' '\n' | while read key; do
-    key=$(echo "$key" | xargs)  # Trim whitespace
-    if [[ ! "$key" =~ ^sk_ ]]; then
-        echo -e "${RED}   ✗${NC} Invalid format: $key (should start with sk_)"
-        ((INVALID_KEYS++))
-    fi
-done
-
-if [ "$INVALID_KEYS" -gt 0 ]; then
-    echo -e "${RED}✗ FAILED${NC} - Some keys have invalid format"
+echo -e "${BLUE}4️⃣  Testing: API key prefix${NC}"
+if [[ ! "$KEY" =~ ^sk_ ]]; then
+    echo -e "${RED}✗ FAILED${NC} - Invalid key format (should start with sk_)"
     exit 1
 fi
-echo -e "${GREEN}✓ PASS${NC} - All keys have valid format (sk_...)"
+echo -e "${GREEN}✓ PASS${NC} - Key has valid format (sk_...)"
 echo ""
 
-# Test 5: Calculate total RPM
-echo -e "${BLUE}5️⃣  Testing: Capacity calculation${NC}"
-TOTAL_RPM=$((NUM_KEYS * 60))
-echo -e "${GREEN}✓ PASS${NC} - Capacity: ${GREEN}${TOTAL_RPM} RPM${NC} (${NUM_KEYS} keys × 60 RPM each)"
+# Test 5: Basic capacity expectation
+echo -e "${BLUE}5️⃣  Testing: Configuration readiness${NC}"
+echo -e "${GREEN}✓ PASS${NC} - Single-key mode configured"
 echo ""
 
 # Test 6: Check if keys are in .gitignore
@@ -118,8 +106,7 @@ echo -e "${GREEN}✅ All tests passed!${NC}"
 echo ""
 echo -e "${GREEN}Configuration Summary:${NC}"
 echo "  • File: .env.sarvam_keys ✓"
-echo "  • Keys: $NUM_KEYS configured ✓"
-echo "  • Capacity: ${TOTAL_RPM} RPM ✓"
+echo "  • Single key: configured ✓"
 echo "  • Security: Keys ignored in git ✓"
 echo "  • Flutter: Ready ✓"
 echo ""
@@ -127,7 +114,7 @@ echo -e "${BLUE}Next steps:${NC}"
 echo "  1. Run: ${GREEN}flutter run --dart-define-from-file=.env.sarvam_keys${NC}"
 echo "  2. Open: AI Hub screen"
 echo "  3. Test: Send a query and check debug console"
-echo "  4. Monitor: Watch for [SarvamKeyManager] messages"
+echo "  4. Monitor: Watch for [PythonBridge] and [AIAgentService] messages"
 echo ""
 echo -e "${BLUE}To build release:${NC}"
 echo "  ${GREEN}flutter build apk --release --dart-define-from-file=.env.sarvam_keys${NC}"

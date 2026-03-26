@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/design_tokens.dart';
 
 /// Premium Health Score Gauge with animated gradient arc and glow
 class HealthScoreGauge extends StatelessWidget {
@@ -17,7 +19,7 @@ class HealthScoreGauge extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final scoreColor = _getScoreColor(score);
-    
+
     return SizedBox(
       width: size,
       height: size,
@@ -26,6 +28,8 @@ class HealthScoreGauge extends StatelessWidget {
         duration: const Duration(milliseconds: 1500),
         curve: Curves.easeOutCubic,
         builder: (context, value, child) {
+          final animatedScore = (value * 100).clamp(0, 100).toDouble();
+
           return Stack(
             alignment: Alignment.center,
             children: [
@@ -44,7 +48,7 @@ class HealthScoreGauge extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Custom painted arc
               CustomPaint(
                 size: Size(size, size),
@@ -54,7 +58,7 @@ class HealthScoreGauge extends StatelessWidget {
                   isDark: isDark,
                 ),
               ),
-              
+
               // Inner circle with gradient
               Container(
                 width: size * 0.65,
@@ -63,8 +67,8 @@ class HealthScoreGauge extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      isDark ? const Color(0xFF2A2A40) : Colors.white,
-                      isDark ? const Color(0xFF1A1A2E) : Colors.grey.shade50,
+                      isDark ? AppTheme.inkSlate : AppTheme.lightCard,
+                      isDark ? AppTheme.deepSlate : AppTheme.lightElevated,
                     ],
                   ),
                   boxShadow: [
@@ -76,7 +80,7 @@ class HealthScoreGauge extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Score text
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -89,21 +93,26 @@ class HealthScoreGauge extends StatelessWidget {
                       ],
                     ).createShader(bounds),
                     child: Text(
-                      (score * value / (score / 100)).toStringAsFixed(0),
+                      animatedScore.toStringAsFixed(0),
                       style: TextStyle(
                         fontSize: size * 0.22,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: isDark
+                            ? AppTheme.pearlWhite
+                            : AppTheme.lightTextPrimary,
                         letterSpacing: -2,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: DesignTokens.xs),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DesignTokens.md,
+                      vertical: DesignTokens.xs,
+                    ),
                     decoration: BoxDecoration(
                       color: scoreColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: DesignTokens.brSm,
                     ),
                     child: Text(
                       _getScoreLabel(score),
@@ -125,13 +134,13 @@ class HealthScoreGauge extends StatelessWidget {
   }
 
   Color _getScoreColor(double score) {
-    if (score >= 80) return const Color(0xFF10B981); // Emerald
-    if (score >= 60) return const Color(0xFF84CC16); // Lime
-    if (score >= 40) return const Color(0xFFF59E0B); // Amber
-    if (score >= 20) return const Color(0xFFF97316); // Orange
-    return const Color(0xFFEF4444); // Red
+    if (score >= 80) return AppTheme.success;
+    if (score >= 60) return AppTheme.successLight;
+    if (score >= 40) return AppTheme.warning;
+    if (score >= 20) return AppTheme.warningLight;
+    return AppTheme.error;
   }
-  
+
   String _getScoreLabel(double score) {
     if (score >= 80) return 'EXCELLENT';
     if (score >= 60) return 'GOOD';
@@ -156,22 +165,22 @@ class _GaugePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 15;
-    
+
     // Background arc
     final bgPaint = Paint()
       ..color = isDark ? Colors.grey.shade800 : Colors.grey.shade200
       ..style = PaintingStyle.stroke
       ..strokeWidth = 18
       ..strokeCap = StrokeCap.round;
-    
+
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -pi * 0.75,  // Start at 135 degrees
-      pi * 1.5,    // Sweep 270 degrees
+      -pi * 0.75, // Start at 135 degrees
+      pi * 1.5, // Sweep 270 degrees
       false,
       bgPaint,
     );
-    
+
     // Progress arc with gradient
     if (progress > 0) {
       final progressPaint = Paint()
@@ -188,7 +197,7 @@ class _GaugePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 18
         ..strokeCap = StrokeCap.round;
-      
+
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         -pi * 0.75,
@@ -196,20 +205,20 @@ class _GaugePainter extends CustomPainter {
         false,
         progressPaint,
       );
-      
+
       // End cap glow
       final endAngle = -pi * 0.75 + pi * 1.5 * progress;
       final endPoint = Offset(
         center.dx + radius * cos(endAngle),
         center.dy + radius * sin(endAngle),
       );
-      
+
       final glowPaint = Paint()
         ..color = scoreColor
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      
+
       canvas.drawCircle(endPoint, 10, glowPaint);
-      
+
       final dotPaint = Paint()..color = Colors.white;
       canvas.drawCircle(endPoint, 6, dotPaint);
     }
@@ -218,6 +227,6 @@ class _GaugePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GaugePainter oldDelegate) {
     return oldDelegate.progress != progress ||
-           oldDelegate.scoreColor != scoreColor;
+        oldDelegate.scoreColor != scoreColor;
   }
 }

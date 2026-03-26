@@ -97,7 +97,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     }
 
     // Create time buckets
-    final bucketCount = min(days > 90 ? 12 : days > 30 ? 10 : 7, days);
+    final bucketCount = min(
+      days > 90
+          ? 12
+          : days > 30
+          ? 10
+          : 7,
+      days,
+    );
     final bucketSize = days ~/ bucketCount;
 
     for (int i = 0; i < bucketCount; i++) {
@@ -284,12 +291,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? IndianTheme.sunriseGradient
-                        : null,
-                    color: isSelected
-                        ? null
-                        : Colors.transparent,
+                    gradient: isSelected ? IndianTheme.sunriseGradient : null,
+                    color: isSelected ? null : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
@@ -297,8 +300,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       period,
                       style: GoogleFonts.poppins(
                         fontSize: 13,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                         color: isSelected
                             ? Colors.white
                             : IndianTheme.templeStone,
@@ -444,8 +448,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   child: LinearProgressIndicator(
                     value: percentage / 100,
                     minHeight: 8,
-                    backgroundColor:
-                        IndianTheme.templeStone.withValues(alpha: 0.2),
+                    backgroundColor: IndianTheme.templeStone.withValues(
+                      alpha: 0.2,
+                    ),
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
@@ -594,10 +599,13 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
     // Category insight
     if (_dashData!.categoryBreakdown.isNotEmpty) {
-      final topCategory = _dashData!.categoryBreakdown.entries
-          .reduce((a, b) => a.value > b.value ? a : b);
-      final total = _dashData!.categoryBreakdown.values
-          .fold<double>(0, (sum, val) => sum + val);
+      final topCategory = _dashData!.categoryBreakdown.entries.reduce(
+        (a, b) => a.value > b.value ? a : b,
+      );
+      final total = _dashData!.categoryBreakdown.values.fold<double>(
+        0,
+        (sum, val) => sum + val,
+      );
       final percentage = (topCategory.value / total * 100);
 
       if (percentage > 40) {

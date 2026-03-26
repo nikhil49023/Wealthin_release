@@ -7,7 +7,7 @@ import '../../core/theme/wealthin_theme.dart';
 /// Deep Research Screen - Agentic research with live status log
 class DeepResearchScreen extends StatefulWidget {
   final String? initialQuery;
-  
+
   const DeepResearchScreen({super.key, this.initialQuery});
 
   @override
@@ -17,12 +17,12 @@ class DeepResearchScreen extends StatefulWidget {
 class _DeepResearchScreenState extends State<DeepResearchScreen> {
   final TextEditingController _queryController = TextEditingController();
   final ScrollController _logScrollController = ScrollController();
-  
+
   bool _isResearching = false;
   List<String> _statusLog = [];
   String? _report;
   List<String> _sources = [];
-  
+
   @override
   void initState() {
     super.initState();
@@ -30,25 +30,25 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
       _queryController.text = widget.initialQuery!;
     }
   }
-  
+
   @override
   void dispose() {
     _queryController.dispose();
     _logScrollController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _startResearch() async {
     final query = _queryController.text.trim();
     if (query.isEmpty) return;
-    
+
     setState(() {
       _isResearching = true;
       _statusLog = ['🔍 Initiating deep research...'];
       _report = null;
       _sources = [];
     });
-    
+
     try {
       // Add simulated progress updates while waiting
       _addSimulatedProgress();
@@ -68,7 +68,9 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
           } else if (source is Map<String, dynamic>) {
             final title = source['title']?.toString() ?? 'Source';
             final url = source['url']?.toString();
-            parsedSources.add(url != null && url.isNotEmpty ? '$title - $url' : title);
+            parsedSources.add(
+              url != null && url.isNotEmpty ? '$title - $url' : title,
+            );
           } else {
             parsedSources.add(source.toString());
           }
@@ -93,7 +95,7 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
       });
     }
   }
-  
+
   void _addSimulatedProgress() {
     // Add visual feedback while waiting for backend
     Future.delayed(const Duration(seconds: 2), () {
@@ -121,7 +123,7 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
       }
     });
   }
-  
+
   void _scrollToBottom() {
     if (_logScrollController.hasClients) {
       _logScrollController.animateTo(
@@ -131,12 +133,12 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('🔬 Deep Research'),
@@ -158,9 +160,7 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark 
-                  ? Colors.grey.shade900 
-                  : Colors.grey.shade50,
+              color: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -174,7 +174,8 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
                   child: TextField(
                     controller: _queryController,
                     decoration: InputDecoration(
-                      hintText: 'e.g., "Reliance Q3 earnings + green hydrogen outlook"',
+                      hintText:
+                          'e.g., "Reliance Q3 earnings + green hydrogen outlook"',
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -214,7 +215,7 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
               ],
             ),
           ),
-          
+
           // Live Status Log
           if (_statusLog.isNotEmpty) ...[
             Container(
@@ -234,16 +235,20 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isResearching ? Colors.green : Colors.grey,
-                        ),
-                      ).animate(
-                        onPlay: (c) => c.repeat(),
-                        autoPlay: _isResearching,
-                      ).fade(duration: 500.ms, begin: 0.4, end: 1.0),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isResearching
+                                  ? Colors.green
+                                  : Colors.grey,
+                            ),
+                          )
+                          .animate(
+                            onPlay: (c) => c.repeat(),
+                            autoPlay: _isResearching,
+                          )
+                          .fade(duration: 500.ms, begin: 0.4, end: 1.0),
                       const SizedBox(width: 8),
                       Text(
                         _isResearching ? 'RESEARCHING...' : 'COMPLETE',
@@ -281,7 +286,7 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
               ),
             ),
           ],
-          
+
           // Report Display
           Expanded(
             child: _report != null
@@ -294,9 +299,7 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isDark 
-                                ? Colors.grey.shade900 
-                                : Colors.white,
+                            color: isDark ? Colors.grey.shade900 : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
@@ -310,7 +313,7 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
                             style: theme.textTheme.bodyMedium,
                           ),
                         ),
-                        
+
                         // Sources
                         if (_sources.isNotEmpty) ...[
                           const SizedBox(height: 16),
@@ -329,8 +332,8 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
                               return ActionChip(
                                 avatar: const Icon(Icons.link, size: 16),
                                 label: Text(
-                                  domain.length > 25 
-                                      ? '${domain.substring(0, 25)}...' 
+                                  domain.length > 25
+                                      ? '${domain.substring(0, 25)}...'
                                       : domain,
                                   style: const TextStyle(fontSize: 11),
                                 ),
@@ -351,20 +354,26 @@ class _DeepResearchScreenState extends State<DeepResearchScreen> {
                         Icon(
                           Icons.science_outlined,
                           size: 64,
-                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.3,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'Enter a research query to begin',
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'e.g., "TCS Q3 FY24 earnings analysis"',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.4,
+                            ),
                           ),
                         ),
                       ],

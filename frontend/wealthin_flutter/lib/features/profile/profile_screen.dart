@@ -60,12 +60,14 @@ class _ProfileScreenState extends State<ProfileScreen>
     try {
       final user = authService.currentUser;
       if (user != null) {
+        if (!mounted) return;
         setState(() {
           _userName = user.displayName ?? 'WealthIn Member';
           _userEmail = user.email ?? '';
           _isLoading = false;
         });
       } else {
+        if (!mounted) return;
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -80,6 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       // Load dashboard data
       final dashData = await _dataService.getDashboard(userId);
+      if (!mounted) return;
       if (dashData != null) {
         setState(() {
           _totalIncome = dashData.totalIncome;
@@ -88,13 +91,17 @@ class _ProfileScreenState extends State<ProfileScreen>
 
         // Calculate health score
         final healthScore = await _dataService.getHealthScore(userId);
+        if (!mounted) return;
         if (healthScore != null) {
-          _healthScore = healthScore;
+          setState(() {
+            _healthScore = healthScore;
+          });
         }
       }
 
       // Load goals
       final goals = await _dataService.getGoals(userId);
+      if (!mounted) return;
       setState(() {
         _goals = goals;
       });
@@ -384,8 +391,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                           child: CircularProgressIndicator(
                             value: score / 100,
                             strokeWidth: 12,
-                            backgroundColor:
-                                Colors.white.withValues(alpha: 0.3),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.3,
+                            ),
                             valueColor: AlwaysStoppedAnimation<Color>(
                               Colors.white,
                             ),
@@ -595,7 +603,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   gradient: AppTheme.sunriseGradient,
                   borderRadius: BorderRadius.circular(12),
@@ -779,8 +790,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   return Switch(
                     value: themeMode == ThemeMode.dark,
                     onChanged: (value) {
-                      themeModeNotifier.value =
-                          value ? ThemeMode.dark : ThemeMode.light;
+                      themeModeNotifier.value = value
+                          ? ThemeMode.dark
+                          : ThemeMode.light;
                     },
                     activeThumbColor: AppTheme.peacockBlue,
                   );
@@ -905,7 +917,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             )
           : null,
-      trailing: trailing ??
+      trailing:
+          trailing ??
           (onTap != null
               ? Icon(
                   Icons.chevron_right_rounded,
@@ -1207,7 +1220,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Sarvam API key updated successfully')),
+                      const SnackBar(
+                        content: Text('Sarvam API key updated successfully'),
+                      ),
                     );
                   }
                 } else {
@@ -1302,7 +1317,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   await authService.resendVerificationEmail();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Verification email resent')),
+                      const SnackBar(
+                        content: Text('Verification email resent'),
+                      ),
                     );
                   }
                 } catch (e) {

@@ -6,11 +6,11 @@ import 'memory_service.dart';
 import 'rag_service.dart';
 
 /// Hybrid AI Service - Sarvam API Only Mode
-/// 
+///
 /// PRODUCTION MODE: All queries use Sarvam AI exclusively
 /// - No local inference
 /// - No on-device fallback
-/// - Multi-key Sarvam support with automatic rotation
+/// - Single-key Sarvam configuration
 class HybridAIService {
   static final HybridAIService _instance = HybridAIService._internal();
   factory HybridAIService() => _instance;
@@ -31,7 +31,7 @@ class HybridAIService {
     debugPrint('║                                                          ║');
     debugPrint('║  Local Inference:     DISABLED                           ║');
     debugPrint('║  Sarvam AI Provider:  ENABLED ✓                         ║');
-    debugPrint('║  Multi-Key Support:   ENABLED ✓                         ║');
+    debugPrint('║  Single-Key Mode:     ENABLED ✓                         ║');
     debugPrint('║  Routing Mode:        API_ONLY                          ║');
     debugPrint('║                                                          ║');
     debugPrint('║  All queries will use Sarvam AI exclusively.            ║');
@@ -89,14 +89,18 @@ class HybridAIService {
       debugPrint('[HybridAI] Using: Sarvam API (Artha)');
 
       // 3. Execute via Sarvam API
-      final response = await _executeAPI(message, conversationHistory, enrichedContext, userId);
+      final response = await _executeAPI(
+        message,
+        conversationHistory,
+        enrichedContext,
+        userId,
+      );
       _apiQueries++;
 
       // 4. Cache the response
       _cacheResponse(message, response, enrichedContext);
       debugPrint('[HybridAI] ─────────────────────────────────────');
       return response;
-
     } catch (e) {
       debugPrint('[HybridAI] ✗ Error: $e');
       return AgentResponse(
@@ -126,7 +130,9 @@ class HybridAIService {
 
     final latency = DateTime.now().difference(startTime);
 
-    debugPrint('[HybridAI] ✓ Sarvam API completed in ${latency.inMilliseconds}ms');
+    debugPrint(
+      '[HybridAI] ✓ Sarvam API completed in ${latency.inMilliseconds}ms',
+    );
 
     return AgentResponse(
       response: response.response,
@@ -142,7 +148,11 @@ class HybridAIService {
   }
 
   /// Cache response for future queries
-  void _cacheResponse(String message, AgentResponse response, Map<String, dynamic>? userContext) {
+  void _cacheResponse(
+    String message,
+    AgentResponse response,
+    Map<String, dynamic>? userContext,
+  ) {
     final shouldCache = responseCache.isLikelyRepeated(message);
     final isTimeSensitive = responseCache.isTimeSensitive(message);
 

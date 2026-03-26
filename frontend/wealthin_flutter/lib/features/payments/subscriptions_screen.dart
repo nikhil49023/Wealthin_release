@@ -27,28 +27,33 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   Future<void> _loadSubscriptions() async {
     setState(() => _isLoading = true);
-    
+
     try {
       // Fetch transactions from database
       final db = DatabaseHelper();
       final transactions = await db.getTransactions();
-      
+
       if (transactions.isEmpty) {
         setState(() {
           _isLoading = false;
-          _error = 'No transactions found. Import statements to detect subscriptions.';
+          _error =
+              'No transactions found. Import statements to detect subscriptions.';
         });
         return;
       }
 
       // Prepare transactions for Python analysis
-      final txList = transactions.map((tx) => {
-        'description': tx['description'] ?? '',
-        'amount': (tx['amount'] as num?)?.toDouble() ?? 0.0,
-        'date': tx['date'] ?? '',
-        'category': tx['category'] ?? 'Other',
-        'merchant': tx['merchant'] ?? tx['description'] ?? '',
-      }).toList();
+      final txList = transactions
+          .map(
+            (tx) => {
+              'description': tx['description'] ?? '',
+              'amount': (tx['amount'] as num?)?.toDouble() ?? 0.0,
+              'date': tx['date'] ?? '',
+              'category': tx['category'] ?? 'Other',
+              'merchant': tx['merchant'] ?? tx['description'] ?? '',
+            },
+          )
+          .toList();
 
       // Call Python subscription detection
       final result = await pythonBridge.detectSubscriptions(txList);
@@ -57,7 +62,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         setState(() {
           _subscriptions = result['subscriptions'] ?? [];
           _recurringHabits = result['recurring_habits'] ?? [];
-          _monthlyTotal = (result['total_monthly_cost'] as num?)?.toDouble() ?? 0;
+          _monthlyTotal =
+              (result['total_monthly_cost'] as num?)?.toDouble() ?? 0;
           _annualTotal = (result['annual_projection'] as num?)?.toDouble() ?? 0;
           _isLoading = false;
         });
@@ -79,7 +85,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Subscriptions'),
@@ -137,7 +143,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle_outline, size: 64, color: Colors.green[400]),
+              Icon(
+                Icons.check_circle_outline,
+                size: 64,
+                color: Colors.green[400],
+              ),
               const SizedBox(height: 16),
               Text(
                 'No Subscriptions Detected',
@@ -162,31 +172,41 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           // Summary Card
           _buildSummaryCard(theme, isDark),
           const SizedBox(height: 24),
-          
+
           // Active Subscriptions Section
           if (_subscriptions.isNotEmpty) ...[
             Text(
               'Active Subscriptions',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            ..._subscriptions.map((sub) => _buildSubscriptionCard(sub, theme, isDark)),
+            ..._subscriptions.map(
+              (sub) => _buildSubscriptionCard(sub, theme, isDark),
+            ),
             const SizedBox(height: 24),
           ],
-          
+
           // Recurring Habits Section
           if (_recurringHabits.isNotEmpty) ...[
             Text(
               'Recurring Habits',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Frequent but variable spending patterns',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.hintColor,
+              ),
             ),
             const SizedBox(height: 12),
-            ..._recurringHabits.map((habit) => _buildHabitCard(habit, theme, isDark)),
+            ..._recurringHabits.map(
+              (habit) => _buildHabitCard(habit, theme, isDark),
+            ),
           ],
         ],
       ),
@@ -240,7 +260,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
         const SizedBox(height: 4),
         Text(
           value,
@@ -268,11 +291,16 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: _getCategoryColor(category).withValues(alpha: 0.2),
-          child: Icon(_getCategoryIcon(category), color: _getCategoryColor(category)),
+          child: Icon(
+            _getCategoryIcon(category),
+            color: _getCategoryColor(category),
+          ),
         ),
         title: Text(
           _capitalizeFirst(merchant),
-          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,7 +322,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           children: [
             Text(
               '₹${_formatAmount(amount)}',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Text(
               '${(confidence * 100).toInt()}% sure',
@@ -321,7 +351,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         subtitle: Text('$occurrences times • $frequency'),
         trailing: Text(
           '~₹${_formatAmount(amount)}',
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );

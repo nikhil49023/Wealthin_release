@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../core/theme/design_tokens.dart';
 
 /// Action Card Widget for AI Advisor
 /// Shows pending AI actions with confirm/cancel buttons
@@ -27,131 +28,138 @@ class ActionCard extends StatelessWidget {
     final actionConfig = _getActionConfig(actionType);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12, right: 48),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            actionConfig.color.withValues(alpha: 0.1),
-            actionConfig.color.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: actionConfig.color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: actionConfig.color.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(15),
-                topRight: Radius.circular(15),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: actionConfig.color.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    actionConfig.icon,
-                    color: actionConfig.color,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        actionConfig.title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: actionConfig.color,
-                        ),
-                      ),
-                      Text(
-                        'Confirm this action',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          margin: const EdgeInsets.only(bottom: DesignTokens.md, right: 48),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                actionConfig.color.withValues(alpha: 0.1),
+                actionConfig.color.withValues(alpha: 0.05),
               ],
             ),
+            borderRadius: DesignTokens.brMd,
+            border: Border.all(
+              color: actionConfig.color.withValues(alpha: 0.3),
+            ),
           ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Confirmation Message
-                Text(
-                  confirmationMessage,
-                  style: theme.textTheme.bodyLarge,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Container(
+                padding: DesignTokens.cardPadding,
+                decoration: BoxDecoration(
+                  color: actionConfig.color.withValues(alpha: 0.1),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(DesignTokens.radiusSm),
+                    topRight: Radius.circular(DesignTokens.radiusSm),
+                  ),
                 ),
-                const SizedBox(height: 16),
-
-                // Parameters Preview
-                _buildParametersPreview(context, actionConfig),
-                const SizedBox(height: 16),
-
-                // Action Buttons
-                Row(
+                child: Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: isExecuting ? null : onCancel,
-                        icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Cancel'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.grey[700],
-                          side: BorderSide(color: Colors.grey[400]!),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(DesignTokens.sm),
+                      decoration: BoxDecoration(
+                        color: actionConfig.color.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        actionConfig.icon,
+                        color: actionConfig.color,
+                        size: 20,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: DesignTokens.md),
                     Expanded(
-                      flex: 2,
-                      child: FilledButton.icon(
-                        onPressed: isExecuting ? null : onConfirm,
-                        icon: isExecuting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Icon(actionConfig.confirmIcon, size: 18),
-                        label: Text(isExecuting ? 'Processing...' : 'Confirm'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: actionConfig.color,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            actionConfig.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: actionConfig.color,
+                            ),
+                          ),
+                          Text(
+                            'Confirm this action',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // Content
+              Padding(
+                padding: DesignTokens.cardPadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Confirmation Message
+                    Text(
+                      confirmationMessage,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: DesignTokens.lg),
+
+                    // Parameters Preview
+                    _buildParametersPreview(context, actionConfig),
+                    const SizedBox(height: DesignTokens.lg),
+
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isExecuting ? null : onCancel,
+                            icon: const Icon(Icons.close, size: 18),
+                            label: const Text('Cancel'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey[700],
+                              side: BorderSide(color: Colors.grey[400]!),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: DesignTokens.md),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton.icon(
+                            onPressed: isExecuting ? null : onConfirm,
+                            icon: isExecuting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(actionConfig.confirmIcon, size: 18),
+                            label: Text(
+                              isExecuting ? 'Processing...' : 'Confirm',
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: actionConfig.color,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 300.ms).scale(
+        )
+        .animate()
+        .fadeIn(duration: 300.ms)
+        .scale(
           begin: const Offset(0.95, 0.95),
           end: const Offset(1, 1),
           curve: Curves.easeOut,
@@ -176,8 +184,8 @@ class ActionCard extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: DesignTokens.sm,
+      runSpacing: DesignTokens.sm,
       children: items,
     );
   }
@@ -186,12 +194,17 @@ class ActionCard extends StatelessWidget {
     return key
         .replaceAll('_', ' ')
         .split(' ')
-        .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+        .map(
+          (w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '',
+        )
         .join(' ');
   }
 
   String _formatValue(String key, dynamic value) {
-    if (key.contains('amount') || key.contains('limit') || key.contains('principal') || key.contains('emi')) {
+    if (key.contains('amount') ||
+        key.contains('limit') ||
+        key.contains('principal') ||
+        key.contains('emi')) {
       return '₹${_formatNumber(value)}';
     }
     if (key.contains('rate')) {
@@ -217,11 +230,16 @@ class ActionCard extends StatelessWidget {
 
   IconData _getParameterIcon(String key) {
     if (key.contains('category')) return Icons.category;
-    if (key.contains('amount') || key.contains('limit') || key.contains('principal')) return Icons.currency_rupee;
-    if (key.contains('period') || key.contains('frequency')) return Icons.schedule;
+    if (key.contains('amount') ||
+        key.contains('limit') ||
+        key.contains('principal'))
+      return Icons.currency_rupee;
+    if (key.contains('period') || key.contains('frequency'))
+      return Icons.schedule;
     if (key.contains('name')) return Icons.label;
     if (key.contains('rate')) return Icons.percent;
-    if (key.contains('date') || key.contains('deadline')) return Icons.calendar_today;
+    if (key.contains('date') || key.contains('deadline'))
+      return Icons.calendar_today;
     return Icons.info_outline;
   }
 
@@ -425,12 +443,14 @@ class InvestmentResultCard extends StatelessWidget {
 
     result.forEach((key, value) {
       if (key != 'amortization_schedule' && value != null) {
-        items.add(_ResultTile(
-          label: _formatLabel(key),
-          value: _formatResultValue(key, value),
-          isHighlighted: _isHighlightField(key),
-          color: config.color,
-        ));
+        items.add(
+          _ResultTile(
+            label: _formatLabel(key),
+            value: _formatResultValue(key, value),
+            isHighlighted: _isHighlightField(key),
+            color: config.color,
+          ),
+        );
       }
     });
 
@@ -464,7 +484,9 @@ class InvestmentResultCard extends StatelessWidget {
     return key
         .replaceAll('_', ' ')
         .split(' ')
-        .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+        .map(
+          (w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '',
+        )
         .join(' ');
   }
 
@@ -479,9 +501,9 @@ class InvestmentResultCard extends StatelessWidget {
         return '₹${(value / 100000).toStringAsFixed(2)} L';
       } else if (value >= 1000) {
         return '₹${value.toStringAsFixed(0).replaceAllMapped(
-              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-              (m) => '${m[1]},',
-            )}';
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+        )}';
       }
       return '₹${value.toStringAsFixed(0)}';
     }
@@ -567,7 +589,9 @@ class _ResultTile extends StatelessWidget {
             ? color.withValues(alpha: 0.1)
             : Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: isHighlighted ? Border.all(color: color.withValues(alpha: 0.3)) : null,
+        border: isHighlighted
+            ? Border.all(color: color.withValues(alpha: 0.3))
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

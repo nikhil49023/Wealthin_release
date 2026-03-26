@@ -4,7 +4,6 @@ import 'dart:math' as math;
 /// Pure Dart implementation of financial formulas.
 /// Replaces the Python backend calculator service for instant, offline results.
 class FinancialCalculator {
-  
   // ==================== INVESTMENT CALCULATORS ====================
 
   /// Calculate SIP (Systematic Investment Plan) Returns
@@ -14,15 +13,16 @@ class FinancialCalculator {
     required int durationMonths,
   }) {
     final monthlyRate = expectedRate / 12 / 100;
-    
+
     double futureValue;
     if (monthlyRate == 0) {
       futureValue = monthlyInvestment * durationMonths;
     } else {
       // FV = P × ((1 + r)^n - 1) / r × (1 + r)
-      futureValue = monthlyInvestment * 
-                   ((math.pow(1 + monthlyRate, durationMonths) - 1) / monthlyRate) * 
-                   (1 + monthlyRate);
+      futureValue =
+          monthlyInvestment *
+          ((math.pow(1 + monthlyRate, durationMonths) - 1) / monthlyRate) *
+          (1 + monthlyRate);
     }
 
     final totalInvested = monthlyInvestment * durationMonths;
@@ -35,9 +35,9 @@ class FinancialCalculator {
       'total_invested': totalInvested.roundToDouble(),
       'future_value': futureValue.roundToDouble(),
       'wealth_gained': wealthGained.roundToDouble(),
-      'returns_percentage': totalInvested > 0 
-          ? ((wealthGained / totalInvested) * 100).toStringAsFixed(2) 
-          : "0.00"
+      'returns_percentage': totalInvested > 0
+          ? ((wealthGained / totalInvested) * 100).toStringAsFixed(2)
+          : "0.00",
     };
   }
 
@@ -46,10 +46,11 @@ class FinancialCalculator {
     required double principal,
     required double rate, // Annual rate in %
     required int tenureMonths,
-    String compounding = "quarterly", // Not used in simple formula, assuming quarterly by default standards
+    String compounding =
+        "quarterly", // Not used in simple formula, assuming quarterly by default standards
   }) {
     // Standard quarterly compounding for Indian FDs
-    const n = 4.0; 
+    const n = 4.0;
     final r = rate / 100;
     final t = tenureMonths / 12;
 
@@ -64,7 +65,7 @@ class FinancialCalculator {
       'tenure_months': tenureMonths,
       'maturity_amount': maturityAmount.roundToDouble(),
       'interest_earned': interestEarned.roundToDouble(),
-      'effective_annual_rate': effectiveAnnualRate.toStringAsFixed(2)
+      'effective_annual_rate': effectiveAnnualRate.toStringAsFixed(2),
     };
   }
 
@@ -82,7 +83,8 @@ class FinancialCalculator {
       // Each installment earns interest for the remaining period
       // This is a simplified iterative approach accurate for standard RDs
       final remainingQuarters = (tenureMonths - month) / 3;
-      final amount = monthlyDeposit * math.pow(1 + quarterlyRate, remainingQuarters);
+      final amount =
+          monthlyDeposit * math.pow(1 + quarterlyRate, remainingQuarters);
       maturityAmount += amount;
     }
 
@@ -95,7 +97,7 @@ class FinancialCalculator {
       'tenure_months': tenureMonths,
       'maturity_amount': maturityAmount.roundToDouble(),
       'total_deposited': totalDeposited.roundToDouble(),
-      'interest_earned': interestEarned.roundToDouble()
+      'interest_earned': interestEarned.roundToDouble(),
     };
   }
 
@@ -118,7 +120,9 @@ class FinancialCalculator {
     double fvContributions = 0;
     if (monthlyContribution > 0) {
       if (r > 0) {
-        fvContributions = monthlyContribution * (((math.pow(1 + r / n, n * t) - 1) / (r / n)));
+        fvContributions =
+            monthlyContribution *
+            (((math.pow(1 + r / n, n * t) - 1) / (r / n)));
       } else {
         fvContributions = monthlyContribution * n * t;
       }
@@ -132,7 +136,7 @@ class FinancialCalculator {
       'total_amount': totalAmount.roundToDouble(),
       'interest_earned': interestEarned.roundToDouble(),
       'total_contributed': totalContributed.roundToDouble(),
-      'years': years
+      'years': years,
     };
   }
 
@@ -145,15 +149,17 @@ class FinancialCalculator {
     required int tenureMonths,
   }) {
     final monthlyRate = rate / 12 / 100;
-    
+
     double emi;
     if (monthlyRate == 0) {
       emi = principal / tenureMonths;
     } else {
       // E = P * r * (1+r)^n / ((1+r)^n - 1)
-      emi = principal * monthlyRate * 
-            (math.pow(1 + monthlyRate, tenureMonths)) / 
-            ((math.pow(1 + monthlyRate, tenureMonths) - 1));
+      emi =
+          principal *
+          monthlyRate *
+          (math.pow(1 + monthlyRate, tenureMonths)) /
+          ((math.pow(1 + monthlyRate, tenureMonths) - 1));
     }
 
     final totalPayment = emi * tenureMonths;
@@ -165,7 +171,7 @@ class FinancialCalculator {
       'tenure_months': tenureMonths,
       'emi': emi.roundToDouble(),
       'total_payment': totalPayment.roundToDouble(),
-      'total_interest': totalInterest.roundToDouble()
+      'total_interest': totalInterest.roundToDouble(),
     };
   }
 
@@ -193,24 +199,29 @@ class FinancialCalculator {
     final targetAmount = monthlyExpenses * targetMonths;
     if (targetAmount == 0) {
       return {
-        "status": "Complete", 
-        "percentage": 100.0, 
+        "status": "Complete",
+        "percentage": 100.0,
         "shortfall": 0.0,
         "months_covered": 0.0,
-        "health_status": "Complete"
+        "health_status": "Complete",
       };
     }
 
     final percentComplete = (currentSavings / targetAmount) * 100;
     final shortfall = math.max(0.0, targetAmount - currentSavings);
-    final monthsCovered = monthlyExpenses > 0 ? (currentSavings / monthlyExpenses) : 0.0;
+    final monthsCovered = monthlyExpenses > 0
+        ? (currentSavings / monthlyExpenses)
+        : 0.0;
 
     String status = "Critical";
     if (percentComplete >= 100) {
       status = "Excellent";
-    } else if (percentComplete >= 80) status = "Good";
-    else if (percentComplete >= 50) status = "Fair";
-    else if (percentComplete >= 20) status = "Poor";
+    } else if (percentComplete >= 80)
+      status = "Good";
+    else if (percentComplete >= 50)
+      status = "Fair";
+    else if (percentComplete >= 20)
+      status = "Poor";
 
     return {
       "target_amount": targetAmount,
@@ -218,7 +229,7 @@ class FinancialCalculator {
       "shortfall": shortfall,
       "percentage": double.parse(percentComplete.toStringAsFixed(1)),
       "health_status": status,
-      "months_covered": double.parse(monthsCovered.toStringAsFixed(1))
+      "months_covered": double.parse(monthsCovered.toStringAsFixed(1)),
     };
   }
 }

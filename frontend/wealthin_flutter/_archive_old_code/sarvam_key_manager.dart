@@ -97,7 +97,9 @@ class SarvamAIKeyManager {
     }
 
     // All keys rate-limited - queue request
-    debugPrint('[SarvamKeyManager] ⚠ All keys rate-limited! Queueing request...');
+    debugPrint(
+      '[SarvamKeyManager] ⚠ All keys rate-limited! Queueing request...',
+    );
     throw RateLimitedException('All Sarvam AI keys are rate-limited');
   }
 
@@ -127,8 +129,9 @@ class SarvamAIKeyManager {
       0,
       (sum, status) => sum + status.requestsThisMinute,
     );
-    final availableKeys =
-        _keyStatus.values.where((s) => !s.isRateLimited).length;
+    final availableKeys = _keyStatus.values
+        .where((s) => !s.isRateLimited)
+        .length;
 
     return {
       'total_keys': _apiKeys.length,
@@ -143,7 +146,7 @@ class SarvamAIKeyManager {
             'rpm_limit': _keyStatus[key]!.rpmLimit,
             'is_rate_limited': _keyStatus[key]!.isRateLimited,
             'retry_after': _keyStatus[key]!.retryAfter,
-          }
+          },
       },
     };
   }
@@ -197,7 +200,8 @@ class RateLimitStatus {
     final now = DateTime.now();
 
     // Reset counter if window has passed
-    if (windowStart == null || now.difference(windowStart!) > Duration(minutes: 1)) {
+    if (windowStart == null ||
+        now.difference(windowStart!) > Duration(minutes: 1)) {
       windowStart = now;
       requestsThisMinute = 0;
     }

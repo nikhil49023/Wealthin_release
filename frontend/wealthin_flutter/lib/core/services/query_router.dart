@@ -54,7 +54,7 @@ class QueryRouter {
 enum RoutingMode {
   localFirst,
   localOnly,
-  apiOnly,      // Sarvam AI only, no local
+  apiOnly, // Sarvam AI only, no local
   hybrid,
   apiFirst,
 }
@@ -62,7 +62,7 @@ enum RoutingMode {
 /// Inference strategy decision
 enum InferenceStrategy {
   local,
-  api,                // Use Sarvam API only
+  api, // Use Sarvam API only
   localWithFallback,
 }
 

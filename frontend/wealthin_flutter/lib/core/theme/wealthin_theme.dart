@@ -12,71 +12,71 @@ class WealthInColors {
 
   // ============== DARK MODE: "THE EMERALD VAULT" ==============
   // AMOLED-optimized deep blacks with cyan accents (better on dark)
-  
+
   /// Deep Obsidian - Main background for AMOLED
   static const deepObsidian = Color(0xFF040D08);
-  
+
   /// Vault Green - Card surfaces (recessed tray look)
   static const vaultGreen = Color(0xFF0D1F14);
-  
+
   /// Cyan Glow - Primary action color for dark mode (better than green)
-  static const cyanGlow = Color(0xFF22D3EE);  // Tailwind cyan-400
-  
+  static const cyanGlow = Color(0xFF22D3EE); // Tailwind cyan-400
+
   /// Emerald Glow - Secondary/Income color
   static const emeraldGlow = Color(0xFF50C878);
-  
+
   /// Regal Gold - Premium features & high-value alerts
   static const regalGold = Color(0xFFD4AF37);
-  
+
   /// Pure Frost - High-legibility text (off-white with green tint)
   static const pureFrost = Color(0xFFF2FBF5);
-  
+
   /// Jade Shadow - Secondary text, borders, inactive states
   static const jadeShadow = Color(0xFF4A6353);
 
   // ============== LIGHT MODE: "THE IVORY MINT" ==============
   // Premium stationery feel, avoiding stark white
-  
+
   /// Ivory Mist - Main background
   static const ivoryMist = Color(0xFFFBFDFA);
-  
+
   /// Paper White - Card surfaces
   static const paperWhite = Color(0xFFFFFFFF);
-  
+
   /// Mint Border - Subtle card borders
   static const mintBorder = Color(0xFFE8F2EC);
-  
+
   /// True Emerald - Primary CTA and text
   static const trueEmerald = Color(0xFF046307);
-  
+
   /// Vintage Gold - Sophisticated gold indicators
   static const vintageGold = Color(0xFFB8860B);
-  
+
   /// Deep Forest - Headlines and primary text
   static const deepForest = Color(0xFF06130B);
-  
+
   /// Sage Gray - Captions, labels, disabled elements
   static const sageGray = Color(0xFF8FBC8F);
 
   // ============== SEMANTIC COLORS ==============
-  
+
   /// Success/Income indicator
   static const success = emeraldGlow;
   static const successLight = Color(0xFF6FE097);
-  
+
   /// Error/Expense indicator
   static const error = Color(0xFFEF4444);
   static const errorLight = Color(0xFFF87171);
-  
+
   /// Warning
   static const warning = Color(0xFFF59E0B);
-  
+
   /// Info/AI
   static const info = Color(0xFF7C3AED);
 
   // ============== LEGACY COMPATIBILITY ==============
   // These maintain backward compatibility with existing code
-  
+
   static const primary = trueEmerald;
   static const primaryLight = emeraldGlow;
   static const background = ivoryMist;
@@ -85,7 +85,7 @@ class WealthInColors {
   static const textPrimary = deepForest;
   static const textSecondary = jadeShadow;
   static const border = mintBorder;
-  
+
   // Dark mode legacy
   static const black = deepObsidian;
   static const blackLight = Color(0xFF061A0D);
@@ -192,7 +192,7 @@ class WealthInTheme {
 
   /// Headlines (Brand): Plus Jakarta Sans
   static TextStyle get headlineFont => GoogleFonts.plusJakartaSans();
-  
+
   /// Financials (Data): JetBrains Mono for currency values
   static TextStyle get moneyFont => GoogleFonts.jetBrainsMono();
 
@@ -377,7 +377,10 @@ class WealthInTheme {
       chipTheme: ChipThemeData(
         backgroundColor: ivoryMist,
         selectedColor: trueEmerald.withValues(alpha: 0.15),
-        labelStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: jadeShadow),
+        labelStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 13,
+          color: jadeShadow,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -623,7 +626,10 @@ class WealthInTheme {
       chipTheme: ChipThemeData(
         backgroundColor: Color(0xFF132B1C),
         selectedColor: emeraldGlow.withValues(alpha: 0.2),
-        labelStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: Color(0xFFB0D0BC)),
+        labelStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 13,
+          color: Color(0xFFB0D0BC),
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -706,7 +712,11 @@ class WealthInTheme {
   }
 
   /// Format currency with JetBrains Mono
-  static TextStyle currencyStyle(BuildContext context, {double fontSize = 18, FontWeight fontWeight = FontWeight.w600}) {
+  static TextStyle currencyStyle(
+    BuildContext context, {
+    double fontSize = 18,
+    FontWeight fontWeight = FontWeight.w600,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GoogleFonts.jetBrainsMono(
       fontSize: fontSize,
@@ -767,13 +777,13 @@ class WealthInTheme {
   static BoxDecoration glassDecoration(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
-      color: isDark 
-          ? vaultGreen.withValues(alpha: 0.85) 
+      color: isDark
+          ? vaultGreen.withValues(alpha: 0.85)
           : paperWhite.withValues(alpha: 0.85),
       borderRadius: BorderRadius.circular(20),
       border: Border.all(
-        color: isDark 
-            ? Colors.white.withValues(alpha: 0.1) 
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.1)
             : Colors.white.withValues(alpha: 0.5),
         width: 1,
       ),

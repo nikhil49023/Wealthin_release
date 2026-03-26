@@ -176,19 +176,24 @@ IMPORTANT RULES:
 
   Future<void> setConfig(Map<String, String> config) async {
     // Log which keys are being sent (lengths only — never log actual values)
-    final keyStatus = config.entries.map((e) => 
-      '${e.key}=${e.value.isNotEmpty ? "✓(${e.value.length})" : "✗empty"}'
-    ).join(', ');
+    final keyStatus = config.entries
+        .map(
+          (e) =>
+              '${e.key}=${e.value.isNotEmpty ? "✓(${e.value.length})" : "✗empty"}',
+        )
+        .join(', ');
     debugPrint('[PythonBridge] setConfig sending: $keyStatus');
-    
+
     final result = await _callPython('set_config', {
       'config_json': jsonEncode(config),
     });
-    
+
     final success = result['success'] == true;
     final providers = result['providers'];
-    debugPrint('[PythonBridge] setConfig result: success=$success, providers=$providers');
-    
+    debugPrint(
+      '[PythonBridge] setConfig result: success=$success, providers=$providers',
+    );
+
     if (!success) {
       debugPrint('[PythonBridge] ⚠ setConfig FAILED: ${result['error']}');
     }
@@ -332,12 +337,21 @@ IMPORTANT RULES:
   }) async {
     // Ensure API keys are available before calling LLM
     await ensureConfigured();
+    final key = await AppSecrets.getSarvamApiKeyAsync();
+    if (key.trim().isEmpty) {
+      return {
+        'success': false,
+        'response': 'AI key is missing. Please configure the Sarvam API key.',
+        'error': 'missing_sarvam_api_key',
+      };
+    }
 
     final result = await _callPython('chat_with_llm', {
       'query': query,
       'conversation_history': conversationHistory ?? [],
       'user_context': userContext ?? {},
       'user_id': userId,
+      'api_key': key,
     });
 
     if (result['success'] == true || result.containsKey('response')) {

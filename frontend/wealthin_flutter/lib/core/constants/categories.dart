@@ -8,7 +8,7 @@ class Categories {
   Categories._(); // Private constructor to prevent instantiation
 
   // ==================== EXPENSE CATEGORIES ====================
-  
+
   static const List<String> expense = [
     'Food & Dining',
     'Groceries',
@@ -30,7 +30,7 @@ class Categories {
   ];
 
   // ==================== INCOME CATEGORIES ====================
-  
+
   static const List<String> income = [
     'Salary & Income',
     'Business',
@@ -45,17 +45,18 @@ class Categories {
   ];
 
   // ==================== ALL CATEGORIES ====================
-  
+
   /// Combined list of all categories
   static List<String> get all => [...expense, ...income];
 
   // ==================== BUDGET CATEGORIES ====================
-  
+
   /// Categories suitable for budgeting (expense categories only)
-  static List<String> get budgetable => expense.where((c) => c != 'Transfer').toList();
+  static List<String> get budgetable =>
+      expense.where((c) => c != 'Transfer').toList();
 
   // ==================== ICONS ====================
-  
+
   static const Map<String, IconData> icons = {
     // Expense
     'Food & Dining': Icons.restaurant,
@@ -94,7 +95,7 @@ class Categories {
   }
 
   // ==================== COLORS ====================
-  
+
   static Map<String, Color> get colors => {
     // Expense
     'Food & Dining': Colors.orange,
@@ -133,102 +134,398 @@ class Categories {
   }
 
   // ==================== CATEGORY KEYWORDS (for auto-categorization) ====================
-  
+
   static const Map<String, List<String>> keywords = {
     'Food & Dining': [
-      'swiggy', 'zomato', 'restaurant', 'cafe', 'food', 'dining', 'lunch', 'dinner',
-      'breakfast', 'biryani', 'pizza', 'burger', 'chai', 'coffee', 'tea', 'snacks',
-      'mess', 'canteen', 'dhaba', 'hotel', 'eatsure', 'dominos', 'kfc', 'mcdonalds',
-      'subway', 'haldiram', 'barbeque', 'freshmen', 'behrouz', 'starbucks', 'burger king',
-      'pizza hut', 'bistro', 'diner', 'coffee day', 'ccd', 'tim hortons', 'taco bell',
-      'oven story', 'faasos', 'box8', 'wow momo'
+      'swiggy',
+      'zomato',
+      'restaurant',
+      'cafe',
+      'food',
+      'dining',
+      'lunch',
+      'dinner',
+      'breakfast',
+      'biryani',
+      'pizza',
+      'burger',
+      'chai',
+      'coffee',
+      'tea',
+      'snacks',
+      'mess',
+      'canteen',
+      'dhaba',
+      'hotel',
+      'eatsure',
+      'dominos',
+      'kfc',
+      'mcdonalds',
+      'subway',
+      'haldiram',
+      'barbeque',
+      'freshmen',
+      'behrouz',
+      'starbucks',
+      'burger king',
+      'pizza hut',
+      'bistro',
+      'diner',
+      'coffee day',
+      'ccd',
+      'tim hortons',
+      'taco bell',
+      'oven story',
+      'faasos',
+      'box8',
+      'wow momo',
     ],
     'Groceries': [
-      'bigbasket', 'grofers', 'blinkit', 'zepto', 'dmart', 'reliance fresh',
-      'more megastore', 'grocery', 'vegetables', 'fruits', 'kirana', 'supermarket',
-      'provision', 'ration', 'jiomart', 'amazon fresh', "nature's basket", "spencer's",
-      'daily needs', 'milk', 'dairy', 'bakery', 'meat', 'fish'
+      'bigbasket',
+      'grofers',
+      'blinkit',
+      'zepto',
+      'dmart',
+      'reliance fresh',
+      'more megastore',
+      'grocery',
+      'vegetables',
+      'fruits',
+      'kirana',
+      'supermarket',
+      'provision',
+      'ration',
+      'jiomart',
+      'amazon fresh',
+      "nature's basket",
+      "spencer's",
+      'daily needs',
+      'milk',
+      'dairy',
+      'bakery',
+      'meat',
+      'fish',
     ],
     'Transportation': [
-      'uber', 'ola', 'rapido', 'metro', 'bus', 'railway', 'irctc', 'petrol', 'diesel',
-      'fuel', 'parking', 'toll', 'fastag', 'auto', 'cab', 'taxi', 'flight', 'air',
-      'indigo', 'spicejet', 'vistara', 'redbus', 'makemytrip', 'cleartrip', 'goibibo',
-      'yatra', 'ixigo', 'blue smart', 'indriver', 'rly', 'rail', 'shell', 'hpcl', 'bpcl', 'ioc'
+      'uber',
+      'ola',
+      'rapido',
+      'metro',
+      'bus',
+      'railway',
+      'irctc',
+      'petrol',
+      'diesel',
+      'fuel',
+      'parking',
+      'toll',
+      'fastag',
+      'auto',
+      'cab',
+      'taxi',
+      'flight',
+      'air',
+      'indigo',
+      'spicejet',
+      'vistara',
+      'redbus',
+      'makemytrip',
+      'cleartrip',
+      'goibibo',
+      'yatra',
+      'ixigo',
+      'blue smart',
+      'indriver',
+      'rly',
+      'rail',
+      'shell',
+      'hpcl',
+      'bpcl',
+      'ioc',
     ],
     'Shopping': [
-      'amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'meesho', 'snapdeal',
-      'shopclues', 'paytm mall', 'tata cliq', 'lifestyle', 'westside', 'pantaloons',
-      'max', 'h&m', 'zara', 'uniqlo', 'decathlon', 'croma', 'reliance digital',
-      'trends', 'zudio', 'nike', 'adidas', 'puma', 'skechers', "levi's", 'marks & spencer'
+      'amazon',
+      'flipkart',
+      'myntra',
+      'ajio',
+      'nykaa',
+      'meesho',
+      'snapdeal',
+      'shopclues',
+      'paytm mall',
+      'tata cliq',
+      'lifestyle',
+      'westside',
+      'pantaloons',
+      'max',
+      'h&m',
+      'zara',
+      'uniqlo',
+      'decathlon',
+      'croma',
+      'reliance digital',
+      'trends',
+      'zudio',
+      'nike',
+      'adidas',
+      'puma',
+      'skechers',
+      "levi's",
+      'marks & spencer',
     ],
     'Entertainment': [
-      'netflix', 'prime video', 'hotstar', 'disney', 'youtube', 'spotify', 'gaana',
-      'jio saavn', 'pvr', 'inox', 'bookmyshow', 'cinema', 'movie', 'games', 'pubg',
-      'dream11', 'fantasy', 'subscription', 'ott', 'cinepolis', 'apple music', 'audible',
-      'sony liv', 'zee5', 'gaming', 'steam', 'playstation', 'xbox'
+      'netflix',
+      'prime video',
+      'hotstar',
+      'disney',
+      'youtube',
+      'spotify',
+      'gaana',
+      'jio saavn',
+      'pvr',
+      'inox',
+      'bookmyshow',
+      'cinema',
+      'movie',
+      'games',
+      'pubg',
+      'dream11',
+      'fantasy',
+      'subscription',
+      'ott',
+      'cinepolis',
+      'apple music',
+      'audible',
+      'sony liv',
+      'zee5',
+      'gaming',
+      'steam',
+      'playstation',
+      'xbox',
     ],
     'Utilities': [
-      'electricity', 'water', 'gas', 'broadband', 'internet', 'wifi', 'jio', 'airtel',
-      'vi', 'vodafone', 'bsnl', 'act fibernet', 'tata sky', 'dish tv', 'dth',
-      'mobile recharge', 'postpaid', 'prepaid', 'phone bill', 'bescom', 'bwssb',
-      'mahavitaran', 'adhani', 'torrent power', 'billdesk', 'razorpay'
+      'electricity',
+      'water',
+      'gas',
+      'broadband',
+      'internet',
+      'wifi',
+      'jio',
+      'airtel',
+      'vi',
+      'vodafone',
+      'bsnl',
+      'act fibernet',
+      'tata sky',
+      'dish tv',
+      'dth',
+      'mobile recharge',
+      'postpaid',
+      'prepaid',
+      'phone bill',
+      'bescom',
+      'bwssb',
+      'mahavitaran',
+      'adhani',
+      'torrent power',
+      'billdesk',
+      'razorpay',
     ],
     'Healthcare': [
-      'hospital', 'clinic', 'doctor', 'pharma', 'pharmacy', 'medicine', 'apollo',
-      'medplus', 'netmeds', '1mg', 'pharmeasy', 'tata 1mg', 'diagnostic', 'lab',
-      'pathology', 'consultation', 'health', 'medical', 'dental', 'eye', 'practo',
-      'cult.fit', 'gym', 'fitness'
+      'hospital',
+      'clinic',
+      'doctor',
+      'pharma',
+      'pharmacy',
+      'medicine',
+      'apollo',
+      'medplus',
+      'netmeds',
+      '1mg',
+      'pharmeasy',
+      'tata 1mg',
+      'diagnostic',
+      'lab',
+      'pathology',
+      'consultation',
+      'health',
+      'medical',
+      'dental',
+      'eye',
+      'practo',
+      'cult.fit',
+      'gym',
+      'fitness',
     ],
     'Education': [
-      'school', 'college', 'university', 'course', 'udemy', 'coursera', 'unacademy',
-      'byju', 'vedantu', 'books', 'stationery', 'tuition', 'coaching', 'exam',
-      'fees', 'library', 'kindle', 'skillshare'
+      'school',
+      'college',
+      'university',
+      'course',
+      'udemy',
+      'coursera',
+      'unacademy',
+      'byju',
+      'vedantu',
+      'books',
+      'stationery',
+      'tuition',
+      'coaching',
+      'exam',
+      'fees',
+      'library',
+      'kindle',
+      'skillshare',
     ],
     'Investment': [
-      'mutual fund', 'sip', 'zerodha', 'groww', 'upstox', 'angel', 'stocks', 'shares',
-      'trading', 'demat', 'nse', 'bse', 'investment', 'fd', 'fixed deposit',
-      'ppf', 'nps', 'bonds', 'gold', 'sovereign', 'smallcase', 'kuvera', 'indmoney'
+      'mutual fund',
+      'sip',
+      'zerodha',
+      'groww',
+      'upstox',
+      'angel',
+      'stocks',
+      'shares',
+      'trading',
+      'demat',
+      'nse',
+      'bse',
+      'investment',
+      'fd',
+      'fixed deposit',
+      'ppf',
+      'nps',
+      'bonds',
+      'gold',
+      'sovereign',
+      'smallcase',
+      'kuvera',
+      'indmoney',
     ],
     'Insurance': [
-      'insurance', 'lic', 'hdfc life', 'icici pru', 'max life', 'term', 'health insurance',
-      'motor insurance', 'policy', 'premium', 'policybazaar', 'digit', 'acko', 'navi'
+      'insurance',
+      'lic',
+      'hdfc life',
+      'icici pru',
+      'max life',
+      'term',
+      'health insurance',
+      'motor insurance',
+      'policy',
+      'premium',
+      'policybazaar',
+      'digit',
+      'acko',
+      'navi',
     ],
     'EMI & Loans': [
-      'emi', 'loan', 'installment', 'credit card', 'bajaj', 'hdfc', 'icici', 'sbi',
-      'home loan', 'car loan', 'personal loan', 'education loan', 'bnpl', 'simpl', 'lazypay'
+      'emi',
+      'loan',
+      'installment',
+      'credit card',
+      'bajaj',
+      'hdfc',
+      'icici',
+      'sbi',
+      'home loan',
+      'car loan',
+      'personal loan',
+      'education loan',
+      'bnpl',
+      'simpl',
+      'lazypay',
     ],
     'Salary & Income': [
-      'salary', 'wages', 'income', 'payroll', 'credit', 'inward', 'received',
-      'payment received', 'freelance', 'bonus', 'incentive', 'commission', 'refund', 'interest'
+      'salary',
+      'wages',
+      'income',
+      'payroll',
+      'credit',
+      'inward',
+      'received',
+      'payment received',
+      'freelance',
+      'bonus',
+      'incentive',
+      'commission',
+      'refund',
+      'interest',
     ],
     'Transfer': [
-      'transfer', 'neft', 'imps', 'rtgs', 'upi', 'gpay', 'phonepe', 'paytm',
-      'bhim', 'self transfer', 'fund transfer', 'account transfer', 'cred'
+      'transfer',
+      'neft',
+      'imps',
+      'rtgs',
+      'upi',
+      'gpay',
+      'phonepe',
+      'paytm',
+      'bhim',
+      'self transfer',
+      'fund transfer',
+      'account transfer',
+      'cred',
     ],
     'Rent & Housing': [
-      'rent', 'house rent', 'pg', 'hostel', 'accommodation', 'maintenance',
-      'society', 'apartment', 'flat', 'deposit', 'caution', 'nobroker'
+      'rent',
+      'house rent',
+      'pg',
+      'hostel',
+      'accommodation',
+      'maintenance',
+      'society',
+      'apartment',
+      'flat',
+      'deposit',
+      'caution',
+      'nobroker',
     ],
     'Personal Care': [
-      'salon', 'spa', 'parlour', 'haircut', 'beauty', 'cosmetics', 'skincare',
-      'grooming', 'urban company', 'looks', 'javed habib'
+      'salon',
+      'spa',
+      'parlour',
+      'haircut',
+      'beauty',
+      'cosmetics',
+      'skincare',
+      'grooming',
+      'urban company',
+      'looks',
+      'javed habib',
     ],
     'Travel': [
-      'trip', 'vacation', 'holiday', 'oyo', 'airbnb', 'booking.com', 'agoda',
-      'trivago', 'hotels', 'resort', 'travel', 'tourism'
+      'trip',
+      'vacation',
+      'holiday',
+      'oyo',
+      'airbnb',
+      'booking.com',
+      'agoda',
+      'trivago',
+      'hotels',
+      'resort',
+      'travel',
+      'tourism',
     ],
     'Subscriptions': [
-      'subscription', 'membership', 'premium', 'annual', 'monthly plan',
-      'cloud storage', 'icloud', 'google one', 'dropbox'
+      'subscription',
+      'membership',
+      'premium',
+      'annual',
+      'monthly plan',
+      'cloud storage',
+      'icloud',
+      'google one',
+      'dropbox',
     ],
   };
 
   /// Categorize a transaction description
   static String categorize(String description) {
     if (description.isEmpty) return 'Other';
-    
+
     final descLower = description.toLowerCase();
-    
+
     for (final entry in keywords.entries) {
       for (final keyword in entry.value) {
         if (descLower.contains(keyword)) {
@@ -236,12 +533,12 @@ class Categories {
         }
       }
     }
-    
+
     return 'Other';
   }
 
   // ==================== CATEGORY TYPE HELPERS ====================
-  
+
   /// Check if a category is an income category
   static bool isIncome(String category) {
     return income.contains(category);
@@ -255,19 +552,21 @@ class Categories {
   /// Get categories for a transaction type
   static List<String> getForType(String type) {
     final lowerType = type.toLowerCase();
-    if (lowerType == 'income' || lowerType == 'credit' || lowerType == 'deposit') {
+    if (lowerType == 'income' ||
+        lowerType == 'credit' ||
+        lowerType == 'deposit') {
       return income;
     }
     return expense;
   }
 
   // ==================== CATEGORY NORMALIZATION ====================
-  
+
   /// Normalize category name to match standard categories
   /// Handles legacy category names and variations
   static String normalize(String category) {
     final lower = category.toLowerCase().trim();
-    
+
     // Handle legacy/alternate names
     final mappings = {
       'food': 'Food & Dining',
@@ -305,7 +604,7 @@ class Categories {
       'other': 'Other',
       'other income': 'Other Income',
     };
-    
+
     return mappings[lower] ?? category;
   }
 }

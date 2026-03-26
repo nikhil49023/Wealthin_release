@@ -16,7 +16,9 @@ class ContactService {
 
   /// No-op — contacts are not loaded without READ_CONTACTS permission.
   Future<void> loadContacts() async {
-    debugPrint('[ContactService] Contact loading disabled (no READ_CONTACTS permission)');
+    debugPrint(
+      '[ContactService] Contact loading disabled (no READ_CONTACTS permission)',
+    );
   }
 
   /// Always returns null — contact cache is empty.

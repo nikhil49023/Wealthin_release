@@ -127,7 +127,9 @@ class CashflowGraph extends StatelessWidget {
               'No cashflow data yet',
               style: GoogleFonts.poppins(
                 fontSize: 16,
-                color: isDark ? IndianTheme.silverMist : IndianTheme.templeStone,
+                color: isDark
+                    ? IndianTheme.silverMist
+                    : IndianTheme.templeStone,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -136,8 +138,9 @@ class CashflowGraph extends StatelessWidget {
               'Add transactions to see your cashflow trends',
               style: GoogleFonts.poppins(
                 fontSize: 12,
-                color: (isDark ? IndianTheme.silverMist : IndianTheme.templeStone)
-                    .withValues(alpha: 0.8),
+                color:
+                    (isDark ? IndianTheme.silverMist : IndianTheme.templeStone)
+                        .withValues(alpha: 0.8),
               ),
               textAlign: TextAlign.center,
             ),
@@ -179,8 +182,12 @@ class CashflowGraph extends StatelessWidget {
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -397,9 +404,27 @@ class CashflowSummaryCard extends StatelessWidget {
             const SizedBox(height: 20),
             Row(
               children: [
-                Expanded(child: _buildMetric('Income', totalIncome, Icons.arrow_upward_rounded, Colors.white)),
-                Container(width: 1, height: 50, color: Colors.white.withValues(alpha: 0.3)),
-                Expanded(child: _buildMetric('Expenses', totalExpense, Icons.arrow_downward_rounded, Colors.white)),
+                Expanded(
+                  child: _buildMetric(
+                    'Income',
+                    totalIncome,
+                    Icons.arrow_upward_rounded,
+                    Colors.white,
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 50,
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+                Expanded(
+                  child: _buildMetric(
+                    'Expenses',
+                    totalExpense,
+                    Icons.arrow_downward_rounded,
+                    Colors.white,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -437,7 +462,10 @@ class CashflowSummaryCard extends StatelessWidget {
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -467,7 +495,10 @@ class CashflowSummaryCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
-          style: GoogleFonts.poppins(fontSize: 12, color: color.withValues(alpha: 0.9)),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: color.withValues(alpha: 0.9),
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -483,7 +514,8 @@ class CashflowSummaryCard extends StatelessWidget {
   }
 
   String _formatAmount(double amount) {
-    if (amount >= 10000000) return '${(amount / 10000000).toStringAsFixed(2)}Cr';
+    if (amount >= 10000000)
+      return '${(amount / 10000000).toStringAsFixed(2)}Cr';
     if (amount >= 100000) return '${(amount / 100000).toStringAsFixed(2)}L';
     if (amount >= 1000) return '${(amount / 1000).toStringAsFixed(1)}K';
     return amount.toStringAsFixed(0);

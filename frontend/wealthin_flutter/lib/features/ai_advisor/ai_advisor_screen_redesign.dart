@@ -40,7 +40,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
 
     _messages.add(
       Message(
-        text: 'Namaste! I\'m your AI financial advisor. Ask me anything about budgeting, saving, investing, or financial planning. I\'m here to help you achieve prosperity.',
+        text:
+            'Namaste! I\'m your AI financial advisor. Ask me anything about budgeting, saving, investing, or financial planning. I\'m here to help you achieve prosperity.',
         isUser: false,
         timestamp: DateTime.now(),
       ),
@@ -72,11 +73,13 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
     if (text.isEmpty) return;
 
     setState(() {
-      _messages.add(Message(
-        text: text,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        Message(
+          text: text,
+          isUser: true,
+          timestamp: DateTime.now(),
+        ),
+      );
       _isLoading = true;
     });
 
@@ -90,24 +93,29 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
       );
 
       setState(() {
-        _messages.add(Message(
-          text: response.response,
-          isUser: false,
-          timestamp: DateTime.now(),
-          mode: response.inferenceMode ?? 'AI',
-        ));
+        _messages.add(
+          Message(
+            text: response.response,
+            isUser: false,
+            timestamp: DateTime.now(),
+            mode: response.inferenceMode ?? 'AI',
+          ),
+        );
         _isLoading = false;
       });
 
       _scrollToBottom();
     } catch (e) {
       setState(() {
-        _messages.add(Message(
-          text: 'I apologize, but I couldn\'t process your request. Please try again.',
-          isUser: false,
-          timestamp: DateTime.now(),
-          isError: true,
-        ));
+        _messages.add(
+          Message(
+            text:
+                'I apologize, but I couldn\'t process your request. Please try again.',
+            isUser: false,
+            timestamp: DateTime.now(),
+            isError: true,
+          ),
+        );
         _isLoading = false;
       });
     }
@@ -241,8 +249,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                     color: Colors.white.withValues(alpha: 0.2),
                     boxShadow: [
                       BoxShadow(
-                        color: IndianTheme.lotusPink
-                            .withValues(alpha: 0.3 * _pulseController.value),
+                        color: IndianTheme.lotusPink.withValues(
+                          alpha: 0.3 * _pulseController.value,
+                        ),
                         blurRadius: 10,
                         spreadRadius: 2,
                       ),
@@ -276,8 +285,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  (isDark ? AppTheme.inkSlate : AppTheme.lightCard)
-                      .withValues(alpha: 0.95),
+                  (isDark ? AppTheme.inkSlate : AppTheme.lightCard).withValues(
+                    alpha: 0.95,
+                  ),
                   (isDark ? AppTheme.deepSlate : IndianTheme.goldShimmer)
                       .withValues(alpha: 0.6),
                 ],
@@ -338,31 +348,30 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
           decoration: BoxDecoration(
             gradient: isSelected
                 ? (isIdeas
-                    ? LinearGradient(
-                        colors: [
-                          IndianTheme.turmeric,
-                          IndianTheme.turmericPaste,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : IndianTheme.chatUserGradient)
+                      ? LinearGradient(
+                          colors: [
+                            IndianTheme.turmeric,
+                            IndianTheme.turmericPaste,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : IndianTheme.chatUserGradient)
                 : (isIdeas
-                    ? LinearGradient(
-                        colors: [
-                          IndianTheme.turmeric.withValues(alpha: 0.3),
-                          IndianTheme.turmericPaste.withValues(alpha: 0.2),
-                        ],
-                      )
-                    : null),
+                      ? LinearGradient(
+                          colors: [
+                            IndianTheme.turmeric.withValues(alpha: 0.3),
+                            IndianTheme.turmericPaste.withValues(alpha: 0.2),
+                          ],
+                        )
+                      : null),
             borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: (isIdeas
-                              ? IndianTheme.turmeric
-                              : IndianTheme.saffron)
-                          .withValues(alpha: 0.3),
+                      color:
+                          (isIdeas ? IndianTheme.turmeric : IndianTheme.saffron)
+                              .withValues(alpha: 0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -378,7 +387,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                 size: 16,
                 color: isSelected || isIdeas
                     ? Colors.white
-                  : (isDark ? AppTheme.silverMist : IndianTheme.templeStone),
+                    : (isDark ? AppTheme.silverMist : IndianTheme.templeStone),
               ),
               const SizedBox(width: 4),
               Flexible(
@@ -389,7 +398,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                     color: isSelected || isIdeas
                         ? Colors.white
-                        : (isDark ? AppTheme.silverMist : IndianTheme.templeStone),
+                        : (isDark
+                              ? AppTheme.silverMist
+                              : IndianTheme.templeStone),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -436,50 +447,57 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  (isDark ? AppTheme.inkSlate : AppTheme.lightCard)
-                      .withValues(alpha: 0.95),
-                  (isDark ? AppTheme.deepSlate : IndianTheme.goldShimmer)
-                      .withValues(alpha: 0.5),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: IndianTheme.royalGold.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(IndianTheme.saffron),
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      (isDark ? AppTheme.inkSlate : AppTheme.lightCard)
+                          .withValues(alpha: 0.95),
+                      (isDark ? AppTheme.deepSlate : IndianTheme.goldShimmer)
+                          .withValues(alpha: 0.5),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: IndianTheme.royalGold.withValues(alpha: 0.3),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  'Thinking...',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: isDark ? AppTheme.silverMist : IndianTheme.templeStone,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(IndianTheme.saffron),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Thinking...',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppTheme.silverMist
+                            : IndianTheme.templeStone,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ).animate(onPlay: (c) => c.repeat()).shimmer(
+        )
+        .animate(onPlay: (c) => c.repeat())
+        .shimmer(
           duration: 1500.ms,
           color: IndianTheme.royalGold.withValues(alpha: 0.3),
         );
@@ -511,8 +529,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                 onPressed: _showQuickSuggestions,
                 icon: const Icon(Icons.tips_and_updates_rounded, size: 20),
                 style: IconButton.styleFrom(
-                  backgroundColor: isDark ? AppTheme.deepSlate : IndianTheme.goldShimmer,
-                  foregroundColor: isDark ? AppTheme.champagneGold : IndianTheme.saffronDeep,
+                  backgroundColor: isDark
+                      ? AppTheme.deepSlate
+                      : IndianTheme.goldShimmer,
+                  foregroundColor: isDark
+                      ? AppTheme.champagneGold
+                      : IndianTheme.saffronDeep,
                   padding: const EdgeInsets.all(10),
                   minimumSize: const Size(44, 44),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -536,14 +558,19 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                   enabled: !_isLoading,
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    color: isDark ? AppTheme.pearlWhite : IndianTheme.templeGranite,
+                    color: isDark
+                        ? AppTheme.pearlWhite
+                        : IndianTheme.templeGranite,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Ask about your finances...',
                     hintStyle: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: (isDark ? AppTheme.silverMist : IndianTheme.templeStone)
-                          .withValues(alpha: 0.7),
+                      color:
+                          (isDark
+                                  ? AppTheme.silverMist
+                                  : IndianTheme.templeStone)
+                              .withValues(alpha: 0.7),
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
@@ -630,8 +657,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: (isDark ? AppTheme.silverMist : IndianTheme.templeStone)
-                        .withValues(alpha: 0.3),
+                    color:
+                        (isDark ? AppTheme.silverMist : IndianTheme.templeStone)
+                            .withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -649,7 +677,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                     style: GoogleFonts.playfairDisplay(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? AppTheme.pearlWhite : IndianTheme.templeGranite,
+                      color: isDark
+                          ? AppTheme.pearlWhite
+                          : IndianTheme.templeGranite,
                     ),
                   ),
                 ],
@@ -682,7 +712,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen>
                         suggestion,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
-                          color: isDark ? AppTheme.pearlWhite : IndianTheme.templeGranite,
+                          color: isDark
+                              ? AppTheme.pearlWhite
+                              : IndianTheme.templeGranite,
                         ),
                       ),
                     ),
@@ -743,20 +775,24 @@ class _MessageBubble extends StatelessWidget {
                 gradient: message.isUser
                     ? IndianTheme.templeSunsetGradient
                     : (message.isError
-                        ? LinearGradient(
-                            colors: [
-                              IndianTheme.vermillion.withValues(alpha: 0.1),
-                              IndianTheme.vermillionLight.withValues(alpha: 0.05),
-                            ],
-                          )
-                        : LinearGradient(
-                            colors: [
-                              (isDark ? AppTheme.inkSlate : Colors.white)
-                                  .withValues(alpha: 0.95),
-                              (isDark ? AppTheme.deepSlate : IndianTheme.goldShimmer)
-                                  .withValues(alpha: 0.3),
-                            ],
-                          )),
+                          ? LinearGradient(
+                              colors: [
+                                IndianTheme.vermillion.withValues(alpha: 0.1),
+                                IndianTheme.vermillionLight.withValues(
+                                  alpha: 0.05,
+                                ),
+                              ],
+                            )
+                          : LinearGradient(
+                              colors: [
+                                (isDark ? AppTheme.inkSlate : Colors.white)
+                                    .withValues(alpha: 0.95),
+                                (isDark
+                                        ? AppTheme.deepSlate
+                                        : IndianTheme.goldShimmer)
+                                    .withValues(alpha: 0.3),
+                              ],
+                            )),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
                   topRight: const Radius.circular(18),
@@ -773,10 +809,11 @@ class _MessageBubble extends StatelessWidget {
                       ),
                 boxShadow: [
                   BoxShadow(
-                    color: (message.isUser
-                            ? IndianTheme.saffron
-                            : IndianTheme.templeStone)
-                        .withValues(alpha: 0.15),
+                    color:
+                        (message.isUser
+                                ? IndianTheme.saffron
+                                : IndianTheme.templeStone)
+                            .withValues(alpha: 0.15),
                     blurRadius: 6,
                     offset: const Offset(0, 3),
                   ),
@@ -788,8 +825,10 @@ class _MessageBubble extends StatelessWidget {
                   color: message.isUser
                       ? Colors.white
                       : (message.isError
-                          ? IndianTheme.vermillion
-                          : (isDark ? AppTheme.pearlWhite : IndianTheme.templeGranite)),
+                            ? IndianTheme.vermillion
+                            : (isDark
+                                  ? AppTheme.pearlWhite
+                                  : IndianTheme.templeGranite)),
                   fontSize: 13,
                   height: 1.5,
                 ),
@@ -810,8 +849,11 @@ class _MessageBubble extends StatelessWidget {
                     Text(
                       message.mode,
                       style: GoogleFonts.poppins(
-                        color: (isDark ? AppTheme.silverMist : IndianTheme.templeStone)
-                            .withValues(alpha: 0.7),
+                        color:
+                            (isDark
+                                    ? AppTheme.silverMist
+                                    : IndianTheme.templeStone)
+                                .withValues(alpha: 0.7),
                         fontSize: 10,
                       ),
                     ),

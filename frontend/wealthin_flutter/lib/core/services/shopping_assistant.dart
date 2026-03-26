@@ -137,10 +137,8 @@ class ShoppingAssistant {
 
       // Sort by rating
       allBusinesses.sort((a, b) {
-        final ratingA =
-            double.tryParse(a.rating?.split(' ')[0] ?? '0') ?? 0;
-        final ratingB =
-            double.tryParse(b.rating?.split(' ')[0] ?? '0') ?? 0;
+        final ratingA = double.tryParse(a.rating?.split(' ')[0] ?? '0') ?? 0;
+        final ratingB = double.tryParse(b.rating?.split(' ')[0] ?? '0') ?? 0;
         return ratingB.compareTo(ratingA);
       });
 
@@ -195,8 +193,10 @@ class ShoppingAssistant {
       debugPrint('[ShoppingAssistant] Comparing products: $query');
 
       final amazonProducts = await webScraper.searchAmazon(query, limit: 5);
-      final indiamartProducts =
-          await webScraper.searchIndiaMART(query, limit: 5);
+      final indiamartProducts = await webScraper.searchIndiaMART(
+        query,
+        limit: 5,
+      );
 
       final comparisonPrompt = _buildComparisonPrompt(
         query,
@@ -242,8 +242,9 @@ class ShoppingAssistant {
   }) {
     final productList = products
         .take(5)
-        .map((p) =>
-            '- ${p.title} (${p.source}): ${p.price} ⭐${p.rating ?? "N/A"}')
+        .map(
+          (p) => '- ${p.title} (${p.source}): ${p.price} ⭐${p.rating ?? "N/A"}',
+        )
         .join('\n');
 
     return '''
@@ -275,8 +276,10 @@ Keep recommendations concise and actionable.
   }) {
     final businessList = businesses
         .take(10)
-        .map((b) =>
-            '- ${b.name} (${b.source}): ${b.location} ⭐${b.rating ?? "N/A"} ${b.phone ?? ""}')
+        .map(
+          (b) =>
+              '- ${b.name} (${b.source}): ${b.location} ⭐${b.rating ?? "N/A"} ${b.phone ?? ""}',
+        )
         .join('\n');
 
     return '''
@@ -304,17 +307,19 @@ Focus on reliability, scalability, and value.
     List<Product> amazonProducts,
     List<Product> indiamartProducts,
   ) {
-    final amazonList =
-        amazonProducts.isEmpty ? 'No products found' : amazonProducts
-            .take(3)
-            .map((p) => '- ${p.title}: ${p.price}')
-            .join('\n');
+    final amazonList = amazonProducts.isEmpty
+        ? 'No products found'
+        : amazonProducts
+              .take(3)
+              .map((p) => '- ${p.title}: ${p.price}')
+              .join('\n');
 
-    final indiamartList =
-        indiamartProducts.isEmpty ? 'No products found' : indiamartProducts
-            .take(3)
-            .map((p) => '- ${p.title}: ${p.price}')
-            .join('\n');
+    final indiamartList = indiamartProducts.isEmpty
+        ? 'No products found'
+        : indiamartProducts
+              .take(3)
+              .map((p) => '- ${p.title}: ${p.price}')
+              .join('\n');
 
     return '''
 Compare these "$query" products from different marketplaces:

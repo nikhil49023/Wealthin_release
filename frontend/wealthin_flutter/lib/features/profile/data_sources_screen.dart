@@ -72,7 +72,7 @@ class _DataSourcesScreenState extends State<DataSourcesScreen>
           where: 'key IN (?, ?, ?, ?)',
           whereArgs: [
             'notification_parsing_enabled',
-            'sms_parsing_enabled',    // backward compat read
+            'sms_parsing_enabled', // backward compat read
             'email_parsing_enabled',
             'bank_sync_enabled',
           ],
@@ -231,8 +231,10 @@ class _DataSourcesScreenState extends State<DataSourcesScreen>
                           onChanged: _toggleNotificationParsing,
                           title: const Row(
                             children: [
-                              Icon(Icons.notifications_active,
-                                  color: AppTheme.emerald),
+                              Icon(
+                                Icons.notifications_active,
+                                color: AppTheme.emerald,
+                              ),
                               SizedBox(width: 12),
                               Flexible(
                                 child: Text('Bank Notification Detection'),
@@ -262,7 +264,9 @@ class _DataSourcesScreenState extends State<DataSourcesScreen>
                                   ),
                                   decoration: BoxDecoration(
                                     color: _listenerEnabled
-                                        ? AppTheme.emerald.withValues(alpha: 0.1)
+                                        ? AppTheme.emerald.withValues(
+                                            alpha: 0.1,
+                                          )
                                         : Colors.orange.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -295,11 +299,14 @@ class _DataSourcesScreenState extends State<DataSourcesScreen>
                                     onPressed: () =>
                                         _notifService.openListenerSettings(),
                                     icon: const Icon(Icons.settings),
-                                    label:
-                                        const Text('Open Notification Settings'),
+                                    label: const Text(
+                                      'Open Notification Settings',
+                                    ),
                                     style: ElevatedButton.styleFrom(
-                                      minimumSize:
-                                          const Size(double.infinity, 48),
+                                      minimumSize: const Size(
+                                        double.infinity,
+                                        48,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -469,8 +476,9 @@ class _DataSourcesScreenState extends State<DataSourcesScreen>
                                 'without sending data to external servers. '
                                 'No SMS permission is required.',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.7),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.7,
+                                  ),
                                 ),
                               ),
                             ],

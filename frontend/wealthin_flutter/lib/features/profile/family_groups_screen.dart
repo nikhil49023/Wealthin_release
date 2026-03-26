@@ -182,13 +182,17 @@ class _FamilyGroupsScreenState extends State<FamilyGroupsScreen> {
     if (confirmed == true && mounted) {
       try {
         final db = await DatabaseHelper().database;
-        
+
         // Delete group members first
-        await db.delete('group_members', where: 'group_id = ?', whereArgs: [group['id']]);
-        
+        await db.delete(
+          'group_members',
+          where: 'group_id = ?',
+          whereArgs: [group['id']],
+        );
+
         // Delete group
         await db.delete('groups', where: 'id = ?', whereArgs: [group['id']]);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -202,7 +206,7 @@ class _FamilyGroupsScreenState extends State<FamilyGroupsScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          
+
           await _loadGroups(); // Refresh list
         }
       } catch (e) {
@@ -234,19 +238,19 @@ class _FamilyGroupsScreenState extends State<FamilyGroupsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _groups.isEmpty
-              ? _buildEmptyState(theme)
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _groups.length,
-                  itemBuilder: (context, index) {
-                    final group = _groups[index];
-                    return _GroupCard(
-                      group: group,
-                      onTap: () => _viewGroupDetails(group),
-                      onDelete: () => _deleteGroup(group),
-                    );
-                  },
-                ),
+          ? _buildEmptyState(theme)
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _groups.length,
+              itemBuilder: (context, index) {
+                final group = _groups[index];
+                return _GroupCard(
+                  group: group,
+                  onTap: () => _viewGroupDetails(group),
+                  onDelete: () => _deleteGroup(group),
+                );
+              },
+            ),
     );
   }
 
@@ -333,7 +337,10 @@ class _GroupCard extends StatelessWidget {
                 height: 56,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppTheme.emerald, AppTheme.emerald.withValues(alpha: 0.7)],
+                    colors: [
+                      AppTheme.emerald,
+                      AppTheme.emerald.withValues(alpha: 0.7),
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -360,13 +367,17 @@ class _GroupCard extends StatelessWidget {
                         Icon(
                           Icons.person,
                           size: 16,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '$memberCount ${memberCount == 1 ? 'member' : 'members'}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                       ],
@@ -449,7 +460,11 @@ class _GroupDetailsScreenState extends State<_GroupDetailsScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 20, color: AppTheme.navy),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: AppTheme.navy,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -574,7 +589,10 @@ class _GroupDetailsScreenState extends State<_GroupDetailsScreen> {
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [AppTheme.emerald, AppTheme.emerald.withValues(alpha: 0.7)],
+                                    colors: [
+                                      AppTheme.emerald,
+                                      AppTheme.emerald.withValues(alpha: 0.7),
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -591,17 +609,22 @@ class _GroupDetailsScreenState extends State<_GroupDetailsScreen> {
                                   children: [
                                     Text(
                                       widget.group['name'],
-                                      style: theme.textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                     if (widget.group['description'] != null &&
-                                        widget.group['description'].toString().isNotEmpty)
+                                        widget.group['description']
+                                            .toString()
+                                            .isNotEmpty)
                                       Text(
                                         widget.group['description'],
-                                        style: theme.textTheme.bodyMedium?.copyWith(
-                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                        ),
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.6),
+                                            ),
                                       ),
                                   ],
                                 ),
@@ -641,47 +664,51 @@ class _GroupDetailsScreenState extends State<_GroupDetailsScreen> {
                           child: Text(
                             'No members yet',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     )
                   else
-                    ..._members.map((member) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppTheme.emerald,
-                              child: Text(
-                                member['user_id'].toString()[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white),
-                              ),
+                    ..._members.map(
+                      (member) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppTheme.emerald,
+                            child: Text(
+                              member['user_id'].toString()[0].toUpperCase(),
+                              style: const TextStyle(color: Colors.white),
                             ),
-                            title: Text(member['user_id']),
-                            subtitle: Text(member['role'] ?? 'member'),
-                            trailing: member['role'] == 'admin'
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.gold.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Text(
-                                      'ADMIN',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.navy,
-                                      ),
-                                    ),
-                                  )
-                                : null,
                           ),
-                        )),
+                          title: Text(member['user_id']),
+                          subtitle: Text(member['role'] ?? 'member'),
+                          trailing: member['role'] == 'admin'
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gold.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text(
+                                    'ADMIN',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.navy,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
 
                   const SizedBox(height: 24),
 
@@ -690,10 +717,18 @@ class _GroupDetailsScreenState extends State<_GroupDetailsScreen> {
                     child: Column(
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.link, color: AppTheme.secondary),
+                          leading: const Icon(
+                            Icons.link,
+                            color: AppTheme.secondary,
+                          ),
                           title: const Text('Generate Invite Link'),
-                          subtitle: const Text('Share a link to invite members'),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          subtitle: const Text(
+                            'Share a link to invite members',
+                          ),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
                           onTap: _generateInviteLink,
                         ),
                       ],

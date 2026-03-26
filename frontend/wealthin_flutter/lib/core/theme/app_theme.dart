@@ -11,169 +11,181 @@ import 'indian_theme.dart';
 /// **UNIFIED THEME**: Use this theme across ALL screens for consistency
 class AppTheme {
   // ============================================================
-  //  PRIMARY COLOR PALETTE - DARK MODE
+  //  LUXURY COLOR PALETTE - VIBRANT INDIAN AUTHENTIC
   // ============================================================
 
+  // Luxury Warm Tones (Backgrounds & Surfaces)
+  static const peachCream = Color(0xFFFCDFC5); // Peach Cream - warm luxury
+  static const vanillaLatte = Color(0xFFF3E5C3); // Vanilla Latte - soft elegance
+  static const mintWhisper = Color(0xFFD7EAE2); // Mint Whisper - fresh calm
+  static const goldenSand = Color(0xFFF0E193); // Golden Sand - prosperity
+  
+  // Deep Luxury Tones (Accents & Depth)
+  static const deepOlive = Color(0xFF1A2417); // Deep Olive - grounded wealth
+  static const deepPurple = Color(0xFF25092E); // Deep Purple - royal mystery
+  static const richBurgundy = Color(0xFF5C1A33); // Rich Burgundy - premium
+  static const forestEmerald = Color(0xFF0D4D3E); // Forest Emerald - growth
+  
   // Primary - Peacock Teal (Intelligence, Growth, Finance)
-  static const peacockTeal     = Color(0xFF0A7070);
-  static const peacockLight    = Color(0xFF2AACAC);
-  static const peacockFeather  = Color(0xFF062E2E);
-  static const peacockGreen    = Color(0xFF0F7A5A);
+  static const peacockTeal = Color(0xFF0A7070);
+  static const peacockLight = Color(0xFF2AACAC);
+  static const peacockFeather = Color(0xFF062E2E);
+  static const peacockGreen = Color(0xFF0F7A5A);
 
   // Secondary - Royal Gold (Premium, Wealth, Prosperity)
-  static const royalGold       = Color(0xFFC9A84C);
-  static const champagneGold   = Color(0xFFE0C070);
-  static const mutedGold       = Color(0xFFB8923E);
-  static const goldShimmer     = Color(0xFFF4E4C7);
+  static const royalGold = Color(0xFFC9A84C);
+  static const champagneGold = Color(0xFFE0C070);
+  static const mutedGold = Color(0xFFB8923E);
+  static const goldShimmer = Color(0xFFF4E4C7);
 
   // Tertiary - Saffron (Indian heritage, Energy)
-  static const saffron         = Color(0xFFD4622A);
-  static const saffronLight    = Color(0xFFE8804A);
+  static const saffron = Color(0xFFD4622A);
+  static const saffronLight = Color(0xFFE8804A);
 
   // Accent - Lotus Pink (Feminine, Insights, AI)
-  static const lotusPink       = Color(0xFFC1446A);
-  static const lotusMagenta    = Color(0xFFD4567E);
+  static const lotusPink = Color(0xFFC1446A);
+  static const lotusMagenta = Color(0xFFD4567E);
 
-  // Dark surfaces (AMOLED-optimized)
-  static const deepOnyx        = Color(0xFF060608); // True AMOLED black
-  static const richNavy        = Color(0xFF0D1117); // Main scaffold
-  static const deepSlate       = Color(0xFF141924); // Card surface
-  static const inkSlate        = Color(0xFF1C2433); // Elevated card
+  // Dark surfaces (AMOLED-optimized with luxury tones)
+  static const deepOnyx = deepPurple; // Deep Purple base
+  static const richNavy = deepOlive; // Deep Olive scaffold
+  static const deepSlate = Color(0xFF2A1F3D); // Purple-tinted card
+  static const inkSlate = Color(0xFF3D2A4A); // Elevated purple card
 
   // Dark text
-  static const pearlWhite      = Color(0xFFE8EDF5); // Primary text
-  static const silverMist      = Color(0xFF8A96A8); // Secondary text
+  static const pearlWhite = peachCream; // Warm peach text
+  static const silverMist = vanillaLatte; // Vanilla secondary text
 
   // ============================================================
-  //  PRIMARY COLOR PALETTE - LIGHT MODE
+  //  LUXURY LIGHT MODE PALETTE
   // ============================================================
 
-  // Light surfaces (Warm, paper-like feel)
-  static const lightSurface    = Color(0xFFF6F3EC); // Background
-  static const lightCard       = Color(0xFFFFFCF6); // Card surface
-  static const lightElevated   = Color(0xFFF8F4EC); // Elevated card
-  static const lightBorder     = Color(0xFFE6D9C4); // Borders
+  // Light surfaces (Luxury warm tones)
+  static const lightSurface = mintWhisper; // Mint Whisper background
+  static const lightCard = peachCream; // Peach Cream cards
+  static const lightElevated = vanillaLatte; // Vanilla Latte elevated
+  static const lightBorder = goldenSand; // Golden Sand borders
 
   // Light text
-  static const lightTextPrimary = Color(0xFF1B1A17);   // Primary text
-  static const lightTextSecondary = Color(0xFF62594C); // Secondary text
+  static const lightTextPrimary = deepOlive; // Deep Olive text
+  static const lightTextSecondary = Color(0xFF4A5D47); // Muted olive
 
   // Light mode accents (adjusted for readability)
   static const peacockTealLight = Color(0xFF0A7070); // Darker for contrast
-  static const royalGoldLight   = Color(0xFFB8923E); // Muted for light bg
+  static const royalGoldLight = Color(0xFFB8923E); // Muted for light bg
 
   // ============================================================
   //  SEMANTIC COLORS (Work in both themes)
   // ============================================================
 
-  static const success         = Color(0xFF2E8B5A);   // Emerald green (growth)
-  static const successLight    = Color(0xFF4CAF85);   // Light success
-  static const error           = Color(0xFFCC3340);   // Deep crimson (expense)
-  static const errorLight      = Color(0xFFEF4444);   // Light error
-  static const warning         = Color(0xFFCF9B00);   // Turmeric amber
-  static const warningLight    = Color(0xFFF59E0B);   // Light warning
-  static const info            = Color(0xFF2196F3);   // Info blue
-  static const infoLight       = Color(0xFF60A5FA);   // Light info
+  static const success = Color(0xFF2E8B5A); // Emerald green (growth)
+  static const successLight = Color(0xFF4CAF85); // Light success
+  static const error = Color(0xFFCC3340); // Deep crimson (expense)
+  static const errorLight = Color(0xFFEF4444); // Light error
+  static const warning = Color(0xFFCF9B00); // Turmeric amber
+  static const warningLight = Color(0xFFF59E0B); // Light warning
+  static const info = Color(0xFF2196F3); // Info blue
+  static const infoLight = Color(0xFF60A5FA); // Light info
 
   // ============================================================
   //  BACKWARD COMPATIBILITY ALIASES (Legacy support)
   // ============================================================
 
-  static const glassWhite      = Color(0x1AFFFFFF);
-  static const glassMint       = Color(0x1A4CAF85);
-  static const glassBorder     = Color(0x33FFFFFF);
-  static const glassShadow     = Color(0x66000000);
-  static const royalPurple     = peacockTeal;
-  static const purpleGlow      = peacockLight;
-  static const purpleLight     = Color(0xFFE0B0FF);
-  static const forestLight     = successLight;
-  static const forestGreen     = success;
-  static const forestMuted     = silverMist;
-  static const mintDark        = richNavy;
-  static const emerald         = success;
-  static const mint            = peacockLight;
-  static const emeraldLight    = successLight;
-  static const gradientEnd     = peacockTeal;
-  static const gradientStart   = peacockLight;
-  static const expenseRed      = error;
-  static const incomeGreen     = success;
-  static const primary         = peacockTeal;
-  static const secondary       = royalGold;
-  static const navy            = richNavy;
-  static const deepNavy        = deepOnyx;
-  static const gold            = royalGold;
-  static const sereneTeal      = peacockTeal;
-  static const sageGreen       = success;
-  static const slate500        = silverMist;
-  static const slate900        = pearlWhite;
+  static const glassWhite = Color(0x1AFFFFFF);
+  static const glassMint = Color(0x1A4CAF85);
+  static const glassBorder = Color(0x33FFFFFF);
+  static const glassShadow = Color(0x66000000);
+  static const royalPurple = peacockTeal;
+  static const purpleGlow = peacockLight;
+  static const purpleLight = Color(0xFFE0B0FF);
+  static const forestLight = successLight;
+  static const forestGreen = success;
+  static const forestMuted = silverMist;
+  static const mintDark = richNavy;
+  static const emerald = success;
+  static const mint = peacockLight;
+  static const emeraldLight = successLight;
+  static const gradientEnd = peacockTeal;
+  static const gradientStart = peacockLight;
+  static const expenseRed = error;
+  static const incomeGreen = success;
+  static const primary = peacockTeal;
+  static const secondary = royalGold;
+  static const navy = richNavy;
+  static const deepNavy = deepOnyx;
+  static const gold = royalGold;
+  static const sereneTeal = peacockTeal;
+  static const sageGreen = success;
+  static const slate500 = silverMist;
+  static const slate900 = pearlWhite;
 
   // IndianTheme compatibility
-  static const peacockBlue     = Color(0xFF0B4F6C);
+  static const peacockBlue = Color(0xFF0B4F6C);
   static const peacockFeatherCompat = peacockFeather;
-  static const templeStone     = Color(0xFF7A6A58);
-  static const templeGranite   = Color(0xFF3A3A3A);
-  static const marbleCream     = Color(0xFFF8F4EC);
-  static const mehendiGreen    = Color(0xFF3D6B3D); // Forest green
-  static const vermillion      = Color(0xFFCC3333); // Sindoor red
-  static const turmeric        = Color(0xFFCF9B00); // Turmeric yellow
+  static const templeStone = Color(0xFF7A6A58);
+  static const templeGranite = Color(0xFF3A3A3A);
+  static const marbleCream = Color(0xFFF8F4EC);
+  static const mehendiGreen = Color(0xFF3D6B3D); // Forest green
+  static const vermillion = Color(0xFFCC3333); // Sindoor red
+  static const turmeric = Color(0xFFCF9B00); // Turmeric yellow
 
   // ============================================================
   //  GRADIENT DEFINITIONS
   // ============================================================
 
-  /// Sunrise — Saffron to gold (premium CTAs, headers)
+  /// Luxury Peach Sunrise — Peach to Golden Sand
   static const sunriseGradient = LinearGradient(
-    colors: [Color(0xFFAA4A1E), Color(0xFFC9A84C), Color(0xFF8A6820)],
+    colors: [peachCream, goldenSand, champagneGold],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// Peacock — Deep teal gradient (finance cards, primary actions)
+  /// Mint Peacock — Mint to Teal (finance cards, primary actions)
   static const peacockGradient = LinearGradient(
-    colors: [Color(0xFF062030), Color(0xFF0A7070), Color(0xFF052828)],
+    colors: [mintWhisper, peacockTeal, forestEmerald],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// Lotus — Magenta gradient (AI/insights, special features)
+  /// Royal Purple — Deep Purple gradient (AI/insights, special features)
   static const lotusGradient = LinearGradient(
-    colors: [Color(0xFF5A1430), Color(0xFFC1446A), Color(0xFF3A0D1E)],
+    colors: [deepPurple, richBurgundy, lotusPink],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// Royal — Purple to gold (premium features)
+  /// Luxury Royal — Purple to Gold (premium features)
   static const royalGradient = LinearGradient(
-    colors: [Color(0xFF1A0A30), Color(0xFF5A2D82), Color(0xFFC9A84C)],
+    colors: [deepPurple, deepOlive, goldenSand],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// AMOLED background gradient (very subtle depth)
+  /// Luxury Dark gradient (Deep Purple to Olive)
   static const amoledGradient = LinearGradient(
-    colors: [Color(0xFF060608), Color(0xFF0A0C10), Color(0xFF060608)],
+    colors: [deepPurple, deepOlive, deepPurple],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
-  /// Sacred Morning — Light mode background gradient
+  /// Luxury Light gradient (Mint to Peach to Vanilla)
   static const sacredMorningGradient = LinearGradient(
-    colors: [Color(0xFFFCF7EA), Color(0xFFF3E6CC), Color(0xFFEDE2CE)],
+    colors: [mintWhisper, peachCream, vanillaLatte],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
-  /// Temple Sunset — Deep burnt sienna palette (premium headers)
+  /// Luxury Sunset — Burgundy to Golden (premium headers)
   static const templeSunsetGradient = LinearGradient(
-    colors: [Color(0xFF4A1208), Color(0xFF8B3A1A), Color(0xFFC9A84C)],
+    colors: [richBurgundy, saffron, goldenSand],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     stops: [0.0, 0.5, 1.0],
   );
 
-  /// Prosperity — Growth and success gradient
+  /// Prosperity — Emerald growth gradient
   static const prosperityGradient = LinearGradient(
-    colors: [Color(0xFF0A2A0A), Color(0xFF3D6B3D), Color(0xFF0A7070)],
+    colors: [forestEmerald, mintWhisper, peacockTeal],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -201,39 +213,157 @@ class AppTheme {
   // ============================================================
 
   static TextTheme get _darkTextTheme => TextTheme(
-    displayLarge:  GoogleFonts.syne(fontSize: 38, fontWeight: FontWeight.bold,  color: pearlWhite, letterSpacing: -1.0, height: 1.2),
-    displayMedium: GoogleFonts.syne(fontSize: 30, fontWeight: FontWeight.w700,  color: pearlWhite, letterSpacing: -0.5),
-    displaySmall:  GoogleFonts.syne(fontSize: 24, fontWeight: FontWeight.w600,  color: pearlWhite),
-    headlineLarge: GoogleFonts.syne(fontSize: 22, fontWeight: FontWeight.w700,  color: pearlWhite),
-    headlineMedium:GoogleFonts.syne(fontSize: 20, fontWeight: FontWeight.w600,  color: pearlWhite),
-    headlineSmall: GoogleFonts.syne(fontSize: 18, fontWeight: FontWeight.w600,  color: pearlWhite),
-    titleLarge:    GoogleFonts.dmSans(fontSize: 17, fontWeight: FontWeight.w600, color: pearlWhite),
-    titleMedium:   GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w500, color: silverMist),
-    titleSmall:    GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w500, color: silverMist),
-    bodyLarge:     GoogleFonts.dmSans(fontSize: 16, height: 1.6,  color: pearlWhite),
-    bodyMedium:    GoogleFonts.dmSans(fontSize: 14, height: 1.55, color: silverMist),
-    bodySmall:     GoogleFonts.dmSans(fontSize: 12, height: 1.4,  color: silverMist),
-    labelLarge:    GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: pearlWhite),
-    labelMedium:   GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: silverMist),
-    labelSmall:    GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w500, color: silverMist),
+    displayLarge: GoogleFonts.syne(
+      fontSize: 38,
+      fontWeight: FontWeight.bold,
+      color: pearlWhite,
+      letterSpacing: -1.0,
+      height: 1.2,
+    ),
+    displayMedium: GoogleFonts.syne(
+      fontSize: 30,
+      fontWeight: FontWeight.w700,
+      color: pearlWhite,
+      letterSpacing: -0.5,
+    ),
+    displaySmall: GoogleFonts.syne(
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      color: pearlWhite,
+    ),
+    headlineLarge: GoogleFonts.syne(
+      fontSize: 22,
+      fontWeight: FontWeight.w700,
+      color: pearlWhite,
+    ),
+    headlineMedium: GoogleFonts.syne(
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
+      color: pearlWhite,
+    ),
+    headlineSmall: GoogleFonts.syne(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: pearlWhite,
+    ),
+    titleLarge: GoogleFonts.dmSans(
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+      color: pearlWhite,
+    ),
+    titleMedium: GoogleFonts.dmSans(
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      color: silverMist,
+    ),
+    titleSmall: GoogleFonts.dmSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: silverMist,
+    ),
+    bodyLarge: GoogleFonts.dmSans(fontSize: 16, height: 1.6, color: pearlWhite),
+    bodyMedium: GoogleFonts.dmSans(
+      fontSize: 14,
+      height: 1.55,
+      color: silverMist,
+    ),
+    bodySmall: GoogleFonts.dmSans(fontSize: 12, height: 1.4, color: silverMist),
+    labelLarge: GoogleFonts.dmSans(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: pearlWhite,
+    ),
+    labelMedium: GoogleFonts.dmSans(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      color: silverMist,
+    ),
+    labelSmall: GoogleFonts.dmSans(
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      color: silverMist,
+    ),
   );
 
   static TextTheme get _lightTextTheme => TextTheme(
-    displayLarge:  GoogleFonts.syne(fontSize: 38, fontWeight: FontWeight.bold,  color: lightTextPrimary, letterSpacing: -1.0, height: 1.2),
-    displayMedium: GoogleFonts.syne(fontSize: 30, fontWeight: FontWeight.w700,  color: lightTextPrimary, letterSpacing: -0.5),
-    displaySmall:  GoogleFonts.syne(fontSize: 24, fontWeight: FontWeight.w600,  color: lightTextPrimary),
-    headlineLarge: GoogleFonts.syne(fontSize: 22, fontWeight: FontWeight.w700,  color: lightTextPrimary),
-    headlineMedium:GoogleFonts.syne(fontSize: 20, fontWeight: FontWeight.w600,  color: lightTextPrimary),
-    headlineSmall: GoogleFonts.syne(fontSize: 18, fontWeight: FontWeight.w600,  color: lightTextPrimary),
-    titleLarge:    GoogleFonts.dmSans(fontSize: 17, fontWeight: FontWeight.w600, color: lightTextPrimary),
-    titleMedium:   GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w500, color: lightTextSecondary),
-    titleSmall:    GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w500, color: lightTextSecondary),
-    bodyLarge:     GoogleFonts.dmSans(fontSize: 16, height: 1.6,  color: lightTextPrimary),
-    bodyMedium:    GoogleFonts.dmSans(fontSize: 14, height: 1.55, color: lightTextSecondary),
-    bodySmall:     GoogleFonts.dmSans(fontSize: 12, height: 1.4,  color: lightTextSecondary),
-    labelLarge:    GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: lightTextPrimary),
-    labelMedium:   GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: lightTextSecondary),
-    labelSmall:    GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w500, color: lightTextSecondary),
+    displayLarge: GoogleFonts.syne(
+      fontSize: 38,
+      fontWeight: FontWeight.bold,
+      color: lightTextPrimary,
+      letterSpacing: -1.0,
+      height: 1.2,
+    ),
+    displayMedium: GoogleFonts.syne(
+      fontSize: 30,
+      fontWeight: FontWeight.w700,
+      color: lightTextPrimary,
+      letterSpacing: -0.5,
+    ),
+    displaySmall: GoogleFonts.syne(
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      color: lightTextPrimary,
+    ),
+    headlineLarge: GoogleFonts.syne(
+      fontSize: 22,
+      fontWeight: FontWeight.w700,
+      color: lightTextPrimary,
+    ),
+    headlineMedium: GoogleFonts.syne(
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
+      color: lightTextPrimary,
+    ),
+    headlineSmall: GoogleFonts.syne(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: lightTextPrimary,
+    ),
+    titleLarge: GoogleFonts.dmSans(
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+      color: lightTextPrimary,
+    ),
+    titleMedium: GoogleFonts.dmSans(
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      color: lightTextSecondary,
+    ),
+    titleSmall: GoogleFonts.dmSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: lightTextSecondary,
+    ),
+    bodyLarge: GoogleFonts.dmSans(
+      fontSize: 16,
+      height: 1.6,
+      color: lightTextPrimary,
+    ),
+    bodyMedium: GoogleFonts.dmSans(
+      fontSize: 14,
+      height: 1.55,
+      color: lightTextSecondary,
+    ),
+    bodySmall: GoogleFonts.dmSans(
+      fontSize: 12,
+      height: 1.4,
+      color: lightTextSecondary,
+    ),
+    labelLarge: GoogleFonts.dmSans(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: lightTextPrimary,
+    ),
+    labelMedium: GoogleFonts.dmSans(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      color: lightTextSecondary,
+    ),
+    labelSmall: GoogleFonts.dmSans(
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      color: lightTextSecondary,
+    ),
   );
 
   // ============================================================
@@ -245,20 +375,20 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
-        primary:           peacockTeal,
-        primaryContainer:  IndianTheme.peacockFeather,
-        secondary:         royalGold,
-        secondaryContainer:IndianTheme.goldShimmer,
-        tertiary:          lotusPink,
-        surface:           richNavy,
-        onPrimary:         pearlWhite,
-        onSecondary:       deepOnyx,
-        onSurface:         pearlWhite,
-        onSurfaceVariant:  silverMist,
-        error:             error,
-        onError:           pearlWhite,
-        outline:           IndianTheme.inkSlate,
-        outlineVariant:    IndianTheme.deepSlate,
+        primary: peacockTeal,
+        primaryContainer: IndianTheme.peacockFeather,
+        secondary: royalGold,
+        secondaryContainer: IndianTheme.goldShimmer,
+        tertiary: lotusPink,
+        surface: richNavy,
+        onPrimary: pearlWhite,
+        onSecondary: deepOnyx,
+        onSurface: pearlWhite,
+        onSurfaceVariant: silverMist,
+        error: error,
+        onError: pearlWhite,
+        outline: IndianTheme.inkSlate,
+        outlineVariant: IndianTheme.deepSlate,
       ),
       textTheme: _darkTextTheme,
       scaffoldBackgroundColor: deepOnyx,
@@ -267,8 +397,10 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         titleTextStyle: GoogleFonts.syne(
-          fontSize: 20, fontWeight: FontWeight.w700,
-          color: pearlWhite, letterSpacing: -0.3,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: pearlWhite,
+          letterSpacing: -0.3,
         ),
         iconTheme: const IconThemeData(color: pearlWhite),
       ),
@@ -295,7 +427,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: royalGold, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
         hintStyle: GoogleFonts.dmSans(color: silverMist, fontSize: 14),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -304,8 +439,13 @@ class AppTheme {
           foregroundColor: pearlWhite,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.dmSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -313,7 +453,9 @@ class AppTheme {
           foregroundColor: peacockLight,
           side: const BorderSide(color: peacockTeal, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -367,19 +509,19 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.light(
-        primary:           peacockTeal,
-        primaryContainer:  const Color(0xFFDDEFEA),
-        secondary:         royalGold,
-        secondaryContainer:const Color(0xFFF4E8CC),
-        tertiary:          lotusPink,
-        surface:           lightSurface,
-        onPrimary:         Colors.white,
-        onSecondary:       const Color(0xFF2D2416),
-        onSurface:         lightTextPrimary,
-        onSurfaceVariant:  lightTextSecondary,
-        error:             error,
-        onError:           Colors.white,
-        outline:           lightBorder,
+        primary: peacockTeal,
+        primaryContainer: const Color(0xFFDDEFEA),
+        secondary: royalGold,
+        secondaryContainer: const Color(0xFFF4E8CC),
+        tertiary: lotusPink,
+        surface: lightSurface,
+        onPrimary: Colors.white,
+        onSecondary: const Color(0xFF2D2416),
+        onSurface: lightTextPrimary,
+        onSurfaceVariant: lightTextSecondary,
+        error: error,
+        onError: Colors.white,
+        outline: lightBorder,
       ),
       textTheme: _lightTextTheme,
       scaffoldBackgroundColor: lightSurface,
@@ -387,8 +529,10 @@ class AppTheme {
         backgroundColor: lightCard,
         elevation: 0,
         titleTextStyle: GoogleFonts.syne(
-          fontSize: 20, fontWeight: FontWeight.w700,
-          color: lightTextPrimary, letterSpacing: -0.3,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: lightTextPrimary,
+          letterSpacing: -0.3,
         ),
         iconTheme: const IconThemeData(color: lightTextPrimary),
       ),
@@ -415,7 +559,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: royalGold, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
         hintStyle: GoogleFonts.dmSans(color: lightTextSecondary, fontSize: 14),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -424,8 +571,13 @@ class AppTheme {
           foregroundColor: pearlWhite,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.dmSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -433,7 +585,9 @@ class AppTheme {
           foregroundColor: peacockTeal,
           side: const BorderSide(color: peacockTeal, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -540,7 +694,8 @@ class AppTheme {
   // ============================================================
 
   /// Standard card decoration with theme awareness
-  static BoxDecoration cardDecoration(BuildContext context, {
+  static BoxDecoration cardDecoration(
+    BuildContext context, {
     bool useGradient = false,
     double borderRadius = 16,
   }) {
@@ -550,23 +705,24 @@ class AppTheme {
       gradient: useGradient ? (isDark ? peacockGradient : null) : null,
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
-        color: isDark
-            ? royalGold.withValues(alpha: 0.15)
-            : lightBorder,
+        color: isDark ? royalGold.withValues(alpha: 0.15) : lightBorder,
         width: 1,
       ),
-      boxShadow: isDark ? null : [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
+      boxShadow: isDark
+          ? null
+          : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
     );
   }
 
   /// Premium card with gold accent border
-  static BoxDecoration premiumCardDecoration(BuildContext context, {
+  static BoxDecoration premiumCardDecoration(
+    BuildContext context, {
     Gradient? gradient,
     double borderRadius = 20,
   }) {
@@ -589,7 +745,8 @@ class AppTheme {
   }
 
   /// Glass morphism card decoration
-  static BoxDecoration glassCardDecoration(BuildContext context, {
+  static BoxDecoration glassCardDecoration(
+    BuildContext context, {
     double borderRadius = 16,
     double opacity = 0.9,
   }) {
@@ -600,9 +757,7 @@ class AppTheme {
           : lightCard.withValues(alpha: opacity),
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
-        color: isDark
-            ? royalGold.withValues(alpha: 0.18)
-            : lightBorder,
+        color: isDark ? royalGold.withValues(alpha: 0.18) : lightBorder,
         width: 1,
       ),
       boxShadow: [

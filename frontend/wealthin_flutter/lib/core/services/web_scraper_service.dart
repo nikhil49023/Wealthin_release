@@ -102,8 +102,7 @@ class Business {
   };
 
   @override
-  String toString() =>
-      'Business($name - $location - ${rating ?? "N/A"} stars)';
+  String toString() => 'Business($name - $location - ${rating ?? "N/A"} stars)';
 }
 
 class MarketplaceSource {
@@ -240,7 +239,9 @@ class WebScraperService {
       debugPrint('[WebScraper] Initializing Marketplace Scraper Service...');
       await _fetchSourceInfo();
       _initialized = true;
-      debugPrint('[WebScraper] ✓ Service initialized with ${_sources.length} sources');
+      debugPrint(
+        '[WebScraper] ✓ Service initialized with ${_sources.length} sources',
+      );
     } catch (e) {
       debugPrint('[WebScraper] ⚠ Init warning: $e (will retry on first use)');
       _initialized = true;
@@ -416,7 +417,8 @@ class WebScraperService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final products = (data['products'] as List?)
+        final products =
+            (data['products'] as List?)
                 ?.cast<Map<String, dynamic>>()
                 .map(Product.fromJson)
                 .toList() ??
@@ -447,7 +449,8 @@ class WebScraperService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final products = (data['products'] as List?)
+        final products =
+            (data['products'] as List?)
                 ?.cast<Map<String, dynamic>>()
                 .map(Product.fromJson)
                 .toList() ??
@@ -483,12 +486,15 @@ class WebScraperService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final businesses = (data['businesses'] as List?)
+        final businesses =
+            (data['businesses'] as List?)
                 ?.cast<Map<String, dynamic>>()
                 .map(Business.fromJson)
                 .toList() ??
             [];
-        debugPrint('[WebScraper] JustDial: Found ${businesses.length} businesses');
+        debugPrint(
+          '[WebScraper] JustDial: Found ${businesses.length} businesses',
+        );
         return businesses;
       }
       return [];

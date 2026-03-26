@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../../main.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/wealthin_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import 'login_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 
@@ -31,7 +31,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   void _startVerificationBannerTimer(String userId) {
-    if (_verificationBannerUserId == userId && _verificationBannerTimer != null) {
+    if (_verificationBannerUserId == userId &&
+        _verificationBannerTimer != null) {
       return;
     }
 
@@ -68,7 +69,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 // Show email verification prompt if not verified, but allow app access
                 if (!authService.isEmailVerified) {
                   _startVerificationBannerTimer(user.uid);
-                  return _buildAppWithVerificationPrompt(context, user.uid, user.email ?? 'your email');
+                  return _buildAppWithVerificationPrompt(
+                    context,
+                    user.uid,
+                    user.email ?? 'your email',
+                  );
                 }
                 return widget.child;
               } else {
@@ -93,7 +98,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
     );
   }
 
-  Widget _buildAppWithVerificationPrompt(BuildContext context, String userId, String email) {
+  Widget _buildAppWithVerificationPrompt(
+    BuildContext context,
+    String userId,
+    String email,
+  ) {
     if (!_showVerificationBanner) {
       return widget.child;
     }
@@ -108,18 +117,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
           right: 0,
           child: SafeArea(
             child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.all(DesignTokens.lg),
+              padding: DesignTokens.cardPadding,
               decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
+                color: AppTheme.info.withValues(alpha: 0.12),
+                borderRadius: DesignTokens.brMd,
                 border: Border.all(
-                  color: Colors.blue[300]!,
+                  color: AppTheme.info.withValues(alpha: 0.45),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withValues(alpha: 0.2),
+                    color: Colors.black.withValues(alpha: 0.14),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -129,27 +138,29 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 children: [
                   Icon(
                     Icons.mail_outline,
-                    color: Colors.blue[600],
+                    color: AppTheme.info,
                     size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: DesignTokens.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Verify your email',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue[900],
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.pearlWhite,
+                              ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: DesignTokens.xs),
                         Text(
                           'Check your inbox for a verification link',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.blue[700],
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppTheme.silverMist,
+                              ),
                         ),
                       ],
                     ),
@@ -158,8 +169,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
                   IconButton(
                     tooltip: 'Dismiss',
                     icon: const Icon(Icons.close_rounded, size: 18),
-                    color: Colors.blue[700],
-                    onPressed: () => setState(() => _showVerificationBanner = false),
+                    color: AppTheme.silverMist,
+                    onPressed: () =>
+                        setState(() => _showVerificationBanner = false),
                   ),
                   TextButton.icon(
                     onPressed: () async {
@@ -184,8 +196,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
                     icon: const Icon(Icons.send, size: 16),
                     label: const Text('Resend'),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.blue[600],
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      foregroundColor: AppTheme.info,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                     ),
                   ),
                 ],
@@ -212,7 +227,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             .collection('users')
             .doc(user.uid)
             .get();
-            
+
         if (doc.exists && doc.data()?['has_completed_onboarding'] == true) {
           // Sync back to local storage
           await prefs.setBool('onboarding_complete', true);
@@ -226,21 +241,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return false;
   }
 
-
   Widget _buildLoadingScreen(BuildContext context, String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FFF0), // Mint green background
+      backgroundColor: isDark ? AppTheme.richNavy : AppTheme.lightSurface,
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.mint,
-              Colors.white,
-              AppTheme.mintDark,
-            ],
-          ),
+          gradient: isDark
+              ? AppTheme.amoledGradient
+              : AppTheme.sacredMorningGradient,
         ),
         child: Center(
           child: Column(
@@ -248,18 +258,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
             children: [
               // Sovereign Vault Icon
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(DesignTokens.xl),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.emerald,
-                      AppTheme.emeraldLight,
-                    ],
-                  ),
+                  gradient: AppTheme.peacockGradient,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.emerald.withValues(alpha: 0.3),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -272,48 +277,54 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Rotating purple loader
               SizedBox(
                 width: 48,
                 height: 48,
                 child: CircularProgressIndicator(
                   strokeWidth: 4,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    const Color(0xFF7C3AED), // Purple
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppTheme.peacockTeal,
                   ),
                 ),
               ),
-              
-              const SizedBox(height: 24),
-              
+
+              const SizedBox(height: DesignTokens.xxl),
+
               // Status message
               Text(
                 message,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: const Color(0xFF7C3AED), // Purple text
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: isDark
+                      ? AppTheme.pearlWhite
+                      : AppTheme.lightTextPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
               ),
-              
-              const SizedBox(height: 8),
-              
+
+              const SizedBox(height: DesignTokens.sm),
+
               // Privacy message
               Text(
                 'Your data moves directly from your vault to your device',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: WealthInTheme.gray600,
-                    ),
+                  color: isDark
+                      ? AppTheme.silverMist
+                      : AppTheme.lightTextSecondary,
+                ),
                 textAlign: TextAlign.center,
               ),
-              
-              const SizedBox(height: 16),
-              
+
+              const SizedBox(height: DesignTokens.lg),
+
               // Lock icon to emphasize privacy
               Icon(
                 Icons.lock_outline,
-                color: WealthInTheme.gray400,
+                color: isDark
+                    ? AppTheme.silverMist.withValues(alpha: 0.7)
+                    : AppTheme.lightTextSecondary,
                 size: 20,
               ),
             ],

@@ -66,14 +66,39 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   // Indian states list for location picker
   static const List<String> _indianStates = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar',
-    'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat', 'Haryana',
-    'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-    'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
-    'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan',
-    'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-    'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-    'Chandigarh', 'Puducherry', 'Jammu & Kashmir', 'Ladakh',
+    'Andhra Pradesh',
+    'Arunachal Pradesh',
+    'Assam',
+    'Bihar',
+    'Chhattisgarh',
+    'Delhi',
+    'Goa',
+    'Gujarat',
+    'Haryana',
+    'Himachal Pradesh',
+    'Jharkhand',
+    'Karnataka',
+    'Kerala',
+    'Madhya Pradesh',
+    'Maharashtra',
+    'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Odisha',
+    'Punjab',
+    'Rajasthan',
+    'Sikkim',
+    'Tamil Nadu',
+    'Telangana',
+    'Tripura',
+    'Uttar Pradesh',
+    'Uttarakhand',
+    'West Bengal',
+    'Chandigarh',
+    'Puducherry',
+    'Jammu & Kashmir',
+    'Ladakh',
   ];
 
   // Personas (simplified to 3 essential perspectives)
@@ -290,8 +315,12 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
       if (mounted) {
         setState(() {
-          _messages = messages.map((m) => Map<String, dynamic>.from(m)).toList();
-          _canvasItems = canvasItems.map((c) => Map<String, dynamic>.from(c)).toList();
+          _messages = messages
+              .map((m) => Map<String, dynamic>.from(m))
+              .toList();
+          _canvasItems = canvasItems
+              .map((c) => Map<String, dynamic>.from(c))
+              .toList();
         });
       }
     } else {
@@ -412,7 +441,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                       title: Text(
                         state,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           color: isSelected ? Colors.deepPurple : null,
                         ),
                       ),
@@ -438,7 +469,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('\ud83d\udccd Location set to $result \u2014 AI will now personalize financial insights for your state!'),
+            content: Text(
+              '\ud83d\udccd Location set to $result \u2014 AI will now personalize financial insights for your state!',
+            ),
             backgroundColor: Colors.deepPurple,
             duration: const Duration(seconds: 3),
           ),
@@ -567,8 +600,11 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
     // Inject aggregated financial context from local DB
     try {
       final now = DateTime.now();
-      final monthStart = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-      final summary = await _dbHelper.getTransactionSummary(startDate: monthStart);
+      final monthStart =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+      final summary = await _dbHelper.getTransactionSummary(
+        startDate: monthStart,
+      );
       if (summary != null) {
         final income = (summary['total_income'] as num?)?.toDouble() ?? 0;
         final expenses = (summary['total_expenses'] as num?)?.toDouble() ?? 0;
@@ -581,13 +617,18 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         }
       }
       // Top spending categories
-      final categories = await _dbHelper.getCategoryBreakdown(startDate: monthStart);
+      final categories = await _dbHelper.getCategoryBreakdown(
+        startDate: monthStart,
+      );
       if (categories.isNotEmpty) {
         final sorted = categories.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
-        profile['top_spending'] = sorted.take(5).map(
-          (e) => '${e.key}: ₹${e.value.toStringAsFixed(0)}',
-        ).toList();
+        profile['top_spending'] = sorted
+            .take(5)
+            .map(
+              (e) => '${e.key}: ₹${e.value.toStringAsFixed(0)}',
+            )
+            .toList();
       }
     } catch (e) {
       debugPrint('[Brainstorm] Could not load financial context: $e');
@@ -1013,13 +1054,19 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     Text(
                       lang,
                       style: TextStyle(
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w400,
                         color: isActive ? WealthInColors.primary : null,
                       ),
                     ),
                     if (isActive) ...[
                       const Spacer(),
-                      Icon(Icons.check, size: 16, color: WealthInColors.primary),
+                      Icon(
+                        Icons.check,
+                        size: 16,
+                        color: WealthInColors.primary,
+                      ),
                     ],
                   ],
                 ),
@@ -1156,9 +1203,13 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? theme.colorScheme.surface : theme.colorScheme.surfaceContainerHighest,
+        color: isDark
+            ? theme.colorScheme.surface
+            : theme.colorScheme.surfaceContainerHighest,
         border: Border(
-          right: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+          right: BorderSide(
+            color: theme.colorScheme.outline.withValues(alpha: 0.3),
+          ),
         ),
       ),
       child: Column(
@@ -1168,7 +1219,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: isDark
-                  ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                  ? theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    )
                   : theme.colorScheme.surfaceContainerHighest,
               border: Border(
                 bottom: BorderSide(
@@ -1197,7 +1250,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 ),
                 if (_isCritiqueMode)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.12),
@@ -1205,7 +1261,11 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     ),
                     child: const Text(
                       'Refining',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.red),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red,
+                      ),
                     ),
                   ),
                 if (_messages.isNotEmpty) ...[
@@ -1235,7 +1295,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 ? _buildEmptyState(isDark)
                 : ListView.builder(
                     controller: _chatScrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       return _buildMessageBubble(_messages[index], isDark);
@@ -1265,8 +1328,8 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     _activeWorkflowMode == 'refinery'
                         ? '🔬 Stress-testing your idea...'
                         : _activeWorkflowMode == 'anchor'
-                            ? '📌 Extracting best ideas...'
-                            : '🧠 Researching & thinking...',
+                        ? '📌 Extracting best ideas...'
+                        : '🧠 Researching & thinking...',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
@@ -1275,7 +1338,12 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
           // Input field
           Container(
-            padding: EdgeInsets.fromLTRB(12, 10, 12, MediaQuery.of(context).padding.bottom > 0 ? 4 : 10),
+            padding: EdgeInsets.fromLTRB(
+              12,
+              10,
+              12,
+              MediaQuery.of(context).padding.bottom > 0 ? 4 : 10,
+            ),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1A1F23) : Colors.grey[100],
               border: Border(
@@ -1290,14 +1358,19 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Location prompt (only when empty and not prompted)
-                  if (_userLocation == null && !_hasPromptedLocation && _messages.isEmpty)
+                  if (_userLocation == null &&
+                      !_hasPromptedLocation &&
+                      _messages.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: InkWell(
                         onTap: _showLocationPicker,
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.amber.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
@@ -1305,15 +1378,27 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.tips_and_updates, size: 14, color: Colors.amber),
+                              Icon(
+                                Icons.tips_and_updates,
+                                size: 14,
+                                color: Colors.amber,
+                              ),
                               SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   'Set your state for local financial insights',
-                                  style: TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.amber,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                              Icon(Icons.arrow_forward_ios, size: 10, color: Colors.amber),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 10,
+                                color: Colors.amber,
+                              ),
                             ],
                           ),
                         ),
@@ -1329,7 +1414,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                           onTap: _showLocationPicker,
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.deepPurple.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(14),
@@ -1337,11 +1425,21 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.location_on, size: 12, color: Colors.deepPurple),
+                                const Icon(
+                                  Icons.location_on,
+                                  size: 12,
+                                  color: Colors.deepPurple,
+                                ),
                                 const SizedBox(width: 3),
                                 Text(
-                                  _userLocation!.length > 12 ? '${_userLocation!.substring(0, 12)}...' : _userLocation!,
-                                  style: const TextStyle(fontSize: 10, color: Colors.deepPurple, fontWeight: FontWeight.w600),
+                                  _userLocation!.length > 12
+                                      ? '${_userLocation!.substring(0, 12)}...'
+                                      : _userLocation!,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.deepPurple,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1359,17 +1457,30 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                             hintText: _messages.isEmpty
                                 ? 'Share your business idea...'
                                 : 'Ask a follow-up...',
-                            hintStyle: TextStyle(fontSize: 13, color: isDark ? Colors.white30 : Colors.grey.shade400),
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              color: isDark
+                                  ? Colors.white30
+                                  : Colors.grey.shade400,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(20),
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
-                            fillColor: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            fillColor: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             isDense: true,
                           ),
-                          style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                           maxLines: 3,
                           minLines: 1,
                           onSubmitted: (_) => _sendMessage(),
@@ -1389,7 +1500,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                             size: 20,
                           ),
                           padding: const EdgeInsets.all(8),
-                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
                         ),
                       ),
                     ],
@@ -1405,15 +1519,22 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                         itemBuilder: (context, index) {
                           final prompt = _starterPrompts[index];
                           return ActionChip(
-                            label: Text(prompt, style: const TextStyle(fontSize: 10)),
+                            label: Text(
+                              prompt,
+                              style: const TextStyle(fontSize: 10),
+                            ),
                             padding: EdgeInsets.zero,
                             visualDensity: VisualDensity.compact,
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                             onPressed: () {
                               _messageController.text = prompt;
-                              _messageController.selection = TextSelection.fromPosition(
-                                TextPosition(offset: _messageController.text.length),
-                              );
+                              _messageController.selection =
+                                  TextSelection.fromPosition(
+                                    TextPosition(
+                                      offset: _messageController.text.length,
+                                    ),
+                                  );
                               setState(() => _activeWorkflowMode = 'input');
                             },
                           );
@@ -1440,7 +1561,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.white,
               border: Border(
                 bottom: BorderSide(
                   color: isDark ? Colors.white10 : Colors.black12,
@@ -1688,7 +1811,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       if (line.startsWith('|') && line.endsWith('|')) {
         // Collect all contiguous table lines
         final tableLines = <String>[];
-        while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        while (i < lines.length &&
+            lines[i].trim().startsWith('|') &&
+            lines[i].trim().endsWith('|')) {
           tableLines.add(lines[i].trim());
           i++;
         }
@@ -1737,23 +1862,37 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   /// Sanitize AI response — remove unnecessary characters and clean formatting
   String _sanitizeAIResponseForIdeas(String text) {
-    text = text.replaceAll(RegExp(r'^(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false), '');
-    text = text.replaceAll(RegExp(r'\n(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false), '\n');
+    text = text.replaceAll(
+      RegExp(r'^(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false),
+      '',
+    );
+    text = text.replaceAll(
+      RegExp(r'\n(?:Final Answer[:\s]*|Answer[:\s]*)', caseSensitive: false),
+      '\n',
+    );
     text = text.replaceAll('***', '');
     text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
     text = text.replaceAll(RegExp(r'^\*\s+', multiLine: true), '• ');
     text = text.replaceAll(RegExp(r'```json[\s\S]*?```'), '');
     text = text.replaceAll(RegExp(r'```[\s\S]*?```'), '');
     text = text.replaceAll('`', '');
-    text = text.replaceAll(RegExp(r'^Here (?:is|are) (?:the|your|my) (?:response|answer)[:\.]?\s*', caseSensitive: false), '');
+    text = text.replaceAll(
+      RegExp(
+        r'^Here (?:is|are) (?:the|your|my) (?:response|answer)[:\.]?\s*',
+        caseSensitive: false,
+      ),
+      '',
+    );
     return text.trim();
   }
 
   /// Check if line is a section header (surrounded by **)
   bool _isSectionHeaderIdeas(String line) {
     final trimmed = line.trim();
-    return trimmed.startsWith('**') && trimmed.endsWith('**') && 
-           trimmed.length > 4 && !trimmed.substring(2, trimmed.length - 2).contains('**');
+    return trimmed.startsWith('**') &&
+        trimmed.endsWith('**') &&
+        trimmed.length > 4 &&
+        !trimmed.substring(2, trimmed.length - 2).contains('**');
   }
 
   /// Extract header text from **header**
@@ -1768,31 +1907,97 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   /// Get contextual icon for section headers
   IconData _getSectionIconIdeas(String header) {
     final h = header.toLowerCase();
-    if (h.contains('roadmap') || h.contains('step') || h.contains('plan') || h.contains('improvement')) return Icons.route_outlined;
-    if (h.contains('vendor') || h.contains('platform') || h.contains('provider') || h.contains('supplier')) return Icons.storefront_outlined;
-    if (h.contains('scheme') || h.contains('government') || h.contains('yojana') || h.contains('subsidy')) return Icons.account_balance_outlined;
-    if (h.contains('invest') || h.contains('mutual') || h.contains('sip') || h.contains('fund')) return Icons.trending_up_outlined;
-    if (h.contains('saving') || h.contains('budget') || h.contains('cost')) return Icons.savings_outlined;
-    if (h.contains('insurance') || h.contains('policy')) return Icons.health_and_safety_outlined;
-    if (h.contains('tax') || h.contains('deduction') || h.contains('gst')) return Icons.receipt_long_outlined;
-    if (h.contains('loan') || h.contains('emi') || h.contains('credit') || h.contains('funding')) return Icons.credit_score_outlined;
-    if (h.contains('tip') || h.contains('advice') || h.contains('suggest') || h.contains('recommend')) return Icons.lightbulb_outline;
-    if (h.contains('warning') || h.contains('risk') || h.contains('caution') || h.contains('challenge')) return Icons.warning_amber_outlined;
-    if (h.contains('benefit') || h.contains('advantage') || h.contains('pro') || h.contains('opportunity')) return Icons.star_outline;
-    if (h.contains('how') || h.contains('process') || h.contains('apply') || h.contains('registration')) return Icons.checklist_outlined;
-    if (h.contains('score') || h.contains('projection') || h.contains('target') || h.contains('revenue')) return Icons.analytics_outlined;
-    if (h.contains('msme') || h.contains('local') || h.contains('enterprise') || h.contains('business')) return Icons.store_outlined;
-    if (h.contains('market') || h.contains('analysis') || h.contains('research')) return Icons.pie_chart_outline;
-    if (h.contains('summary') || h.contains('overview') || h.contains('conclusion')) return Icons.assessment_outlined;
-    if (h.contains('supply') || h.contains('chain') || h.contains('logistics')) return Icons.local_shipping_outlined;
-    if (h.contains('customer') || h.contains('user') || h.contains('audience')) return Icons.people_outline;
-    if (h.contains('product') || h.contains('service') || h.contains('offering')) return Icons.inventory_2_outlined;
-    if (h.contains('partner') || h.contains('collaboration') || h.contains('network')) return Icons.handshake_outlined;
+    if (h.contains('roadmap') ||
+        h.contains('step') ||
+        h.contains('plan') ||
+        h.contains('improvement'))
+      return Icons.route_outlined;
+    if (h.contains('vendor') ||
+        h.contains('platform') ||
+        h.contains('provider') ||
+        h.contains('supplier'))
+      return Icons.storefront_outlined;
+    if (h.contains('scheme') ||
+        h.contains('government') ||
+        h.contains('yojana') ||
+        h.contains('subsidy'))
+      return Icons.account_balance_outlined;
+    if (h.contains('invest') ||
+        h.contains('mutual') ||
+        h.contains('sip') ||
+        h.contains('fund'))
+      return Icons.trending_up_outlined;
+    if (h.contains('saving') || h.contains('budget') || h.contains('cost'))
+      return Icons.savings_outlined;
+    if (h.contains('insurance') || h.contains('policy'))
+      return Icons.health_and_safety_outlined;
+    if (h.contains('tax') || h.contains('deduction') || h.contains('gst'))
+      return Icons.receipt_long_outlined;
+    if (h.contains('loan') ||
+        h.contains('emi') ||
+        h.contains('credit') ||
+        h.contains('funding'))
+      return Icons.credit_score_outlined;
+    if (h.contains('tip') ||
+        h.contains('advice') ||
+        h.contains('suggest') ||
+        h.contains('recommend'))
+      return Icons.lightbulb_outline;
+    if (h.contains('warning') ||
+        h.contains('risk') ||
+        h.contains('caution') ||
+        h.contains('challenge'))
+      return Icons.warning_amber_outlined;
+    if (h.contains('benefit') ||
+        h.contains('advantage') ||
+        h.contains('pro') ||
+        h.contains('opportunity'))
+      return Icons.star_outline;
+    if (h.contains('how') ||
+        h.contains('process') ||
+        h.contains('apply') ||
+        h.contains('registration'))
+      return Icons.checklist_outlined;
+    if (h.contains('score') ||
+        h.contains('projection') ||
+        h.contains('target') ||
+        h.contains('revenue'))
+      return Icons.analytics_outlined;
+    if (h.contains('msme') ||
+        h.contains('local') ||
+        h.contains('enterprise') ||
+        h.contains('business'))
+      return Icons.store_outlined;
+    if (h.contains('market') ||
+        h.contains('analysis') ||
+        h.contains('research'))
+      return Icons.pie_chart_outline;
+    if (h.contains('summary') ||
+        h.contains('overview') ||
+        h.contains('conclusion'))
+      return Icons.assessment_outlined;
+    if (h.contains('supply') || h.contains('chain') || h.contains('logistics'))
+      return Icons.local_shipping_outlined;
+    if (h.contains('customer') || h.contains('user') || h.contains('audience'))
+      return Icons.people_outline;
+    if (h.contains('product') ||
+        h.contains('service') ||
+        h.contains('offering'))
+      return Icons.inventory_2_outlined;
+    if (h.contains('partner') ||
+        h.contains('collaboration') ||
+        h.contains('network'))
+      return Icons.handshake_outlined;
     return Icons.label_outline;
   }
 
   /// Premium section header with gradient background and icon
-  Widget _buildSectionHeaderIdeas(String text, bool isDark, Color accent, bool hasTopPadding) {
+  Widget _buildSectionHeaderIdeas(
+    String text,
+    bool isDark,
+    Color accent,
+    bool hasTopPadding,
+  ) {
     final icon = _getSectionIconIdeas(text);
     return Padding(
       padding: EdgeInsets.only(top: hasTopPadding ? 14 : 0, bottom: 6),
@@ -1839,7 +2044,12 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   }
 
   /// Emerald dot bullet point
-  Widget _buildBulletPointIdeas(String text, Color baseColor, Color accent, bool isDark) {
+  Widget _buildBulletPointIdeas(
+    String text,
+    Color baseColor,
+    Color accent,
+    bool isDark,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 3, bottom: 3),
       child: Row(
@@ -1865,7 +2075,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   /// Tip / callout box
   Widget _buildTipCalloutIdeas(String text, bool isDark, Color accent) {
-    final baseColor = isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87;
+    final baseColor = isDark
+        ? Colors.white.withValues(alpha: 0.9)
+        : Colors.black87;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 5),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1879,8 +2091,11 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.lightbulb_rounded, size: 16,
-            color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+          Icon(
+            Icons.lightbulb_rounded,
+            size: 16,
+            color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: _buildFormattedTextIdeas(text, baseColor, isDark),
@@ -1892,7 +2107,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   /// Highlight card for key metric lines
   Widget _buildHighlightCardIdeas(String text, bool isDark, Color accent) {
-    final baseColor = isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87;
+    final baseColor = isDark
+        ? Colors.white.withValues(alpha: 0.9)
+        : Colors.black87;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1929,8 +2146,14 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   /// Check if a line is a highlight-worthy metric
   bool _isHighlightLineIdeas(String line) {
     final hasAmount = line.contains('₹');
-    final hasScore = RegExp(r'\d+/100|score|target|projection|revenue|profit|loss', caseSensitive: false).hasMatch(line);
-    return hasAmount && hasScore && !line.startsWith('•') && !line.startsWith('-');
+    final hasScore = RegExp(
+      r'\d+/100|score|target|projection|revenue|profit|loss',
+      caseSensitive: false,
+    ).hasMatch(line);
+    return hasAmount &&
+        hasScore &&
+        !line.startsWith('•') &&
+        !line.startsWith('-');
   }
 
   /// Visual roadmap card with timeline for numbered steps
@@ -1939,7 +2162,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark 
+        color: isDark
             ? Colors.white.withValues(alpha: 0.03)
             : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(14),
@@ -2006,7 +2229,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     padding: EdgeInsets.only(bottom: isLast ? 0 : 14, top: 2),
                     child: _buildFormattedTextIdeas(
                       steps[i],
-                      isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                      isDark
+                          ? Colors.white.withValues(alpha: 0.9)
+                          : Colors.black87,
                       isDark,
                     ),
                   ),
@@ -2023,44 +2248,60 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
   List<InlineSpan> _parseInlineFormattingIdeas(String text, Color baseColor) {
     final List<InlineSpan> spans = [];
     final pattern = RegExp(r'\*\*(.+?)\*\*|_(.+?)_');
-    
+
     int lastEnd = 0;
     final matches = pattern.allMatches(text).toList();
-    
+
     for (final match in matches) {
       if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: text.substring(lastEnd, match.start),
-          style: TextStyle(color: baseColor),
-        ));
+        spans.add(
+          TextSpan(
+            text: text.substring(lastEnd, match.start),
+            style: TextStyle(color: baseColor),
+          ),
+        );
       }
-      
+
       if (match.group(1) != null) {
-        spans.add(TextSpan(
-          text: match.group(1),
-          style: TextStyle(color: baseColor, fontWeight: FontWeight.w600),
-        ));
+        spans.add(
+          TextSpan(
+            text: match.group(1),
+            style: TextStyle(color: baseColor, fontWeight: FontWeight.w600),
+          ),
+        );
       } else if (match.group(2) != null) {
-        spans.add(TextSpan(
-          text: match.group(2),
-          style: TextStyle(color: baseColor.withValues(alpha: 0.85), fontStyle: FontStyle.italic),
-        ));
+        spans.add(
+          TextSpan(
+            text: match.group(2),
+            style: TextStyle(
+              color: baseColor.withValues(alpha: 0.85),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        );
       }
-      
+
       lastEnd = match.end;
     }
-    
+
     if (lastEnd < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastEnd),
-        style: TextStyle(color: baseColor),
-      ));
+      spans.add(
+        TextSpan(
+          text: text.substring(lastEnd),
+          style: TextStyle(color: baseColor),
+        ),
+      );
     }
-    
+
     if (spans.isEmpty) {
-      spans.add(TextSpan(text: text, style: TextStyle(color: baseColor)));
+      spans.add(
+        TextSpan(
+          text: text,
+          style: TextStyle(color: baseColor),
+        ),
+      );
     }
-    
+
     return spans;
   }
 
@@ -2079,10 +2320,14 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   /// Split content into segments and render with premium formatting.
   /// Uses the same visual language as the AI Advisor chat screen.
-  List<Widget> _buildSmartContent(String content, bool isDark, bool isCritique) {
+  List<Widget> _buildSmartContent(
+    String content,
+    bool isDark,
+    bool isCritique,
+  ) {
     final accent = isDark ? WealthInColors.emeraldGlow : WealthInColors.primary;
-    final baseColor = isCritique 
-        ? Colors.red.shade900 
+    final baseColor = isCritique
+        ? Colors.red.shade900
         : (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87);
 
     // First sanitize the content
@@ -2092,7 +2337,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
     final lines = cleanContent.split('\n');
     final List<Widget> widgets = [];
-    
+
     // Collect consecutive numbered lines for roadmap rendering
     List<String> roadmapBuffer = [];
 
@@ -2127,7 +2372,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         if (inEmojiRoadmap) flushEmojiRoadmap();
         continue;
       }
-      
+
       // Emoji-based roadmap steps
       if (emojiStepPattern.hasMatch(line)) {
         flushRoadmap();
@@ -2135,8 +2380,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
         final emoji = line.substring(0, line.indexOf(' '));
         var rest = line.substring(line.indexOf(' ') + 1).trim();
-        rest = rest.replaceAll(RegExp(r'^\*\*'), '').replaceAll(RegExp(r'\*\*$'), '');
-        
+        rest = rest
+            .replaceAll(RegExp(r'^\*\*'), '')
+            .replaceAll(RegExp(r'\*\*$'), '');
+
         final descLines = <String>[];
         while (i + 1 < lines.length) {
           final nextLine = lines[i + 1].trim();
@@ -2167,49 +2414,70 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         roadmapBuffer.add(line.substring(numberedMatch.end).trim());
         continue;
       }
-      
+
       // If we had steps buffered but now hit a non-step line, flush
       flushRoadmap();
 
       // Section headers with icon accent
       if (_isSectionHeaderIdeas(line)) {
         final headerText = _extractHeaderTextIdeas(line);
-        widgets.add(_buildSectionHeaderIdeas(headerText, isDark, accent, widgets.isNotEmpty));
+        widgets.add(
+          _buildSectionHeaderIdeas(
+            headerText,
+            isDark,
+            accent,
+            widgets.isNotEmpty,
+          ),
+        );
         continue;
       }
-      
+
       // Tip / callout boxes (→ Tip: or 💡)
-      if (line.startsWith('→ ') || line.toLowerCase().startsWith('tip:') || line.startsWith('💡')) {
-        final tipText = line.replaceAll(RegExp(r'^[→💡]\s*'), '').replaceAll(RegExp(r'^[Tt]ip:\s*'), '').trim();
+      if (line.startsWith('→ ') ||
+          line.toLowerCase().startsWith('tip:') ||
+          line.startsWith('💡')) {
+        final tipText = line
+            .replaceAll(RegExp(r'^[→💡]\s*'), '')
+            .replaceAll(RegExp(r'^[Tt]ip:\s*'), '')
+            .trim();
         widgets.add(_buildTipCalloutIdeas(tipText, isDark, accent));
         continue;
       }
-      
+
       // Bullet points with emerald dot
       if (line.startsWith('• ') || line.startsWith('- ')) {
         final bulletText = line.substring(2).trim();
-        widgets.add(_buildBulletPointIdeas(bulletText, baseColor, accent, isDark));
+        widgets.add(
+          _buildBulletPointIdeas(bulletText, baseColor, accent, isDark),
+        );
         continue;
       }
-      
+
       // Highlight card for key metric lines
       if (_isHighlightLineIdeas(line)) {
         widgets.add(_buildHighlightCardIdeas(line, isDark, accent));
         continue;
       }
-      
+
       // Regular text
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(top: 2, bottom: 2),
-        child: _buildFormattedTextIdeas(line, baseColor, isDark),
-      ));
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 2),
+          child: _buildFormattedTextIdeas(line, baseColor, isDark),
+        ),
+      );
     }
 
     flushRoadmap();
     if (inEmojiRoadmap) flushEmojiRoadmap();
-    
+
     if (widgets.isEmpty) {
-      return [Text(cleanContent, style: TextStyle(color: baseColor, height: 1.5, fontSize: 13.5))];
+      return [
+        Text(
+          cleanContent,
+          style: TextStyle(color: baseColor, height: 1.5, fontSize: 13.5),
+        ),
+      ];
     }
     return widgets;
   }
@@ -2233,19 +2501,25 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
         children: [
           for (int i = 0; i < steps.length; i++)
             _buildRoadmapStep(
-              emoji: steps[i]['emoji'] ?? '🔵',
-              title: steps[i]['title'] ?? '',
-              description: steps[i]['description'] ?? '',
-              color: steps[i]['emoji'] == '🎯' 
-                  ? Colors.green 
-                  : colors[i % colors.length],
-              isLast: i == steps.length - 1,
-              isFinalGoal: steps[i]['emoji'] == '🎯',
-              isDark: isDark,
-              stepIndex: i,
-            ).animate(delay: Duration(milliseconds: 80 * i))
-             .fadeIn(duration: 300.ms, curve: Curves.easeOut)
-             .slideY(begin: 0.15, end: 0, duration: 300.ms, curve: Curves.easeOut),
+                  emoji: steps[i]['emoji'] ?? '🔵',
+                  title: steps[i]['title'] ?? '',
+                  description: steps[i]['description'] ?? '',
+                  color: steps[i]['emoji'] == '🎯'
+                      ? Colors.green
+                      : colors[i % colors.length],
+                  isLast: i == steps.length - 1,
+                  isFinalGoal: steps[i]['emoji'] == '🎯',
+                  isDark: isDark,
+                  stepIndex: i,
+                )
+                .animate(delay: Duration(milliseconds: 80 * i))
+                .fadeIn(duration: 300.ms, curve: Curves.easeOut)
+                .slideY(
+                  begin: 0.15,
+                  end: 0,
+                  duration: 300.ms,
+                  curve: Curves.easeOut,
+                ),
         ],
       ),
     );
@@ -2253,7 +2527,7 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
   /// Build a single roadmap step with circle indicator and connecting line.
   Widget _buildRoadmapStep({
-    required String emoji, 
+    required String emoji,
     required String title,
     required String description,
     required Color color,
@@ -2314,7 +2588,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
               decoration: BoxDecoration(
                 color: isFinalGoal
                     ? Colors.green.withValues(alpha: isDark ? 0.12 : 0.06)
-                    : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50),
+                    : (isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.grey.shade50),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isFinalGoal
@@ -2331,8 +2607,8 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     style: TextStyle(
                       fontSize: isFinalGoal ? 14 : 13,
                       fontWeight: FontWeight.w700,
-                      color: isFinalGoal 
-                          ? Colors.green 
+                      color: isFinalGoal
+                          ? Colors.green
                           : (isDark ? Colors.white : Colors.black87),
                     ),
                   ),
@@ -2406,13 +2682,19 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                   Container(
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
-                      color: (_personas[message['persona']]?['color'] as Color? ?? Colors.blue).withValues(alpha: 0.12),
+                      color:
+                          (_personas[message['persona']]?['color'] as Color? ??
+                                  Colors.blue)
+                              .withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: Icon(
-                      _personas[message['persona']]?['icon'] as IconData? ?? Icons.psychology,
+                      _personas[message['persona']]?['icon'] as IconData? ??
+                          Icons.psychology,
                       size: 12,
-                      color: _personas[message['persona']]?['color'] as Color? ?? Colors.blue,
+                      color:
+                          _personas[message['persona']]?['color'] as Color? ??
+                          Colors.blue,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -2421,7 +2703,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: _personas[message['persona']]?['color'] as Color? ?? Colors.blue,
+                      color:
+                          _personas[message['persona']]?['color'] as Color? ??
+                          Colors.blue,
                       letterSpacing: 0.2,
                     ),
                   ),
@@ -2436,7 +2720,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             decoration: BoxDecoration(
               color: isCritique
                   ? Colors.red.withValues(alpha: 0.08)
-                  : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50),
+                  : (isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : Colors.grey.shade50),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 topRight: Radius.circular(16),
@@ -2444,9 +2730,14 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 bottomRight: Radius.circular(16),
               ),
               border: isCritique
-                  ? Border.all(color: Colors.red.withValues(alpha: 0.4), width: 1)
+                  ? Border.all(
+                      color: Colors.red.withValues(alpha: 0.4),
+                      width: 1,
+                    )
                   : Border.all(
-                      color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.grey.shade200,
                     ),
               boxShadow: [
                 BoxShadow(
@@ -2463,7 +2754,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 if (isCritique)
                   Container(
                     margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -2471,14 +2765,26 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.warning_rounded, size: 14, color: Colors.red),
+                        Icon(
+                          Icons.warning_rounded,
+                          size: 14,
+                          color: Colors.red,
+                        ),
                         SizedBox(width: 4),
-                        Text('STRESS TEST', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.red, letterSpacing: 0.5)),
+                        Text(
+                          'STRESS TEST',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ],
                     ),
                   ),
 
-                // Smart content renderer: visual roadmaps + markdown 
+                // Smart content renderer: visual roadmaps + markdown
                 ..._buildSmartContent(content, isDark, isCritique),
 
                 const SizedBox(height: 8),
@@ -2487,12 +2793,20 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 Row(
                   children: [
                     // Source citations
-                    if (message['sources'] is List && (message['sources'] as List).isNotEmpty)
+                    if (message['sources'] is List &&
+                        (message['sources'] as List).isNotEmpty)
                       InkWell(
-                        onTap: () => _showSourcesSheet(context, message['sources'] as List, isDark),
+                        onTap: () => _showSourcesSheet(
+                          context,
+                          message['sources'] as List,
+                          isDark,
+                        ),
                         borderRadius: BorderRadius.circular(6),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.blue.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(6),
@@ -2500,11 +2814,19 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.link, size: 11, color: Colors.blue.shade300),
+                              Icon(
+                                Icons.link,
+                                size: 11,
+                                color: Colors.blue.shade300,
+                              ),
                               const SizedBox(width: 3),
                               Text(
                                 '${(message['sources'] as List).length} sources',
-                                style: TextStyle(fontSize: 9, color: Colors.blue.shade300, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.blue.shade300,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
@@ -2513,10 +2835,14 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
 
                     // Mode badge
                     if (message['mode'] != null) ...[
-                      if (message['sources'] is List && (message['sources'] as List).isNotEmpty)
+                      if (message['sources'] is List &&
+                          (message['sources'] as List).isNotEmpty)
                         const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.deepPurple.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(6),
@@ -2524,9 +2850,20 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.verified, size: 10, color: Colors.deepPurple.shade300),
+                            Icon(
+                              Icons.verified,
+                              size: 10,
+                              color: Colors.deepPurple.shade300,
+                            ),
                             const SizedBox(width: 3),
-                            Text('WealthIn', style: TextStyle(fontSize: 9, color: Colors.deepPurple.shade300, fontWeight: FontWeight.w500)),
+                            Text(
+                              'WealthIn',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.deepPurple.shade300,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -2536,7 +2873,10 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                     if (_userLocation != null && message['mode'] != null) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.green.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(6),
@@ -2544,9 +2884,20 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.account_balance, size: 10, color: Colors.green.shade400),
+                            Icon(
+                              Icons.account_balance,
+                              size: 10,
+                              color: Colors.green.shade400,
+                            ),
                             const SizedBox(width: 3),
-                            Text('Gov', style: TextStyle(fontSize: 9, color: Colors.green.shade400, fontWeight: FontWeight.w500)),
+                            Text(
+                              'Gov',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.green.shade400,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -2616,7 +2967,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             ),
             const SizedBox(height: 12),
             ...sources.take(5).map((source) {
-              final title = source is Map ? (source['title'] ?? '') : source.toString();
+              final title = source is Map
+                  ? (source['title'] ?? '')
+                  : source.toString();
               final url = source is Map ? (source['url'] ?? '') : '';
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -2763,8 +3116,12 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [
-                    (_personas[_currentPersona]!['color'] as Color).withValues(alpha: 0.2),
-                    (_personas[_currentPersona]!['color'] as Color).withValues(alpha: 0.05),
+                    (_personas[_currentPersona]!['color'] as Color).withValues(
+                      alpha: 0.2,
+                    ),
+                    (_personas[_currentPersona]!['color'] as Color).withValues(
+                      alpha: 0.05,
+                    ),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -2818,7 +3175,9 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
+                        color: isDark
+                            ? Colors.amber.shade200
+                            : Colors.amber.shade900,
                         height: 1.4,
                       ),
                     ),
@@ -2831,13 +3190,19 @@ class _EnhancedBrainstormScreenState extends State<EnhancedBrainstormScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.withValues(alpha: 0.06),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : Colors.grey.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.route, size: 14, color: isDark ? Colors.white38 : Colors.black38),
+                  Icon(
+                    Icons.route,
+                    size: 14,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Input → Refine → Anchor → DPR',
@@ -2886,12 +3251,14 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
     super.initState();
     // Deep copy sections for editing
     _editableSections = widget.sections.map((s) {
-      return Map<String, dynamic>.from(s.map((key, value) {
-        if (value is Map) {
-          return MapEntry(key, Map<String, dynamic>.from(value));
-        }
-        return MapEntry(key, value);
-      }));
+      return Map<String, dynamic>.from(
+        s.map((key, value) {
+          if (value is Map) {
+            return MapEntry(key, Map<String, dynamic>.from(value));
+          }
+          return MapEntry(key, value);
+        }),
+      );
     }).toList();
 
     // Create text controllers for each editable field
@@ -2902,8 +3269,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
         final key = '${i}_${entry.key}';
         String valueStr;
         if (entry.value is Map) {
-          valueStr = (entry.value as Map)
-              .entries
+          valueStr = (entry.value as Map).entries
               .map((me) => '${me.key}: ${me.value}')
               .join('\n');
         } else if (entry.value is List) {
@@ -2943,7 +3309,9 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
     final completeness = widget.metadata['completeness_pct']?.toString();
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0E12) : const Color(0xFFF8F9FA),
+      backgroundColor: isDark
+          ? const Color(0xFF0A0E12)
+          : const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1A1F25) : Colors.white,
         elevation: 0.5,
@@ -3007,9 +3375,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                   _hasChanges ? 'Edited' : 'Saved',
                   style: TextStyle(
                     fontSize: 11,
-                    color: _hasChanges
-                        ? Colors.orange
-                        : Colors.green,
+                    color: _hasChanges ? Colors.orange : Colors.green,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -3032,8 +3398,11 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Chip(
-                avatar: Icon(Icons.smart_toy_outlined, size: 14,
-                    color: isDark ? Colors.white54 : Colors.black45),
+                avatar: Icon(
+                  Icons.smart_toy_outlined,
+                  size: 14,
+                  color: isDark ? Colors.white54 : Colors.black45,
+                ),
                 label: Text(
                   widget.modelUsed!,
                   style: TextStyle(
@@ -3057,7 +3426,8 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
               for (int i = 0; i < _editableSections.length; i++) {
                 final section = _editableSections[i];
                 buffer.writeln(
-                    '${i + 1}. ${section['title'] ?? 'Section ${i + 1}'}');
+                  '${i + 1}. ${section['title'] ?? 'Section ${i + 1}'}',
+                );
                 buffer.writeln('=' * 40);
                 final content =
                     section['content'] as Map<String, dynamic>? ?? {};
@@ -3114,9 +3484,10 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                       itemCount: _editableSections.length,
                       itemBuilder: (context, index) {
                         final isActive = _activeSectionIndex == index;
-                        final title = (_editableSections[index]['title'] ??
-                                'Section ${index + 1}')
-                            .toString();
+                        final title =
+                            (_editableSections[index]['title'] ??
+                                    'Section ${index + 1}')
+                                .toString();
                         return InkWell(
                           onTap: () {
                             setState(() => _activeSectionIndex = index);
@@ -3128,7 +3499,9 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                             ),
                             decoration: BoxDecoration(
                               color: isActive
-                                  ? WealthInColors.primary.withValues(alpha: 0.1)
+                                  ? WealthInColors.primary.withValues(
+                                      alpha: 0.1,
+                                    )
                                   : null,
                               border: Border(
                                 left: BorderSide(
@@ -3149,8 +3522,8 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                                     color: isActive
                                         ? WealthInColors.primary
                                         : (isDark
-                                            ? Colors.white38
-                                            : Colors.black38),
+                                              ? Colors.white38
+                                              : Colors.black38),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -3165,8 +3538,8 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                                       color: isActive
                                           ? WealthInColors.primary
                                           : (isDark
-                                              ? Colors.white70
-                                              : Colors.black54),
+                                                ? Colors.white70
+                                                : Colors.black54),
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -3205,8 +3578,9 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                   )
                 : ListView.builder(
                     padding: EdgeInsets.symmetric(
-                      horizontal:
-                          MediaQuery.of(context).size.width > 700 ? 40 : 16,
+                      horizontal: MediaQuery.of(context).size.width > 700
+                          ? 40
+                          : 16,
                       vertical: 24,
                     ),
                     itemCount: _editableSections.length,
@@ -3222,8 +3596,8 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
 
   Widget _buildDocumentSection(int index, bool isDark) {
     final section = _editableSections[index];
-    final sectionTitle =
-        (section['title'] ?? 'Section ${index + 1}').toString();
+    final sectionTitle = (section['title'] ?? 'Section ${index + 1}')
+        .toString();
     final content = section['content'] as Map<String, dynamic>? ?? {};
 
     return GestureDetector(
@@ -3251,7 +3625,7 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Section heading  
+            // Section heading
             Row(
               children: [
                 Container(
@@ -3369,7 +3743,9 @@ class _DprDocumentEditorState extends State<_DprDocumentEditor> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
-                            color: WealthInColors.primary.withValues(alpha: 0.5),
+                            color: WealthInColors.primary.withValues(
+                              alpha: 0.5,
+                            ),
                             width: 1.5,
                           ),
                         ),

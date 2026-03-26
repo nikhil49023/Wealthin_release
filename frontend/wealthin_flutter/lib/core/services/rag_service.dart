@@ -49,10 +49,11 @@ class RagService {
     try {
       // --- Transactions (recent 50)
       final db = await DatabaseHelper().database;
+      final hasUserId = await _tableHasColumn(db, 'transactions', 'user_id');
       final txns = await db.query(
         'transactions',
-        where: 'user_id = ?',
-        whereArgs: [userId],
+        where: hasUserId ? 'user_id = ?' : null,
+        whereArgs: hasUserId ? [userId] : null,
         orderBy: 'date DESC',
         limit: 50,
       );
@@ -60,40 +61,47 @@ class RagService {
       // Group by category
       final byCategory = <String, double>{};
       for (final t in txns) {
-        final cat  = t['category'] as String? ?? 'Other';
-        final amt  = (t['amount'] as num?)?.toDouble() ?? 0;
+        final cat = t['category'] as String? ?? 'Other';
+        final amt = (t['amount'] as num?)?.toDouble() ?? 0;
         byCategory[cat] = (byCategory[cat] ?? 0) + amt;
       }
 
       if (byCategory.isNotEmpty) {
         final topSpend = byCategory.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
-        final spendSummary = topSpend.take(5)
-          .map((e) => '${e.key}: ₹${e.value.toStringAsFixed(0)}')
-          .join(', ');
+        final spendSummary = topSpend
+            .take(5)
+            .map((e) => '${e.key}: ₹${e.value.toStringAsFixed(0)}')
+            .join(', ');
         chunks.add('Top spending categories this month: $spendSummary');
       }
 
       // Total income vs expense
       final txnData = await db.rawQuery(
-        '''SELECT 
+        hasUserId
+            ? '''SELECT 
           SUM(CASE WHEN type="income" THEN amount ELSE 0 END) AS income,
           SUM(CASE WHEN type="expense" THEN amount ELSE 0 END) AS expense,
           COUNT(*) AS count
-        FROM transactions WHERE user_id = ?''',
-        [userId],
+        FROM transactions WHERE user_id = ?'''
+            : '''SELECT 
+          SUM(CASE WHEN type="income" THEN amount ELSE 0 END) AS income,
+          SUM(CASE WHEN type="expense" THEN amount ELSE 0 END) AS expense,
+          COUNT(*) AS count
+        FROM transactions''',
+        hasUserId ? [userId] : null,
       );
       if (txnData.isNotEmpty) {
         final row = txnData.first;
-        final income  = (row['income']  as num?)?.toDouble() ?? 0;
+        final income = (row['income'] as num?)?.toDouble() ?? 0;
         final expense = (row['expense'] as num?)?.toDouble() ?? 0;
-        final count   = row['count'] as int? ?? 0;
+        final count = row['count'] as int? ?? 0;
         if (count > 0) {
           chunks.add(
             'Financial summary: Monthly income ₹${income.toStringAsFixed(0)}, '
             'expenses ₹${expense.toStringAsFixed(0)}, '
             'net savings ₹${(income - expense).toStringAsFixed(0)}. '
-            'Total transactions tracked: $count.'
+            'Total transactions tracked: $count.',
           );
         }
       }
@@ -101,42 +109,44 @@ class RagService {
       // Recent transactions (last 5)
       final recent = txns.take(5).toList();
       if (recent.isNotEmpty) {
-        final recentStr = recent.map((t) =>
-          '${t['description']} (${t['category']}) ₹${t['amount']}').join('; ');
+        final recentStr = recent
+            .map(
+              (t) => '${t['description']} (${t['category']}) ₹${t['amount']}',
+            )
+            .join('; ');
         chunks.add('Recent transactions: $recentStr');
       }
 
       // --- Goals
       try {
+        final hasGoalUserId = await _tableHasColumn(db, 'goals', 'user_id');
         final goals = await db.query(
           'goals',
-          where: 'user_id = ?',
-          whereArgs: [userId],
+          where: hasGoalUserId ? 'user_id = ?' : null,
+          whereArgs: hasGoalUserId ? [userId] : null,
           limit: 5,
         );
         for (final g in goals) {
           chunks.add(
             'Financial goal: "${g['name']}" — target ₹${g['target_amount']}, '
-            'saved ₹${g['current_amount']}, deadline ${g['deadline']}'
+            'saved ₹${g['current_amount']}, deadline ${g['deadline']}',
           );
         }
       } catch (_) {} // Goals table may not exist in all versions
 
       // --- Budgets
       try {
+        final hasBudgetUserId = await _tableHasColumn(db, 'budgets', 'user_id');
         final budgets = await db.query(
           'budgets',
-          where: 'user_id = ?',
-          whereArgs: [userId],
+          where: hasBudgetUserId ? 'user_id = ?' : null,
+          whereArgs: hasBudgetUserId ? [userId] : null,
           limit: 5,
         );
         for (final b in budgets) {
-          chunks.add(
-            'Budget: ${b['category']} — ₹${b['amount']} per month'
-          );
+          chunks.add('Budget: ${b['category']} — ₹${b['amount']} per month');
         }
       } catch (_) {}
-
     } catch (e) {
       debugPrint('[RAG] Chunk build error: $e');
     }
@@ -161,35 +171,104 @@ class RagService {
         }
       }
       return MapEntry(chunk, score);
-    }).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    }).toList()..sort((a, b) => b.value.compareTo(a.value));
 
     return scored
-      .where((e) => e.value > 0)
-      .map((e) => e.key.length > _maxChunkLen
-          ? '${e.key.substring(0, _maxChunkLen)}...'
-          : e.key)
-      .toList();
+        .where((e) => e.value > 0)
+        .map(
+          (e) => e.key.length > _maxChunkLen
+              ? '${e.key.substring(0, _maxChunkLen)}...'
+              : e.key,
+        )
+        .toList();
   }
 
   Set<String> _tokenize(String text) {
     return text
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9₹ ]'), ' ')
-      .split(RegExp(r'\s+'))
-      .where((w) => w.length > 2 && !_stopWords.contains(w))
-      .toSet();
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9₹ ]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length > 2 && !_stopWords.contains(w))
+        .toSet();
+  }
+
+  Future<bool> _tableHasColumn(dynamic db, String table, String column) async {
+    try {
+      final rows = await db.rawQuery('PRAGMA table_info($table)');
+      for (final row in rows) {
+        final name = row['name']?.toString().toLowerCase();
+        if (name == column.toLowerCase()) return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   static const _stopWords = {
-    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can',
-    'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has',
-    'him', 'his', 'how', 'may', 'new', 'now', 'old', 'see',
-    'two', 'who', 'boy', 'did', 'let', 'put', 'say', 'she',
-    'too', 'use', 'that', 'this', 'with', 'have', 'from', 'they',
-    'know', 'want', 'been', 'good', 'much', 'some', 'time', 'very',
-    'when', 'come', 'here', 'just', 'like', 'long', 'make', 'many',
-    'over', 'such', 'take', 'than', 'them', 'well', 'were',
+    'the',
+    'and',
+    'for',
+    'are',
+    'but',
+    'not',
+    'you',
+    'all',
+    'can',
+    'had',
+    'her',
+    'was',
+    'one',
+    'our',
+    'out',
+    'day',
+    'get',
+    'has',
+    'him',
+    'his',
+    'how',
+    'may',
+    'new',
+    'now',
+    'old',
+    'see',
+    'two',
+    'who',
+    'boy',
+    'did',
+    'let',
+    'put',
+    'say',
+    'she',
+    'too',
+    'use',
+    'that',
+    'this',
+    'with',
+    'have',
+    'from',
+    'they',
+    'know',
+    'want',
+    'been',
+    'good',
+    'much',
+    'some',
+    'time',
+    'very',
+    'when',
+    'come',
+    'here',
+    'just',
+    'like',
+    'long',
+    'make',
+    'many',
+    'over',
+    'such',
+    'take',
+    'than',
+    'them',
+    'well',
+    'were',
   };
 }
 

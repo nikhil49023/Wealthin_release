@@ -120,27 +120,31 @@ class _HybridAITestScreenState extends State<HybridAITestScreen> {
       final latency = DateTime.now().difference(startTime);
 
       setState(() {
-        _testResults.add(TestResult(
-          query: testQuery,
-          actualStrategy: actualStrategy,
-          response: response.response,
-          latencyMs: latency.inMilliseconds,
-          inferenceMode: response.inferenceMode ?? 'unknown',
-          success: true,
-        ));
+        _testResults.add(
+          TestResult(
+            query: testQuery,
+            actualStrategy: actualStrategy,
+            response: response.response,
+            latencyMs: latency.inMilliseconds,
+            inferenceMode: response.inferenceMode ?? 'unknown',
+            success: true,
+          ),
+        );
       });
     } catch (e) {
       final latency = DateTime.now().difference(startTime);
 
       setState(() {
-        _testResults.add(TestResult(
-          query: testQuery,
-          actualStrategy: InferenceStrategy.api, // Fallback
-          response: 'Error: $e',
-          latencyMs: latency.inMilliseconds,
-          inferenceMode: 'error',
-          success: false,
-        ));
+        _testResults.add(
+          TestResult(
+            query: testQuery,
+            actualStrategy: InferenceStrategy.api, // Fallback
+            response: 'Error: $e',
+            latencyMs: latency.inMilliseconds,
+            inferenceMode: 'error',
+            success: false,
+          ),
+        );
       });
     }
 

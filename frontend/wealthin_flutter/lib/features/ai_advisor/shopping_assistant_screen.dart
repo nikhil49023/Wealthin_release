@@ -91,8 +91,7 @@ class _ShoppingAssistantScreenState extends State<ShoppingAssistantScreen> {
   }
 
   Future<void> _searchBusinesses() async {
-    if (_queryController.text.isEmpty ||
-        _locationController.text.isEmpty) {
+    if (_queryController.text.isEmpty || _locationController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Enter business type and location'),
@@ -237,8 +236,7 @@ class _ShoppingAssistantScreenState extends State<ShoppingAssistantScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed:
-                                _isLoading ? null : _searchProducts,
+                            onPressed: _isLoading ? null : _searchProducts,
                             icon: const Icon(Icons.shopping_cart),
                             label: const Text('Find Products'),
                           ),
@@ -246,8 +244,7 @@ class _ShoppingAssistantScreenState extends State<ShoppingAssistantScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed:
-                                _isLoading ? null : _compareProducts,
+                            onPressed: _isLoading ? null : _compareProducts,
                             icon: const Icon(Icons.compare_arrows),
                             label: const Text('Compare'),
                           ),
@@ -255,8 +252,7 @@ class _ShoppingAssistantScreenState extends State<ShoppingAssistantScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed:
-                                _isLoading ? null : _searchBusinesses,
+                            onPressed: _isLoading ? null : _searchBusinesses,
                             icon: const Icon(Icons.business),
                             label: const Text('Businesses'),
                           ),

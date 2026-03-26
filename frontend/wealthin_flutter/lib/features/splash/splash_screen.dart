@@ -17,7 +17,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   late AnimationController _logoController;
   late AnimationController _textController;
 
@@ -163,10 +164,16 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     return FadeTransition(
       opacity: _textController,
       child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.4),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic)),
+        position:
+            Tween<Offset>(
+              begin: const Offset(0, 0.4),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(
+                parent: _textController,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
         child: Text(
           'WealthIn',
           style: GoogleFonts.syne(
@@ -207,7 +214,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.saffron.withValues(alpha: 0.5)),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppTheme.saffron.withValues(alpha: 0.5),
+                ),
               ),
             ),
             const SizedBox(height: 16),

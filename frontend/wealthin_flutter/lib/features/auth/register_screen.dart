@@ -52,12 +52,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Firebase sends email verification automatically if configured
       // await authService.sendEmailVerification();
 
-
       if (mounted) {
         // Show verification email sent message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Verification email sent! Please check your inbox.'),
+            content: const Text(
+              'Verification email sent! Please check your inbox.',
+            ),
             backgroundColor: AppTheme.success,
             duration: const Duration(seconds: 4),
           ),
@@ -371,7 +372,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Text(
                     'or',
                     style: TextStyle(
-                      color: isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary,
+                      color: isDark
+                          ? AppTheme.silverMist
+                          : AppTheme.lightTextSecondary,
                       fontSize: 14,
                     ),
                   ),
@@ -386,11 +389,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onPressed: _isLoading ? null : _handleGoogleRegister,
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                side: BorderSide(color: isDark ? AppTheme.deepSlate : AppTheme.lightBorder),
+                side: BorderSide(
+                  color: isDark ? AppTheme.deepSlate : AppTheme.lightBorder,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                backgroundColor: isDark ? AppTheme.richNavy : AppTheme.lightCard,
+                backgroundColor: isDark
+                    ? AppTheme.richNavy
+                    : AppTheme.lightCard,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -402,7 +409,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary,
+                      color: isDark
+                          ? AppTheme.pearlWhite
+                          : AppTheme.lightTextPrimary,
                     ),
                   ),
                 ],
@@ -415,7 +424,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               'By creating an account, you agree to our Terms of Service and Privacy Policy',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary,
+                color: isDark
+                    ? AppTheme.silverMist
+                    : AppTheme.lightTextSecondary,
                 fontSize: 12,
               ),
             ),
@@ -527,4 +538,3 @@ class _GoogleLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

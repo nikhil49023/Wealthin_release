@@ -87,7 +87,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       _lastAnalysisDate = milestonesData['last_analysis_date'] as String?;
       _nextAnalysisDate = milestonesData['next_analysis_date'] as String?;
       _daysRemaining = (milestonesData['days_remaining'] as num?)?.toInt() ?? 0;
-      _hoursRemaining = (milestonesData['hours_remaining'] as num?)?.toInt() ?? 0;
+      _hoursRemaining =
+          (milestonesData['hours_remaining'] as num?)?.toInt() ?? 0;
 
       // Check if we have cached results (previous analysis exists)
       _hasCachedResults = _lastAnalysisDate != null;
@@ -168,14 +169,19 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   /// Show celebration snackbars for newly unlocked achievements
-  Future<void> _showAchievementCelebrations(List<AchievementState> achievements) async {
+  Future<void> _showAchievementCelebrations(
+    List<AchievementState> achievements,
+  ) async {
     for (final a in achievements) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              Text(a.definition.tier.emoji, style: const TextStyle(fontSize: 24)),
+              Text(
+                a.definition.tier.emoji,
+                style: const TextStyle(fontSize: 24),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -184,11 +190,17 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   children: [
                     Text(
                       '${a.definition.name} Unlocked!',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                     Text(
                       '+${a.definition.xpReward} XP • ${a.definition.tier.label}',
-                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
                     ),
                   ],
                 ),
@@ -198,7 +210,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           backgroundColor: Color(a.definition.tier.gradientColors[0]),
           duration: const Duration(seconds: 4),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       await Future.delayed(const Duration(seconds: 2));
@@ -275,8 +289,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       final filePath = await pdfReportService.generateHealthReport(
         healthScore: _healthScore!,
         dashboardData: _data,
-        userName:
-            authService.currentUser?.displayName ?? 'User',
+        userName: authService.currentUser?.displayName ?? 'User',
         categoryBreakdown: categoryBreakdown,
       );
       if (mounted) {
@@ -360,7 +373,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: isDark
-                          ? [WealthInColors.vaultGreen, WealthInColors.blackElevated]
+                          ? [
+                              WealthInColors.vaultGreen,
+                              WealthInColors.blackElevated,
+                            ]
                           : [WealthInColors.primary, WealthInTheme.emeraldDark],
                     ),
                   ),
@@ -401,10 +417,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 delegate: SliverChildListDelegate([
                   // AI Analyzing Animation (shown during first analysis)
                   if (_isAnalyzing || (_isLoading && !_hasCachedResults))
-                    _buildAIAnalyzingCard(theme, isDark)
-                        .animate()
-                        .fadeIn()
-                        .scale(begin: const Offset(0.95, 0.95)),
+                    _buildAIAnalyzingCard(
+                      theme,
+                      isDark,
+                    ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95)),
                   if (_isAnalyzing || (_isLoading && !_hasCachedResults))
                     const SizedBox(height: 16),
 
@@ -448,8 +464,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   const SizedBox(height: 20),
 
                   // Simple Category Summary (replaces complex charts)
-                  _buildSimpleCategorySummary(theme, isDark)
-                      .animate().fadeIn(delay: 200.ms),
+                  _buildSimpleCategorySummary(
+                    theme,
+                    isDark,
+                  ).animate().fadeIn(delay: 200.ms),
                   const SizedBox(height: 20),
 
                   // Per Capita Insights
@@ -479,16 +497,28 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               end: Alignment.bottomRight,
               colors: isDark
                   ? [
-                      Color.lerp(const Color(0xFF1A2F1A), const Color(0xFF0D3B0D),
-                          _pulseController.value)!,
-                      Color.lerp(const Color(0xFF0D3B0D), const Color(0xFF1A2F1A),
-                          _pulseController.value)!,
+                      Color.lerp(
+                        const Color(0xFF1A2F1A),
+                        const Color(0xFF0D3B0D),
+                        _pulseController.value,
+                      )!,
+                      Color.lerp(
+                        const Color(0xFF0D3B0D),
+                        const Color(0xFF1A2F1A),
+                        _pulseController.value,
+                      )!,
                     ]
                   : [
-                      Color.lerp(const Color(0xFFE8F5E9), const Color(0xFFC8E6C9),
-                          _pulseController.value)!,
-                      Color.lerp(const Color(0xFFC8E6C9), const Color(0xFFE8F5E9),
-                          _pulseController.value)!,
+                      Color.lerp(
+                        const Color(0xFFE8F5E9),
+                        const Color(0xFFC8E6C9),
+                        _pulseController.value,
+                      )!,
+                      Color.lerp(
+                        const Color(0xFFC8E6C9),
+                        const Color(0xFFE8F5E9),
+                        _pulseController.value,
+                      )!,
                     ],
             ),
             borderRadius: BorderRadius.circular(24),
@@ -528,8 +558,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFF4CAF50)
-                              .withValues(alpha: 0.3 - (_pulseController.value * 0.2)),
+                          color: const Color(0xFF4CAF50).withValues(
+                            alpha: 0.3 - (_pulseController.value * 0.2),
+                          ),
                           width: 3,
                         ),
                       ),
@@ -544,14 +575,18 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       gradient: RadialGradient(
                         colors: [
                           const Color(0xFF4CAF50),
-                          Color.lerp(const Color(0xFF388E3C),
-                              const Color(0xFF2E7D32), _pulseController.value)!,
+                          Color.lerp(
+                            const Color(0xFF388E3C),
+                            const Color(0xFF2E7D32),
+                            _pulseController.value,
+                          )!,
                         ],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF4CAF50)
-                              .withValues(alpha: 0.3 + (_pulseController.value * 0.2)),
+                          color: const Color(0xFF4CAF50).withValues(
+                            alpha: 0.3 + (_pulseController.value * 0.2),
+                          ),
                           blurRadius: 20,
                           spreadRadius: 2,
                         ),
@@ -670,7 +705,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                         strokeWidth: 6,
                         backgroundColor: Colors.transparent,
                         valueColor: AlwaysStoppedAnimation(
-                          isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                          isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.black.withValues(alpha: 0.06),
                         ),
                       ),
                     ),
@@ -734,9 +771,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [gradStart, gradEnd]),
+                            gradient: LinearGradient(
+                              colors: [gradStart, gradEnd],
+                            ),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -784,7 +826,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                           Container(
                             height: 10,
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(6),
                             ),
                           ),
@@ -793,7 +837,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                             child: Container(
                               height: 10,
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: [gradStart, gradEnd]),
+                                gradient: LinearGradient(
+                                  colors: [gradStart, gradEnd],
+                                ),
                                 borderRadius: BorderRadius.circular(6),
                                 boxShadow: [
                                   BoxShadow(
@@ -846,12 +892,30 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: isReached
-                              ? LinearGradient(colors: [Color(lvl.gradientColors[0]), Color(lvl.gradientColors[1])])
+                              ? LinearGradient(
+                                  colors: [
+                                    Color(lvl.gradientColors[0]),
+                                    Color(lvl.gradientColors[1]),
+                                  ],
+                                )
                               : null,
-                          color: isReached ? null : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
-                          border: isCurrent ? Border.all(color: Colors.white, width: 2) : null,
+                          color: isReached
+                              ? null
+                              : (isDark
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : Colors.grey.shade200),
+                          border: isCurrent
+                              ? Border.all(color: Colors.white, width: 2)
+                              : null,
                           boxShadow: isCurrent
-                              ? [BoxShadow(color: Color(lvl.gradientColors[0]).withValues(alpha: 0.5), blurRadius: 8)]
+                              ? [
+                                  BoxShadow(
+                                    color: Color(
+                                      lvl.gradientColors[0],
+                                    ).withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                  ),
+                                ]
                               : null,
                         ),
                         child: Center(
@@ -859,7 +923,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                             isReached ? lvl.emoji : '${lvl.level}',
                             style: TextStyle(
                               fontSize: isCurrent ? 14 : 10,
-                              color: isReached ? null : (isDark ? Colors.white24 : Colors.grey),
+                              color: isReached
+                                  ? null
+                                  : (isDark ? Colors.white24 : Colors.grey),
                             ),
                           ),
                         ),
@@ -907,7 +973,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       }
     }
 
-    final accentColor = _canAnalyze ? const Color(0xFF4CAF50) : const Color(0xFFFF9800);
+    final accentColor = _canAnalyze
+        ? const Color(0xFF4CAF50)
+        : const Color(0xFFFF9800);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -933,11 +1001,15 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _canAnalyze ? 'Analysis ready' : 'Next analysis in ${_daysRemaining}d ${_hoursRemaining}h',
+                  _canAnalyze
+                      ? 'Analysis ready'
+                      : 'Next analysis in ${_daysRemaining}d ${_hoursRemaining}h',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black87,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : Colors.black87,
                   ),
                 ),
               ),
@@ -955,8 +1027,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 10,
-                      color: isDark ? Colors.white24 : Colors.black26),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      size: 10,
+                      color: isDark ? Colors.white24 : Colors.black26,
+                    ),
                   ),
                   Text(
                     nextDateDisplay,
@@ -1190,7 +1265,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     displayList.sort((a, b) {
       if (a.achieved != b.achieved) return a.achieved ? -1 : 1;
       if (a.definition.tier != b.definition.tier) {
-        return b.definition.tier.sortOrder.compareTo(a.definition.tier.sortOrder);
+        return b.definition.tier.sortOrder.compareTo(
+          a.definition.tier.sortOrder,
+        );
       }
       return b.progress.compareTo(a.progress);
     });
@@ -1225,7 +1302,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.emoji_events, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.emoji_events,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1261,8 +1342,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       value: totalCount > 0 ? achievedCount / totalCount : 0,
                       strokeWidth: 4,
                       strokeCap: StrokeCap.round,
-                      backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
-                      valueColor: const AlwaysStoppedAnimation(Color(0xFFFFD700)),
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
+                      valueColor: const AlwaysStoppedAnimation(
+                        Color(0xFFFFD700),
+                      ),
                     ),
                     Text(
                       '${((achievedCount / max(totalCount, 1)) * 100).toInt()}%',
@@ -1288,7 +1373,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               children: [
                 _buildCategoryChip(null, 'All', isDark),
                 ...AchievementCategory.values.map(
-                  (cat) => _buildCategoryChip(cat, '${cat.emoji} ${cat.label}', isDark),
+                  (cat) => _buildCategoryChip(
+                    cat,
+                    '${cat.emoji} ${cat.label}',
+                    isDark,
+                  ),
                 ),
               ],
             ),
@@ -1331,7 +1420,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   /// Category filter chip
-  Widget _buildCategoryChip(AchievementCategory? category, String label, bool isDark) {
+  Widget _buildCategoryChip(
+    AchievementCategory? category,
+    String label,
+    bool isDark,
+  ) {
     final isSelected = _selectedAchievementCategory == category;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -1347,7 +1440,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 : (isDark ? Colors.white60 : Colors.black54),
           ),
         ),
-        backgroundColor: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100,
+        backgroundColor: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.grey.shade100,
         selectedColor: const Color(0xFFFF8F00),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         side: BorderSide.none,
@@ -1375,11 +1470,19 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: achieved
-            ? (isDark ? tierColor1.withValues(alpha: 0.12) : tierColor1.withValues(alpha: 0.06))
-            : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50),
+            ? (isDark
+                  ? tierColor1.withValues(alpha: 0.12)
+                  : tierColor1.withValues(alpha: 0.06))
+            : (isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : Colors.grey.shade50),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: achieved ? tierColor1.withValues(alpha: 0.5) : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
+          color: achieved
+              ? tierColor1.withValues(alpha: 0.5)
+              : (isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade200),
           width: achieved ? 1.5 : 1,
         ),
       ),
@@ -1398,7 +1501,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   gradient: achieved
                       ? LinearGradient(colors: [tierColor1, tierColor2])
                       : null,
-                  color: achieved ? null : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
+                  color: achieved
+                      ? null
+                      : (isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.grey.shade200),
                 ),
                 child: Center(
                   child: Text(
@@ -1446,9 +1553,13 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 5,
-                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+                    backgroundColor: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.05),
                     valueColor: AlwaysStoppedAnimation(
-                      achieved ? tierColor1 : (isDark ? Colors.white24 : Colors.grey.shade400),
+                      achieved
+                          ? tierColor1
+                          : (isDark ? Colors.white24 : Colors.grey.shade400),
                     ),
                   ),
                 ),
@@ -1459,7 +1570,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: achieved ? tierColor1 : (isDark ? Colors.white30 : Colors.grey),
+                  color: achieved
+                      ? tierColor1
+                      : (isDark ? Colors.white30 : Colors.grey),
                 ),
               ),
             ],
@@ -1504,7 +1617,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   // Title
                   Row(
                     children: [
-                      const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 28),
+                      const Icon(
+                        Icons.emoji_events,
+                        color: Color(0xFFFFD700),
+                        size: 28,
+                      ),
                       const SizedBox(width: 12),
                       Text(
                         'All Achievements',
@@ -1531,174 +1648,258 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       controller: scrollController,
                       children: [
                         ...byCategory.entries.map((entry) {
-                        final category = entry.key;
-                        final achievements = entry.value;
-                        final catAchieved = achievements.where((a) => a.achieved).length;
+                          final category = entry.key;
+                          final achievements = entry.value;
+                          final catAchieved = achievements
+                              .where((a) => a.achieved)
+                              .length;
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Category header
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    '${category.emoji} ${category.label}',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: isDark ? Colors.white70 : Colors.black54,
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Category header
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      '${category.emoji} ${category.label}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                      ),
                                     ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '$catAchieved/${achievements.length}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.white30 : Colors.black26,
+                                    const Spacer(),
+                                    Text(
+                                      '$catAchieved/${achievements.length}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? Colors.white30
+                                            : Colors.black26,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            // Achievement list
-                            ...achievements.map((a) {
-                              final tierColor = Color(a.definition.tier.gradientColors[0]);
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: a.achieved
-                                        ? tierColor.withOpacity(isDark ? 0.1 : 0.05)
-                                        : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
+                              // Achievement list
+                              ...achievements.map((a) {
+                                final tierColor = Color(
+                                  a.definition.tier.gradientColors[0],
+                                );
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
                                       color: a.achieved
-                                          ? tierColor.withValues(alpha: 0.4)
-                                          : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200),
+                                          ? tierColor.withOpacity(
+                                              isDark ? 0.1 : 0.05,
+                                            )
+                                          : (isDark
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.03,
+                                                  )
+                                                : Colors.grey.shade50),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: a.achieved
+                                            ? tierColor.withValues(alpha: 0.4)
+                                            : (isDark
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.06,
+                                                    )
+                                                  : Colors.grey.shade200),
+                                      ),
                                     ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      // Tier badge
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: a.achieved
-                                              ? LinearGradient(colors: [
-                                                  Color(a.definition.tier.gradientColors[0]),
-                                                  Color(a.definition.tier.gradientColors[1]),
-                                                ])
-                                              : null,
-                                          color: a.achieved
-                                              ? null
-                                              : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            a.achieved ? a.definition.tier.emoji : a.definition.category.emoji,
-                                            style: const TextStyle(fontSize: 16),
+                                    child: Row(
+                                      children: [
+                                        // Tier badge
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            gradient: a.achieved
+                                                ? LinearGradient(
+                                                    colors: [
+                                                      Color(
+                                                        a
+                                                            .definition
+                                                            .tier
+                                                            .gradientColors[0],
+                                                      ),
+                                                      Color(
+                                                        a
+                                                            .definition
+                                                            .tier
+                                                            .gradientColors[1],
+                                                      ),
+                                                    ],
+                                                  )
+                                                : null,
+                                            color: a.achieved
+                                                ? null
+                                                : (isDark
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.06,
+                                                        )
+                                                      : Colors.grey.shade200),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              a.achieved
+                                                  ? a.definition.tier.emoji
+                                                  : a.definition.category.emoji,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      a.definition.name,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: a.achieved
+                                                            ? (isDark
+                                                                  ? Colors.white
+                                                                  : Colors
+                                                                        .black87)
+                                                            : (isDark
+                                                                  ? Colors
+                                                                        .white54
+                                                                  : Colors
+                                                                        .black45),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 1,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: tierColor
+                                                          .withOpacity(
+                                                            isDark ? 0.2 : 0.12,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      a.definition.tier.label,
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: tierColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                a.definition.description,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: isDark
+                                                      ? Colors.white30
+                                                      : Colors.black38,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              // Progress bar
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(3),
+                                                child: LinearProgressIndicator(
+                                                  value: a.progress,
+                                                  minHeight: 4,
+                                                  backgroundColor: isDark
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.06,
+                                                        )
+                                                      : Colors.black.withValues(
+                                                          alpha: 0.04,
+                                                        ),
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation(
+                                                        a.achieved
+                                                            ? tierColor
+                                                            : (isDark
+                                                                  ? Colors
+                                                                        .white24
+                                                                  : Colors
+                                                                        .grey),
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        // XP reward
+                                        Column(
                                           children: [
-                                            Row(
-                                              children: [
-                                                Flexible(
-                                                  child: Text(
-                                                    a.definition.name,
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: a.achieved
-                                                          ? (isDark ? Colors.white : Colors.black87)
-                                                          : (isDark ? Colors.white54 : Colors.black45),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                                  decoration: BoxDecoration(
-                                                    color: tierColor.withOpacity(isDark ? 0.2 : 0.12),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                  ),
-                                                  child: Text(
-                                                    a.definition.tier.label,
-                                                    style: TextStyle(
-                                                      fontSize: 9,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: tierColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 2),
                                             Text(
-                                              a.definition.description,
+                                              a.achieved
+                                                  ? '✓'
+                                                  : '+${a.definition.xpReward}',
                                               style: TextStyle(
-                                                fontSize: 11,
-                                                color: isDark ? Colors.white30 : Colors.black38,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w800,
+                                                color: a.achieved
+                                                    ? tierColor
+                                                    : (isDark
+                                                          ? Colors.white24
+                                                          : Colors.grey),
                                               ),
                                             ),
-                                            const SizedBox(height: 6),
-                                            // Progress bar
-                                            ClipRRect(
-                                              borderRadius: BorderRadius.circular(3),
-                                              child: LinearProgressIndicator(
-                                                value: a.progress,
-                                                minHeight: 4,
-                                                backgroundColor: isDark
-                                                    ? Colors.white.withValues(alpha: 0.06)
-                                                    : Colors.black.withValues(alpha: 0.04),
-                                                valueColor: AlwaysStoppedAnimation(
-                                                  a.achieved ? tierColor : (isDark ? Colors.white24 : Colors.grey),
+                                            if (!a.achieved)
+                                              Text(
+                                                'XP',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: isDark
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.2,
+                                                        )
+                                                      : Colors.grey.shade400,
                                                 ),
                                               ),
-                                            ),
                                           ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // XP reward
-                                      Column(
-                                        children: [
-                                          Text(
-                                            a.achieved ? '✓' : '+${a.definition.xpReward}',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                              color: a.achieved ? tierColor : (isDark ? Colors.white24 : Colors.grey),
-                                            ),
-                                          ),
-                                          if (!a.achieved)
-                                            Text(
-                                              'XP',
-                                              style: TextStyle(
-                                                fontSize: 9,
-                                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.grey.shade400,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            }),
-                            const SizedBox(height: 8),
-                          ],
-                        );
-                      }),
+                                );
+                              }),
+                              const SizedBox(height: 8),
+                            ],
+                          );
+                        }),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -1839,7 +2040,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                         insight,
                         style: TextStyle(
                           fontSize: 12,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                       ),
                     ),
@@ -1866,7 +2069,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     final passed = progress >= 0.5;
     final statusColor = passed
         ? const Color(0xFF10B981)
-        : (progress >= 0.25 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
+        : (progress >= 0.25
+              ? const Color(0xFFF59E0B)
+              : const Color(0xFFEF4444));
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2019,7 +2224,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
             children: [
               Expanded(
                 child: SavingsCard(
-                  amount: (_data?.totalIncome ?? 0) - (_data?.totalExpense ?? 0),
+                  amount:
+                      (_data?.totalIncome ?? 0) - (_data?.totalExpense ?? 0),
                   isLoading: _isLoading,
                 ),
               ),

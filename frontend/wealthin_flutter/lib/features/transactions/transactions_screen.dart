@@ -926,7 +926,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           color: WealthInColors.warning.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: WealthInColors.warning.withValues(alpha: 0.3),
+                            color: WealthInColors.warning.withValues(
+                              alpha: 0.3,
+                            ),
                           ),
                         ),
                         child: Row(

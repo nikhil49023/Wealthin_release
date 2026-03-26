@@ -1,6 +1,6 @@
 #!/bin/bash
-# Sarvam AI Keys Configuration & Testing Script
-# This script helps initialize and test the multi-key setup
+# Sarvam AI Key Configuration & Testing Script
+# This script helps initialize and test the single-key setup
 
 set -e
 
@@ -11,25 +11,28 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  WealthIn - Sarvam AI Multi-Key Configuration${NC}"
+echo -e "${BLUE}  WealthIn - Sarvam AI Single-Key Configuration${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
 # Check if .env.sarvam_keys exists
 if [ ! -f ".env.sarvam_keys" ]; then
     echo -e "${YELLOW}⚠ .env.sarvam_keys not found!${NC}"
-    echo "Please create .env.sarvam_keys with your API keys first."
+    echo "Please create .env.sarvam_keys with your API key first."
     exit 1
 fi
 
 echo -e "${GREEN}✓${NC} Found .env.sarvam_keys"
 
-# Count number of keys
-NUM_KEYS=$(grep SARVAM_API_KEYS .env.sarvam_keys | cut -d'=' -f2 | tr ',' '\n' | grep -c "sk_")
-TOTAL_RPM=$((NUM_KEYS * 60))
+# Validate configured key
+SARVAM_KEY=$(grep "SARVAM_API_KEY=" .env.sarvam_keys | cut -d'=' -f2- | xargs)
+if [[ -z "$SARVAM_KEY" || ! "$SARVAM_KEY" =~ ^sk_ ]]; then
+    echo -e "${YELLOW}⚠ Missing or invalid SARVAM_API_KEY in .env.sarvam_keys${NC}"
+    exit 1
+fi
 
-echo -e "${GREEN}✓${NC} Configured with ${GREEN}${NUM_KEYS}${NC} API keys"
-echo -e "${GREEN}✓${NC} Total capacity: ${GREEN}${TOTAL_RPM} RPM${NC} (${NUM_KEYS} × 60 RPM)"
+echo -e "${GREEN}✓${NC} Configured with a valid Sarvam API key"
+echo -e "${GREEN}✓${NC} Key format: ${GREEN}sk_...${NC}"
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
@@ -42,9 +45,9 @@ fi
 
 echo "What would you like to do?"
 echo ""
-echo "1) Run app in debug mode (with API keys)"
-echo "2) Build release APK (with API keys)"
-echo "3) Test API key rotation (verify multi-key setup)"
+echo "1) Run app in debug mode (with API key)"
+echo "2) Build release APK (with API key)"
+echo "3) Run a quick AI smoke run"
 echo "4) Just show configuration (no build)"
 echo ""
 read -p "Enter choice [1-4]: " choice
@@ -65,12 +68,12 @@ case $choice in
         ;;
     3)
         echo ""
-        echo -e "${BLUE}🧪 Testing API key rotation...${NC}"
+        echo -e "${BLUE}🧪 Running AI smoke flow...${NC}"
         echo ""
         echo "This will:"
-        echo "  1. Build the app with your API keys"
+        echo "  1. Build the app with your API key"
         echo "  2. Open AI Hub screen"
-        echo "  3. Send 10 test queries to verify key rotation"
+        echo "  3. Send test queries to verify response"
         echo ""
         read -p "Press Enter to continue..."
         flutter run --dart-define-from-file=.env.sarvam_keys
@@ -78,8 +81,7 @@ case $choice in
     4)
         echo ""
         echo -e "${GREEN}Current Configuration:${NC}"
-        echo "  • Keys: ${NUM_KEYS}"
-        echo "  • Total RPM: ${TOTAL_RPM}"
+        echo "  • Key: configured"
         echo "  • Location: .env.sarvam_keys"
         echo "  • Storage: Secure (Android KeyStore / iOS Keychain)"
         echo ""

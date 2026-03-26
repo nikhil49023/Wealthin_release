@@ -4,7 +4,6 @@ import '../theme/app_theme.dart';
 /// Transaction Categorizer — RegExp-based pipeline with confidence scoring
 /// Runs offline in Dart. Categories aligned with Indian spending patterns.
 class TransactionCategorizer {
-
   static const String other = 'Other';
 
   // Each entry: category → list of regex patterns (compiled once)
@@ -106,10 +105,12 @@ class TransactionCategorizer {
   });
 
   static Map<String, List<RegExp>> _buildRegex(Map<String, List<String>> raw) {
-    return raw.map((cat, patterns) => MapEntry(
-      cat,
-      patterns.map((p) => RegExp(p, caseSensitive: false)).toList(),
-    ));
+    return raw.map(
+      (cat, patterns) => MapEntry(
+        cat,
+        patterns.map((p) => RegExp(p, caseSensitive: false)).toList(),
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -121,7 +122,8 @@ class TransactionCategorizer {
 
   /// Categorize a transaction description, returning category + confidence.
   static CategorizeResult categorize(String description) {
-    if (description.isEmpty) return CategorizeResult(category: other, confidence: 0.0);
+    if (description.isEmpty)
+      return CategorizeResult(category: other, confidence: 0.0);
 
     // Check each category in order; first-match wins within a category
     for (final entry in _categoryRegex.entries) {
@@ -143,50 +145,88 @@ class TransactionCategorizer {
   /// Get icon for category
   static IconData getIcon(String category) {
     switch (category) {
-      case 'Food & Dining':        return Icons.restaurant_rounded;
-      case 'Groceries':            return Icons.local_grocery_store_rounded;
-      case 'Transportation':       return Icons.directions_car_rounded;
-      case 'Shopping':             return Icons.shopping_bag_rounded;
-      case 'Entertainment':        return Icons.movie_rounded;
-      case 'Utilities':            return Icons.bolt_rounded;
-      case 'Healthcare':           return Icons.medical_services_rounded;
-      case 'Education':            return Icons.school_rounded;
-      case 'SIP / Mutual Fund':    return Icons.trending_up_rounded;
-      case 'Investment':           return Icons.show_chart_rounded;
-      case 'Insurance':            return Icons.security_rounded;
-      case 'EMI & Loans':          return Icons.credit_card_rounded;
-      case 'Salary & Income':      return Icons.account_balance_rounded;
-      case 'Transfer':             return Icons.compare_arrows_rounded;
-      case 'Rent & Housing':       return Icons.home_rounded;
-      case 'Personal Care':        return Icons.face_rounded;
-      case 'ATM / Cash':           return Icons.local_atm_rounded;
-      case 'Crypto':               return Icons.currency_bitcoin_rounded;
-      default:                     return Icons.category_rounded;
+      case 'Food & Dining':
+        return Icons.restaurant_rounded;
+      case 'Groceries':
+        return Icons.local_grocery_store_rounded;
+      case 'Transportation':
+        return Icons.directions_car_rounded;
+      case 'Shopping':
+        return Icons.shopping_bag_rounded;
+      case 'Entertainment':
+        return Icons.movie_rounded;
+      case 'Utilities':
+        return Icons.bolt_rounded;
+      case 'Healthcare':
+        return Icons.medical_services_rounded;
+      case 'Education':
+        return Icons.school_rounded;
+      case 'SIP / Mutual Fund':
+        return Icons.trending_up_rounded;
+      case 'Investment':
+        return Icons.show_chart_rounded;
+      case 'Insurance':
+        return Icons.security_rounded;
+      case 'EMI & Loans':
+        return Icons.credit_card_rounded;
+      case 'Salary & Income':
+        return Icons.account_balance_rounded;
+      case 'Transfer':
+        return Icons.compare_arrows_rounded;
+      case 'Rent & Housing':
+        return Icons.home_rounded;
+      case 'Personal Care':
+        return Icons.face_rounded;
+      case 'ATM / Cash':
+        return Icons.local_atm_rounded;
+      case 'Crypto':
+        return Icons.currency_bitcoin_rounded;
+      default:
+        return Icons.category_rounded;
     }
   }
 
   /// Get theme-palette colour for category
   static Color getColor(String category) {
     switch (category) {
-      case 'Food & Dining':        return AppTheme.saffron;
-      case 'Groceries':            return AppTheme.success;
-      case 'Transportation':       return AppTheme.peacockTeal;
-      case 'Shopping':             return AppTheme.lotusPink;
-      case 'Entertainment':        return const Color(0xFF9966CC);
-      case 'Utilities':            return AppTheme.warning;
-      case 'Healthcare':           return AppTheme.error;
-      case 'Education':            return AppTheme.peacockLight;
-      case 'SIP / Mutual Fund':    return AppTheme.successLight;
-      case 'Investment':           return AppTheme.success;
-      case 'Insurance':            return const Color(0xFF5C6BC0);
-      case 'EMI & Loans':          return const Color(0xFFEF6C00);
-      case 'Salary & Income':      return AppTheme.champagneGold;
-      case 'Transfer':             return AppTheme.silverMist;
-      case 'Rent & Housing':       return const Color(0xFF795548);
-      case 'Personal Care':        return AppTheme.lotusPink;
-      case 'ATM / Cash':           return const Color(0xFF78909C);
-      case 'Crypto':               return const Color(0xFFF7931A);
-      default:                     return AppTheme.silverMist;
+      case 'Food & Dining':
+        return AppTheme.saffron;
+      case 'Groceries':
+        return AppTheme.success;
+      case 'Transportation':
+        return AppTheme.peacockTeal;
+      case 'Shopping':
+        return AppTheme.lotusPink;
+      case 'Entertainment':
+        return const Color(0xFF9966CC);
+      case 'Utilities':
+        return AppTheme.warning;
+      case 'Healthcare':
+        return AppTheme.error;
+      case 'Education':
+        return AppTheme.peacockLight;
+      case 'SIP / Mutual Fund':
+        return AppTheme.successLight;
+      case 'Investment':
+        return AppTheme.success;
+      case 'Insurance':
+        return const Color(0xFF5C6BC0);
+      case 'EMI & Loans':
+        return const Color(0xFFEF6C00);
+      case 'Salary & Income':
+        return AppTheme.champagneGold;
+      case 'Transfer':
+        return AppTheme.silverMist;
+      case 'Rent & Housing':
+        return const Color(0xFF795548);
+      case 'Personal Care':
+        return AppTheme.lotusPink;
+      case 'ATM / Cash':
+        return const Color(0xFF78909C);
+      case 'Crypto':
+        return const Color(0xFFF7931A);
+      default:
+        return AppTheme.silverMist;
     }
   }
 }
@@ -194,11 +234,12 @@ class TransactionCategorizer {
 /// Result of a categorization operation
 class CategorizeResult {
   final String category;
+
   /// Confidence: 1.0 = brand-exact match, 0.75 = keyword match, 0.0 = unmatched
   final double confidence;
 
   const CategorizeResult({required this.category, required this.confidence});
 
   bool get isConfident => confidence >= 0.75;
-  bool get isMatched   => category != TransactionCategorizer.other;
+  bool get isMatched => category != TransactionCategorizer.other;
 }

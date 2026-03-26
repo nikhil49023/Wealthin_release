@@ -14,7 +14,7 @@ class ProductCard extends StatelessWidget {
   final String? source;
   final double? rating;
   final VoidCallback? onTap;
-  
+
   const ProductCard({
     super.key,
     required this.title,
@@ -26,7 +26,7 @@ class ProductCard extends StatelessWidget {
     this.rating,
     this.onTap,
   });
-  
+
   Future<void> _launchUrl(BuildContext context) async {
     if (productUrl == null || productUrl!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -37,7 +37,7 @@ class ProductCard extends StatelessWidget {
       );
       return;
     }
-    
+
     final uri = Uri.tryParse(productUrl!);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -48,13 +48,13 @@ class ProductCard extends StatelessWidget {
       );
       return;
     }
-    
+
     try {
       final launched = await launchUrl(
         uri,
         mode: LaunchMode.externalApplication,
       );
-      
+
       if (!launched && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -79,7 +79,7 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasLink = productUrl != null && productUrl!.isNotEmpty;
-    
+
     return GestureDetector(
       onTap: onTap ?? () => _launchUrl(context),
       child: Container(
@@ -104,7 +104,9 @@ class ProductCard extends StatelessWidget {
             // Product image or placeholder
             if (imageUrl != null && imageUrl!.isNotEmpty)
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: CachedNetworkImage(
                   imageUrl: imageUrl!,
                   height: 120,
@@ -116,12 +118,12 @@ class ProductCard extends StatelessWidget {
                     child: const Center(child: CircularProgressIndicator()),
                   ),
                   errorWidget: (_, _, _) => _buildImagePlaceholder(theme),
-                  memCacheHeight: 240,  // Cache at 2x height for quality
+                  memCacheHeight: 240, // Cache at 2x height for quality
                 ),
               )
             else
               _buildImagePlaceholder(theme),
-              
+
             // Content
             Padding(
               padding: const EdgeInsets.all(12),
@@ -137,29 +139,36 @@ class ProductCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   if (subtitle != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       subtitle!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Price and rating row
                   Row(
                     children: [
                       if (price != null && price!.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: WealthInTheme.regalGold.withValues(alpha: 0.15),
+                            color: WealthInTheme.regalGold.withValues(
+                              alpha: 0.15,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -174,7 +183,11 @@ class ProductCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Row(
                           children: [
-                            const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
                             const SizedBox(width: 2),
                             Text(
                               rating!.toStringAsFixed(1),
@@ -190,12 +203,14 @@ class ProductCard extends StatelessWidget {
                         Text(
                           source!,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.4,
+                            ),
                           ),
                         ),
                     ],
                   ),
-                  
+
                   // View button
                   if (hasLink) ...[
                     const SizedBox(height: 12),
@@ -239,7 +254,7 @@ class ProductCard extends StatelessWidget {
       ),
     ).animate().fadeIn().slideY(begin: 0.1);
   }
-  
+
   Widget _buildImagePlaceholder(ThemeData theme) {
     return Container(
       height: 80,
@@ -262,19 +277,19 @@ class ProductCard extends StatelessWidget {
 class ProductCardList extends StatelessWidget {
   final List<ProductCardData> products;
   final String? title;
-  
+
   const ProductCardList({
     super.key,
     required this.products,
     this.title,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     if (products.isEmpty) return const SizedBox.shrink();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -335,7 +350,7 @@ class ProductCardData {
   final String? productUrl;
   final String? source;
   final double? rating;
-  
+
   const ProductCardData({
     required this.title,
     this.subtitle,
@@ -345,7 +360,7 @@ class ProductCardData {
     this.source,
     this.rating,
   });
-  
+
   factory ProductCardData.fromJson(Map<String, dynamic> json) {
     return ProductCardData(
       title: json['title'] ?? json['name'] ?? 'Unknown Product',
@@ -362,19 +377,19 @@ class ProductCardData {
 /// Parse products from AI response text
 List<ProductCardData> parseProductsFromResponse(String response) {
   final products = <ProductCardData>[];
-  
+
   // Pattern to match product entries with markdown links
   // Format: [ProductName](URL) - ₹Price
   final linkPattern = RegExp(
     r'\[([^\]]+)\]\(([^)]+)\)(?:\s*[-–]\s*(₹[\d,]+(?:\.\d{2})?))?',
     multiLine: true,
   );
-  
+
   for (final match in linkPattern.allMatches(response)) {
     final title = match.group(1) ?? '';
     final url = match.group(2) ?? '';
     final price = match.group(3);
-    
+
     if (title.isNotEmpty && url.isNotEmpty) {
       // Determine source from URL
       String? source;
@@ -387,16 +402,18 @@ List<ProductCardData> parseProductsFromResponse(String response) {
       } else if (url.contains('ajio')) {
         source = 'Ajio';
       }
-      
-      products.add(ProductCardData(
-        title: title,
-        price: price,
-        productUrl: url,
-        source: source,
-      ));
+
+      products.add(
+        ProductCardData(
+          title: title,
+          price: price,
+          productUrl: url,
+          source: source,
+        ),
+      );
     }
   }
-  
+
   // Also try to parse simple list items with prices
   // Format: - Product Name - ₹Price
   if (products.isEmpty) {
@@ -404,19 +421,21 @@ List<ProductCardData> parseProductsFromResponse(String response) {
       r'[-•]\s*([^-\n]+)\s*[-–]\s*(₹[\d,]+(?:\.\d{2})?)',
       multiLine: true,
     );
-    
+
     for (final match in listPattern.allMatches(response)) {
       final title = match.group(1)?.trim() ?? '';
       final price = match.group(2);
-      
+
       if (title.isNotEmpty) {
-        products.add(ProductCardData(
-          title: title,
-          price: price,
-        ));
+        products.add(
+          ProductCardData(
+            title: title,
+            price: price,
+          ),
+        );
       }
     }
   }
-  
+
   return products;
 }

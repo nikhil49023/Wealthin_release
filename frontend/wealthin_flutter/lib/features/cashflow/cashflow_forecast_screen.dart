@@ -119,8 +119,8 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
             Text(
               'Forecast Period',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -191,14 +191,16 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                     children: [
                       Text(
                         'Cash Runway',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${runwayMonths.toStringAsFixed(1)} months ($runwayDays days)',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
                               color: statusColor,
                               fontWeight: FontWeight.bold,
                             ),
@@ -245,8 +247,8 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
             child: Text(
               'No forecast data available',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey,
-                  ),
+                color: Colors.grey,
+              ),
             ),
           ),
         ),
@@ -281,8 +283,8 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
             Text(
               'Daily Balance Projection',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -324,11 +326,13 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                           if (value.toInt() >= _projections.length) {
                             return const SizedBox.shrink();
                           }
-                          final date = _projections[value.toInt()]['date'] as String?;
+                          final date =
+                              _projections[value.toInt()]['date'] as String?;
                           if (date == null) return const SizedBox.shrink();
 
                           final parsedDate = DateTime.tryParse(date);
-                          if (parsedDate == null) return const SizedBox.shrink();
+                          if (parsedDate == null)
+                            return const SizedBox.shrink();
 
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
@@ -416,8 +420,8 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                 Text(
                   'Cash Crunch Alerts',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -451,8 +455,7 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
                         ),
                         child: Text(
                           date != null
-                              ? DateFormat('MMM d')
-                                  .format(DateTime.parse(date))
+                              ? DateFormat('MMM d').format(DateTime.parse(date))
                               : '',
                           style: TextStyle(
                             fontSize: 12,
@@ -519,13 +522,16 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
             Text(
               'Summary Statistics',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             _buildStatRow('Starting Balance', firstBalance, Colors.blue),
-            _buildStatRow('Ending Balance', lastBalance,
-                lastBalance >= 0 ? Colors.green : Colors.red),
+            _buildStatRow(
+              'Ending Balance',
+              lastBalance,
+              lastBalance >= 0 ? Colors.green : Colors.red,
+            ),
             _buildStatRow('Total Income', totalIncome, Colors.green),
             _buildStatRow('Total Expenses', totalExpenses, Colors.red),
             const Divider(height: 24),
@@ -541,8 +547,12 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
     );
   }
 
-  Widget _buildStatRow(String label, double value, Color color,
-      {bool isBold = false}) {
+  Widget _buildStatRow(
+    String label,
+    double value,
+    Color color, {
+    bool isBold = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -555,9 +565,9 @@ class _CashflowForecastScreenState extends State<CashflowForecastScreen> {
           Text(
             '₹${_formatAmount(value)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: color,
-                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                ),
+              color: color,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
         ],
       ),

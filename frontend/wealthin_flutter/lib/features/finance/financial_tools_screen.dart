@@ -50,7 +50,12 @@ class FinancialToolsScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -59,13 +64,19 @@ class FinancialToolsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             TextField(
               controller: incomeCtrl,
-              decoration: const InputDecoration(labelText: 'Monthly Income', prefixText: '₹'),
+              decoration: const InputDecoration(
+                labelText: 'Monthly Income',
+                prefixText: '₹',
+              ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 8),
             TextField(
               controller: expenseCtrl,
-              decoration: const InputDecoration(labelText: 'Monthly Expenses', prefixText: '₹'),
+              decoration: const InputDecoration(
+                labelText: 'Monthly Expenses',
+                prefixText: '₹',
+              ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
@@ -73,7 +84,10 @@ class FinancialToolsScreen extends StatelessWidget {
               onPressed: () {
                 final income = double.tryParse(incomeCtrl.text) ?? 0;
                 final expense = double.tryParse(expenseCtrl.text) ?? 0;
-                final rate = FinancialCalculator.calculateSavingsRate(income, expense);
+                final rate = FinancialCalculator.calculateSavingsRate(
+                  income,
+                  expense,
+                );
                 Navigator.pop(ctx);
                 _showResult(context, 'Savings Rate: $rate%');
               },
@@ -95,16 +109,27 @@ class FinancialToolsScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Compound Interest', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Compound Interest',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: principalCtrl,
-              decoration: const InputDecoration(labelText: 'Principal Amount', prefixText: '₹'),
+              decoration: const InputDecoration(
+                labelText: 'Principal Amount',
+                prefixText: '₹',
+              ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 8),
@@ -113,16 +138,19 @@ class FinancialToolsScreen extends StatelessWidget {
               decoration: const InputDecoration(labelText: 'Annual Rate (%)'),
               keyboardType: TextInputType.number,
             ),
-             const SizedBox(height: 8),
+            const SizedBox(height: 8),
             TextField(
               controller: yearsCtrl,
               decoration: const InputDecoration(labelText: 'Duration (Years)'),
               keyboardType: TextInputType.number,
             ),
-             const SizedBox(height: 8),
+            const SizedBox(height: 8),
             TextField(
               controller: monthlyCtrl,
-              decoration: const InputDecoration(labelText: 'Monthly Contribution (Optional)', prefixText: '₹'),
+              decoration: const InputDecoration(
+                labelText: 'Monthly Contribution (Optional)',
+                prefixText: '₹',
+              ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
@@ -140,7 +168,10 @@ class FinancialToolsScreen extends StatelessWidget {
                   monthlyContribution: monthly,
                 );
                 Navigator.pop(ctx);
-                _showResult(context, 'Total Amount: ₹${result['total_amount']}\nInterest Earned: ₹${result['interest_earned']}');
+                _showResult(
+                  context,
+                  'Total Amount: ₹${result['total_amount']}\nInterest Earned: ₹${result['interest_earned']}',
+                );
               },
               child: const Text('Calculate'),
             ),
@@ -158,22 +189,36 @@ class FinancialToolsScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Emergency Fund Check', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Emergency Fund Check',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: savingsCtrl,
-              decoration: const InputDecoration(labelText: 'Current Savings', prefixText: '₹'),
+              decoration: const InputDecoration(
+                labelText: 'Current Savings',
+                prefixText: '₹',
+              ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 8),
             TextField(
               controller: expenseCtrl,
-              decoration: const InputDecoration(labelText: 'Monthly Expenses', prefixText: '₹'),
+              decoration: const InputDecoration(
+                labelText: 'Monthly Expenses',
+                prefixText: '₹',
+              ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
@@ -181,13 +226,16 @@ class FinancialToolsScreen extends StatelessWidget {
               onPressed: () {
                 final savings = double.tryParse(savingsCtrl.text) ?? 0;
                 final expenses = double.tryParse(expenseCtrl.text) ?? 0;
-                
+
                 final result = FinancialCalculator.calculateEmergencyFundStatus(
-                  currentSavings: savings, 
-                  monthlyExpenses: expenses
+                  currentSavings: savings,
+                  monthlyExpenses: expenses,
                 );
                 Navigator.pop(ctx);
-                _showResult(context, 'Health: ${result['health_status']}\nMonths Covered: ${result['months_covered']}');
+                _showResult(
+                  context,
+                  'Health: ${result['health_status']}\nMonths Covered: ${result['months_covered']}',
+                );
               },
               child: const Text('Check Status'),
             ),
@@ -198,23 +246,34 @@ class FinancialToolsScreen extends StatelessWidget {
   }
 
   void _showPerCapitaCalculator(BuildContext context) {
-     final incomeCtrl = TextEditingController();
+    final incomeCtrl = TextEditingController();
     final familySizeCtrl = TextEditingController();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Per Capita Income', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Per Capita Income',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: incomeCtrl,
-              decoration: const InputDecoration(labelText: 'Total Monthly Income', prefixText: '₹'),
+              decoration: const InputDecoration(
+                labelText: 'Total Monthly Income',
+                prefixText: '₹',
+              ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 8),
@@ -228,7 +287,10 @@ class FinancialToolsScreen extends StatelessWidget {
               onPressed: () {
                 final income = double.tryParse(incomeCtrl.text) ?? 0;
                 final size = int.tryParse(familySizeCtrl.text) ?? 1;
-                final result = FinancialCalculator.calculatePerCapitaIncome(income, size);
+                final result = FinancialCalculator.calculatePerCapitaIncome(
+                  income,
+                  size,
+                );
                 Navigator.pop(ctx);
                 _showResult(context, 'Per Capita Income: ₹$result');
               },
@@ -242,14 +304,17 @@ class FinancialToolsScreen extends StatelessWidget {
 
   void _showResult(BuildContext context, String message) {
     showDialog(
-      context: context, 
+      context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Result'),
         content: Text(message, style: const TextStyle(fontSize: 18)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
         ],
-      )
+      ),
     );
   }
 }
@@ -292,10 +357,16 @@ class _ToolCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 16, color: WealthInTheme.gray500),
+              const Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: WealthInTheme.gray500,
+              ),
             ],
           ),
         ),
@@ -303,4 +374,3 @@ class _ToolCard extends StatelessWidget {
     );
   }
 }
-

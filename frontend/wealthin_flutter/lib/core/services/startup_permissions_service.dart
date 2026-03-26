@@ -17,7 +17,9 @@ class StartupPermissionsService {
   Future<void> requestStartupPermissions(BuildContext context) async {
     if (_hasRequestedPermissions) return;
     _hasRequestedPermissions = true;
-    debugPrint('[Permissions] No startup permissions needed — all features work without runtime permissions.');
+    debugPrint(
+      '[Permissions] No startup permissions needed — all features work without runtime permissions.',
+    );
   }
 
   /// Always returns true — no permissions are checked.

@@ -214,7 +214,9 @@ class _CashflowCardState extends State<CashflowCard> {
                 Container(
                   width: 1,
                   height: 40,
-                  color: isDark ? WealthInColors.blackBorder : WealthInTheme.gray300,
+                  color: isDark
+                      ? WealthInColors.blackBorder
+                      : WealthInTheme.gray300,
                 ),
                 Expanded(
                   child: _CashflowItem(
@@ -428,7 +430,9 @@ class _CashflowCardState extends State<CashflowCard> {
       maxY: chartMaxY,
       barTouchData: BarTouchData(
         touchTooltipData: BarTouchTooltipData(
-          tooltipBgColor: isDark ? WealthInColors.blackCard : WealthInColors.paperWhite,
+          tooltipBgColor: isDark
+              ? WealthInColors.blackCard
+              : WealthInColors.paperWhite,
           tooltipRoundedRadius: 8,
           getTooltipItem: (group, groupIndex, rod, rodIndex) {
             String label = rodIndex == 0 ? 'Income' : 'Expense';

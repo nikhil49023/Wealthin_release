@@ -1439,19 +1439,28 @@ class DataService {
               .map((e) => '  - ${e.key}: ₹${e.value.toStringAsFixed(0)}')
               .join('\n');
 
-          String budgetStr = budgets.take(5).map((b) {
-            String name = b['name']?.toString() ?? b['category']?.toString() ?? 'Unknown';
-            double amt = (b['amount'] as num?)?.toDouble() ?? 0;
-            double spent = (b['spent'] as num?)?.toDouble() ?? 0;
-            return '  - $name: ₹${spent.toStringAsFixed(0)} / ₹${amt.toStringAsFixed(0)}';
-          }).join('\n');
+          String budgetStr = budgets
+              .take(5)
+              .map((b) {
+                String name =
+                    b['name']?.toString() ??
+                    b['category']?.toString() ??
+                    'Unknown';
+                double amt = (b['amount'] as num?)?.toDouble() ?? 0;
+                double spent = (b['spent'] as num?)?.toDouble() ?? 0;
+                return '  - $name: ₹${spent.toStringAsFixed(0)} / ₹${amt.toStringAsFixed(0)}';
+              })
+              .join('\n');
 
-          String goalStr = goalsData.take(5).map((g) {
-            String name = g['name']?.toString() ?? 'Unknown';
-            double target = (g['target_amount'] as num?)?.toDouble() ?? 0;
-            double saved = (g['current_amount'] as num?)?.toDouble() ?? 0;
-            return '  - $name: ₹${saved.toStringAsFixed(0)} / ₹${target.toStringAsFixed(0)}';
-          }).join('\n');
+          String goalStr = goalsData
+              .take(5)
+              .map((g) {
+                String name = g['name']?.toString() ?? 'Unknown';
+                double target = (g['target_amount'] as num?)?.toDouble() ?? 0;
+                double saved = (g['current_amount'] as num?)?.toDouble() ?? 0;
+                return '  - $name: ₹${saved.toStringAsFixed(0)} / ₹${target.toStringAsFixed(0)}';
+              })
+              .join('\n');
 
           // Aggregate top merchants from recent transactions
           final recentTx = await databaseHelper.getTransactions(limit: 200);
@@ -1467,24 +1476,33 @@ class DataService {
           }
           final sortedMerchants = merchantTotals.entries.toList()
             ..sort((a, b) => b.value.compareTo(a.value));
-          String topMerchants = sortedMerchants.take(8).map((e) =>
-            '  - ${e.key}: ₹${e.value.toStringAsFixed(0)} (${merchantCounts[e.key]} txns)'
-          ).join('\n');
+          String topMerchants = sortedMerchants
+              .take(8)
+              .map(
+                (e) =>
+                    '  - ${e.key}: ₹${e.value.toStringAsFixed(0)} (${merchantCounts[e.key]} txns)',
+              )
+              .join('\n');
 
           // Build monthly trend (last 3 months)
           String monthlyTrend = '';
           try {
             for (int i = 2; i >= 0; i--) {
               final mStart = DateTime(now.year, now.month - i, 1);
-              final mEnd = (i == 0) ? now : DateTime(now.year, now.month - i + 1, 0);
+              final mEnd = (i == 0)
+                  ? now
+                  : DateTime(now.year, now.month - i + 1, 0);
               final mSummary = await databaseHelper.getTransactionSummary(
                 startDate: mStart.toIso8601String(),
                 endDate: mEnd.toIso8601String(),
               );
-              final mIncome = (mSummary?['total_income'] as num?)?.toDouble() ?? 0;
-              final mExpense = (mSummary?['total_expenses'] as num?)?.toDouble() ?? 0;
+              final mIncome =
+                  (mSummary?['total_income'] as num?)?.toDouble() ?? 0;
+              final mExpense =
+                  (mSummary?['total_expenses'] as num?)?.toDouble() ?? 0;
               final mLabel = '${mStart.month}/${mStart.year}';
-              monthlyTrend += '  - $mLabel: Income ₹${mIncome.toStringAsFixed(0)}, Expense ₹${mExpense.toStringAsFixed(0)}\n';
+              monthlyTrend +=
+                  '  - $mLabel: Income ₹${mIncome.toStringAsFixed(0)}, Expense ₹${mExpense.toStringAsFixed(0)}\n';
             }
           } catch (e) {
             debugPrint('[HealthScore] Monthly trend error: $e');
@@ -1499,13 +1517,21 @@ class DataService {
             categoryBreakdown: catBreak.isEmpty ? 'No spending data' : catBreak,
             budgetInfo: budgetStr.isEmpty ? 'No budgets set' : budgetStr,
             goalInfo: goalStr.isEmpty ? 'No goals set' : goalStr,
-            topMerchants: topMerchants.isEmpty ? 'No merchant data' : topMerchants,
-            monthlyTrend: monthlyTrend.isEmpty ? 'No trend data available' : monthlyTrend,
+            topMerchants: topMerchants.isEmpty
+                ? 'No merchant data'
+                : topMerchants,
+            monthlyTrend: monthlyTrend.isEmpty
+                ? 'No trend data available'
+                : monthlyTrend,
           );
 
           if (aiResult['success'] == true && aiResult['analysis'] != null) {
-            healthScore = healthScore.withAiAnalysis(aiResult['analysis'] as String);
-            debugPrint('[HealthScore] AI analysis enriched via ${aiResult['model']}');
+            healthScore = healthScore.withAiAnalysis(
+              aiResult['analysis'] as String,
+            );
+            debugPrint(
+              '[HealthScore] AI analysis enriched via ${aiResult['model']}',
+            );
           }
         } catch (e) {
           debugPrint('[HealthScore] AI analysis skipped: $e');
@@ -1945,31 +1971,47 @@ class DataService {
             startDate: threeMonthsAgo.toIso8601String(),
             type: 'debit',
           );
-          
+
           // Group by merchant/description
           final merchantMap = <String, Map<String, dynamic>>{};
           for (var tx in recentTxns) {
-            final merchant = tx['description']?.toString() ?? tx['merchant']?.toString() ?? 'Unknown';
+            final merchant =
+                tx['description']?.toString() ??
+                tx['merchant']?.toString() ??
+                'Unknown';
             final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
             if (merchant.isEmpty || merchant == 'Unknown') continue;
-            
+
             if (!merchantMap.containsKey(merchant)) {
-              merchantMap[merchant] = {'total': 0.0, 'count': 0, 'amounts': <double>[]};
+              merchantMap[merchant] = {
+                'total': 0.0,
+                'count': 0,
+                'amounts': <double>[],
+              };
             }
-            merchantMap[merchant]!['total'] = (merchantMap[merchant]!['total'] as double) + amount;
-            merchantMap[merchant]!['count'] = (merchantMap[merchant]!['count'] as int) + 1;
+            merchantMap[merchant]!['total'] =
+                (merchantMap[merchant]!['total'] as double) + amount;
+            merchantMap[merchant]!['count'] =
+                (merchantMap[merchant]!['count'] as int) + 1;
             (merchantMap[merchant]!['amounts'] as List<double>).add(amount);
           }
-          
+
           // Top merchants by total spend
           var sortedMerchants = merchantMap.entries.toList()
-            ..sort((a, b) => (b.value['total'] as double).compareTo(a.value['total'] as double));
-          
-          merchantInfo = sortedMerchants.take(6).map((e) {
-            final count = e.value['count'] as int;
-            final total = e.value['total'] as double;
-            return '  - ${e.key}: ₹${total.toStringAsFixed(0)} ($count transactions)';
-          }).join('\n');
+            ..sort(
+              (a, b) => (b.value['total'] as double).compareTo(
+                a.value['total'] as double,
+              ),
+            );
+
+          merchantInfo = sortedMerchants
+              .take(6)
+              .map((e) {
+                final count = e.value['count'] as int;
+                final total = e.value['total'] as double;
+                return '  - ${e.key}: ₹${total.toStringAsFixed(0)} ($count transactions)';
+              })
+              .join('\n');
 
           // === RECURRING PAYMENTS (same merchant, similar amount, 2+ months) ===
           String recurringInfo = '';
@@ -1984,24 +2026,30 @@ class DataService {
           }).toList();
 
           if (recurringMerchants.isNotEmpty) {
-            recurringInfo = recurringMerchants.take(5).map((e) {
-              final amounts = e.value['amounts'] as List<double>;
-              final avgAmt = amounts.reduce((a, b) => a + b) / amounts.length;
-              return '  - ${e.key}: ~₹${avgAmt.toStringAsFixed(0)}/occurrence (${amounts.length} times in 3 months)';
-            }).join('\n');
+            recurringInfo = recurringMerchants
+                .take(5)
+                .map((e) {
+                  final amounts = e.value['amounts'] as List<double>;
+                  final avgAmt =
+                      amounts.reduce((a, b) => a + b) / amounts.length;
+                  return '  - ${e.key}: ~₹${avgAmt.toStringAsFixed(0)}/occurrence (${amounts.length} times in 3 months)';
+                })
+                .join('\n');
           }
 
           // === MONTH-OVER-MONTH EXPENSE HIKES ===
           String hikeInfo = '';
           try {
-            final lastMonthBreakdown = await databaseHelper.getCategoryBreakdown(
-              startDate: lastMonthStart.toIso8601String(),
-              endDate: startOfMonth.toIso8601String(),
-            );
-            final twoMonthsAgoBreakdown = await databaseHelper.getCategoryBreakdown(
-              startDate: twoMonthsAgo.toIso8601String(),
-              endDate: lastMonthStart.toIso8601String(),
-            );
+            final lastMonthBreakdown = await databaseHelper
+                .getCategoryBreakdown(
+                  startDate: lastMonthStart.toIso8601String(),
+                  endDate: startOfMonth.toIso8601String(),
+                );
+            final twoMonthsAgoBreakdown = await databaseHelper
+                .getCategoryBreakdown(
+                  startDate: twoMonthsAgo.toIso8601String(),
+                  endDate: lastMonthStart.toIso8601String(),
+                );
 
             final hikes = <String>[];
             for (var cat in lastMonthBreakdown.keys) {
@@ -2010,7 +2058,9 @@ class DataService {
               if (prevSpend > 0 && lastSpend > prevSpend) {
                 final hikePct = ((lastSpend - prevSpend) / prevSpend * 100);
                 if (hikePct >= 30) {
-                  hikes.add('  - $cat: ₹${prevSpend.toStringAsFixed(0)} → ₹${lastSpend.toStringAsFixed(0)} (+${hikePct.toStringAsFixed(0)}%)');
+                  hikes.add(
+                    '  - $cat: ₹${prevSpend.toStringAsFixed(0)} → ₹${lastSpend.toStringAsFixed(0)} (+${hikePct.toStringAsFixed(0)}%)',
+                  );
                 }
               }
             }
@@ -2029,7 +2079,8 @@ class DataService {
             );
             final txnCount = currentMonthTxns.length;
             final avgPerDay = txnCount / daysSinceStart;
-            frequencyInfo = '$txnCount transactions this month (avg ${avgPerDay.toStringAsFixed(1)}/day)';
+            frequencyInfo =
+                '$txnCount transactions this month (avg ${avgPerDay.toStringAsFixed(1)}/day)';
           } catch (_) {}
 
           // === LARGEST SINGLE TRANSACTIONS ===
@@ -2046,12 +2097,18 @@ class DataService {
               final amtB = (b['amount'] as num?)?.toDouble() ?? 0;
               return amtB.compareTo(amtA);
             });
-            largestTxnInfo = largeTxns.take(3).map((tx) {
-              final desc = tx['description']?.toString() ?? tx['merchant']?.toString() ?? 'Unknown';
-              final amt = (tx['amount'] as num?)?.toDouble() ?? 0;
-              final cat = tx['category']?.toString() ?? '';
-              return '  - ₹${amt.toStringAsFixed(0)} at $desc${cat.isNotEmpty ? ' ($cat)' : ''}';
-            }).join('\n');
+            largestTxnInfo = largeTxns
+                .take(3)
+                .map((tx) {
+                  final desc =
+                      tx['description']?.toString() ??
+                      tx['merchant']?.toString() ??
+                      'Unknown';
+                  final amt = (tx['amount'] as num?)?.toDouble() ?? 0;
+                  final cat = tx['category']?.toString() ?? '';
+                  return '  - ₹${amt.toStringAsFixed(0)} at $desc${cat.isNotEmpty ? ' ($cat)' : ''}';
+                })
+                .join('\n');
           } catch (_) {}
 
           // Assemble notable trends section
@@ -2065,7 +2122,9 @@ class DataService {
             trendsBuffer.writeln(recurringInfo);
           }
           if (hikeInfo.isNotEmpty) {
-            trendsBuffer.writeln('\n**Expense Hikes (vs previous month, 30%+ increases):**');
+            trendsBuffer.writeln(
+              '\n**Expense Hikes (vs previous month, 30%+ increases):**',
+            );
             trendsBuffer.writeln(hikeInfo);
           }
           if (frequencyInfo.isNotEmpty) {
@@ -3311,16 +3370,84 @@ $emiRecommendation
           'status': 'Draft — Fill in details to complete',
         },
         'sections': [
-          {'title': '1. Executive Summary', 'content': {'business_name': '', 'nature_of_business': idea, 'enterprise_category': '', 'project_cost': '', 'loan_required': ''}},
-          {'title': '2. Promoter Profile', 'content': {'promoter_name': '', 'qualification': '', 'experience_years': '', 'udyam_number': '', 'pan': ''}},
-          {'title': '3. Market Analysis', 'content': {'product_description': idea, 'target_market': '', 'competitive_advantage': '', 'pricing_strategy': ''}},
-          {'title': '4. Technical Aspects', 'content': {'process_description': '', 'raw_materials': '', 'plant_capacity': '', 'manpower_required': ''}},
-          {'title': '5. Supply Chain', 'content': {'vendor_list': '', 'logistics_plan': '', 'cost_comparison': ''}},
-          {'title': '6. Financial Projections', 'content': {'year_1': '', 'year_2': '', 'year_3': ''}},
-          {'title': '7. Cost of Project', 'content': {'total_project_cost': '', 'term_loan': '', 'promoter_contribution': ''}},
-          {'title': '8. Profitability', 'content': {'dscr': '', 'break_even_revenue': '', 'payback_period_years': ''}},
-          {'title': '9. Risk Analysis', 'content': {'key_risks': '', 'mitigation_strategies': ''}},
-          {'title': '10. Compliance', 'content': {'udyam_registration': '', 'gst_registration': '', 'applicable_schemes': ''}},
+          {
+            'title': '1. Executive Summary',
+            'content': {
+              'business_name': '',
+              'nature_of_business': idea,
+              'enterprise_category': '',
+              'project_cost': '',
+              'loan_required': '',
+            },
+          },
+          {
+            'title': '2. Promoter Profile',
+            'content': {
+              'promoter_name': '',
+              'qualification': '',
+              'experience_years': '',
+              'udyam_number': '',
+              'pan': '',
+            },
+          },
+          {
+            'title': '3. Market Analysis',
+            'content': {
+              'product_description': idea,
+              'target_market': '',
+              'competitive_advantage': '',
+              'pricing_strategy': '',
+            },
+          },
+          {
+            'title': '4. Technical Aspects',
+            'content': {
+              'process_description': '',
+              'raw_materials': '',
+              'plant_capacity': '',
+              'manpower_required': '',
+            },
+          },
+          {
+            'title': '5. Supply Chain',
+            'content': {
+              'vendor_list': '',
+              'logistics_plan': '',
+              'cost_comparison': '',
+            },
+          },
+          {
+            'title': '6. Financial Projections',
+            'content': {'year_1': '', 'year_2': '', 'year_3': ''},
+          },
+          {
+            'title': '7. Cost of Project',
+            'content': {
+              'total_project_cost': '',
+              'term_loan': '',
+              'promoter_contribution': '',
+            },
+          },
+          {
+            'title': '8. Profitability',
+            'content': {
+              'dscr': '',
+              'break_even_revenue': '',
+              'payback_period_years': '',
+            },
+          },
+          {
+            'title': '9. Risk Analysis',
+            'content': {'key_risks': '', 'mitigation_strategies': ''},
+          },
+          {
+            'title': '10. Compliance',
+            'content': {
+              'udyam_registration': '',
+              'gst_registration': '',
+              'applicable_schemes': '',
+            },
+          },
         ],
       },
     };
@@ -3786,7 +3913,8 @@ $emiRecommendation
       {
         'id': 'wealth_planner',
         'label': 'Wealth Planner',
-        'description': 'Smart budgets, investments, savings & financial growth guidance.',
+        'description':
+            'Smart budgets, investments, savings & financial growth guidance.',
       },
     ];
   }
@@ -3839,7 +3967,8 @@ $emiRecommendation
             for (final raw in (data['modes'] as List)) {
               if (raw is! Map) continue;
               final item = Map<String, dynamic>.from(raw);
-              final key = item['id']?.toString() ?? item['key']?.toString() ?? '';
+              final key =
+                  item['id']?.toString() ?? item['key']?.toString() ?? '';
               if (key.isEmpty) continue;
               parsed.add({
                 'id': key,
@@ -3896,7 +4025,9 @@ $emiRecommendation
         try {
           return jsonDecode(backendResponse.body);
         } catch (e) {
-          debugPrint('[Brainstorm Chat] Invalid backend JSON, falling back: $e');
+          debugPrint(
+            '[Brainstorm Chat] Invalid backend JSON, falling back: $e',
+          );
         }
       }
     }
@@ -3908,42 +4039,65 @@ $emiRecommendation
         final financialCtx = StringBuffer();
         if (userProfile != null) {
           if (userProfile.containsKey('monthly_income')) {
-            financialCtx.writeln('User monthly income: ₹${userProfile['monthly_income']}');
+            financialCtx.writeln(
+              'User monthly income: ₹${userProfile['monthly_income']}',
+            );
           }
           if (userProfile.containsKey('monthly_expenses')) {
-            financialCtx.writeln('User monthly expenses: ₹${userProfile['monthly_expenses']}');
+            financialCtx.writeln(
+              'User monthly expenses: ₹${userProfile['monthly_expenses']}',
+            );
           }
           if (userProfile.containsKey('savings_rate')) {
-            financialCtx.writeln('Savings rate: ${userProfile['savings_rate']}');
+            financialCtx.writeln(
+              'Savings rate: ${userProfile['savings_rate']}',
+            );
           }
-          if (userProfile.containsKey('top_spending') && userProfile['top_spending'] is List) {
-            financialCtx.writeln('Top spending: ${(userProfile['top_spending'] as List).join(', ')}');
+          if (userProfile.containsKey('top_spending') &&
+              userProfile['top_spending'] is List) {
+            financialCtx.writeln(
+              'Top spending: ${(userProfile['top_spending'] as List).join(', ')}',
+            );
           }
           if (userProfile.containsKey('location')) {
-            financialCtx.writeln('User Location/State: ${userProfile['location']}');
+            financialCtx.writeln(
+              'User Location/State: ${userProfile['location']}',
+            );
           }
           if (userProfile.containsKey('business_sector')) {
-            financialCtx.writeln('Business Sector: ${userProfile['business_sector']}');
+            financialCtx.writeln(
+              'Business Sector: ${userProfile['business_sector']}',
+            );
           }
           if (userProfile.containsKey('business_stage')) {
-            financialCtx.writeln('Business Stage: ${userProfile['business_stage']}');
+            financialCtx.writeln(
+              'Business Stage: ${userProfile['business_stage']}',
+            );
           }
           if (userProfile.containsKey('location_type')) {
-            financialCtx.writeln('Location Type: ${userProfile['location_type']}');
+            financialCtx.writeln(
+              'Location Type: ${userProfile['location_type']}',
+            );
           }
         }
 
         // Build location context
         final locationCtx = StringBuffer();
-        final effectiveLocation = userLocation ?? userProfile?['location']?.toString() ?? '';
+        final effectiveLocation =
+            userLocation ?? userProfile?['location']?.toString() ?? '';
         if (effectiveLocation.isNotEmpty) {
           locationCtx.writeln('\n📍 USER LOCATION: $effectiveLocation');
-          locationCtx.writeln('Use this to provide state-wise government scheme data, local investment options, and financial planning insights.');
-          locationCtx.writeln('Search across the ENTIRE state for the best options, not just nearby.');
+          locationCtx.writeln(
+            'Use this to provide state-wise government scheme data, local investment options, and financial planning insights.',
+          );
+          locationCtx.writeln(
+            'Search across the ENTIRE state for the best options, not just nearby.',
+          );
         }
 
         // Determine language preference
-        final preferredLang = userProfile?['preferred_language']?.toString() ?? 'English';
+        final preferredLang =
+            userProfile?['preferred_language']?.toString() ?? 'English';
         final langInstruction = preferredLang != 'English'
             ? '\n\n🗣️ LANGUAGE: Respond in **$preferredLang**. Use $preferredLang script naturally. For technical/financial terms, write the $preferredLang word first, then the English term in brackets. Example: "मुद्रा योजना (MUDRA Scheme)".'
             : '';

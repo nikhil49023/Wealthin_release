@@ -51,7 +51,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
       // This ensures budgets always reflect actual transaction data
       await databaseHelper.recalculateBudgetSpending();
       debugPrint('[Budgets] Auto-recalculated spending from transactions');
-      
+
       final budgets = await dataService.getBudgets(_userId);
 
       double totalBudget = 0;
@@ -177,7 +177,7 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
     // Default to first category if available
     final categories = Categories.budgetable;
     if (categories.isNotEmpty) selectedCategory = categories.first;
-    
+
     // Attempt to match icon, fallback to restaurant
     String selectedIcon = 'restaurant';
 
@@ -203,118 +203,135 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: WealthInTheme.gray300,
-                        borderRadius: BorderRadius.circular(2),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: WealthInTheme.gray300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Create Budget',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 20),
+                    Text(
+                      'Create Budget',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // Category Dropdown
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedCategory,
-                    items: categories.map((c) {
-                      return DropdownMenuItem(
-                        value: c,
-                        child: Text(c),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() {
-                          selectedCategory = val;
-                          // Try to auto-select icon based on category name logic
-                          // This is a simple heuristic mapping based on _budgetIcons keys
-                          final lower = val.toLowerCase();
-                          if (lower.contains('food')) {
-                            selectedIcon = 'restaurant';
-                          } else if (lower.contains('shop')) selectedIcon = 'shopping';
-                          else if (lower.contains('transport')) selectedIcon = 'transport';
-                          else if (lower.contains('entertain')) selectedIcon = 'entertainment';
-                          else if (lower.contains('health')) selectedIcon = 'health';
-                          else if (lower.contains('bill') || lower.contains('util')) selectedIcon = 'bills';
-                          else if (lower.contains('grocer')) selectedIcon = 'groceries';
-                          else if (lower.contains('educat')) selectedIcon = 'education';
-                          else if (lower.contains('travel')) selectedIcon = 'travel';
-                          else if (lower.contains('subscript')) selectedIcon = 'subscriptions';
-                          else if (lower.contains('rent') || lower.contains('house')) selectedIcon = 'housing';
-                          else selectedIcon = 'other';
-                        });
-                      }
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      prefixIcon: Icon(Icons.category),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: amountController,
-                    decoration: const InputDecoration(
-                      labelText: 'Monthly Limit',
-                      hintText: '5000',
-                      prefixIcon: Icon(Icons.currency_rupee),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  // Icon is automatically determined from category
-                  const SizedBox(height: 24),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final amount =
-                            double.tryParse(amountController.text) ?? 0;
-                        if (selectedCategory != null && amount > 0) {
-                          // Create budget via API
-                          // Use exact category string as ID and Name
-                          final created = await dataService.createBudget(
-                            userId: _userId,
-                            name: selectedCategory!, 
-                            amount: amount,
-                            category: selectedCategory!, // Crucial: Store exact category name
-                          );
+                    const SizedBox(height: 20),
 
-                          if (context.mounted) Navigator.pop(context);
-
-                          if (created != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Budget for "$selectedCategory" created! ✅'),
-                                backgroundColor: AppTheme.success,
-                              ),
-                            );
-                            _loadBudgets();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to create budget'),
-                                backgroundColor: AppTheme.error,
-                              ),
-                            );
-                          }
+                    // Category Dropdown
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedCategory,
+                      items: categories.map((c) {
+                        return DropdownMenuItem(
+                          value: c,
+                          child: Text(c),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() {
+                            selectedCategory = val;
+                            // Try to auto-select icon based on category name logic
+                            // This is a simple heuristic mapping based on _budgetIcons keys
+                            final lower = val.toLowerCase();
+                            if (lower.contains('food')) {
+                              selectedIcon = 'restaurant';
+                            } else if (lower.contains('shop'))
+                              selectedIcon = 'shopping';
+                            else if (lower.contains('transport'))
+                              selectedIcon = 'transport';
+                            else if (lower.contains('entertain'))
+                              selectedIcon = 'entertainment';
+                            else if (lower.contains('health'))
+                              selectedIcon = 'health';
+                            else if (lower.contains('bill') ||
+                                lower.contains('util'))
+                              selectedIcon = 'bills';
+                            else if (lower.contains('grocer'))
+                              selectedIcon = 'groceries';
+                            else if (lower.contains('educat'))
+                              selectedIcon = 'education';
+                            else if (lower.contains('travel'))
+                              selectedIcon = 'travel';
+                            else if (lower.contains('subscript'))
+                              selectedIcon = 'subscriptions';
+                            else if (lower.contains('rent') ||
+                                lower.contains('house'))
+                              selectedIcon = 'housing';
+                            else
+                              selectedIcon = 'other';
+                          });
                         }
                       },
-                      child: const Text('Create Budget'),
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        prefixIcon: Icon(Icons.category),
+                      ),
                     ),
-                 ),
-                 ],
-               ),
+
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Monthly Limit',
+                        hintText: '5000',
+                        prefixIcon: Icon(Icons.currency_rupee),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    // Icon is automatically determined from category
+                    const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final amount =
+                              double.tryParse(amountController.text) ?? 0;
+                          if (selectedCategory != null && amount > 0) {
+                            // Create budget via API
+                            // Use exact category string as ID and Name
+                            final created = await dataService.createBudget(
+                              userId: _userId,
+                              name: selectedCategory!,
+                              amount: amount,
+                              category:
+                                  selectedCategory!, // Crucial: Store exact category name
+                            );
+
+                            if (context.mounted) Navigator.pop(context);
+
+                            if (created != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Budget for "$selectedCategory" created! ✅',
+                                  ),
+                                  backgroundColor: AppTheme.success,
+                                ),
+                              );
+                              _loadBudgets();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to create budget'),
+                                  backgroundColor: AppTheme.error,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Create Budget'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -352,95 +369,96 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: WealthInTheme.gray300,
-                        borderRadius: BorderRadius.circular(2),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: WealthInTheme.gray300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Edit Budget',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 20),
+                    Text(
+                      'Edit Budget',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Display category name (read-only for now as it is PK)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: WealthInTheme.gray100,
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 20),
+                    // Display category name (read-only for now as it is PK)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: WealthInTheme.gray100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(TransactionCategorizer.getIcon(budget.category)),
+                          const SizedBox(width: 12),
+                          Text(
+                            budget.category,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(TransactionCategorizer.getIcon(budget.category)),
-                        const SizedBox(width: 12),
-                        Text(
-                          budget.category,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ],
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Monthly Limit',
+                        prefixIcon: Icon(Icons.currency_rupee),
+                      ),
+                      keyboardType: TextInputType.number,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: amountController,
-                    decoration: const InputDecoration(
-                      labelText: 'Monthly Limit',
-                      prefixIcon: Icon(Icons.currency_rupee),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  // Icon is fixed based on category
-                  const SizedBox(height: 24),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final name = nameController.text.trim();
-                        final amount =
-                            double.tryParse(amountController.text) ?? 0;
-                        if (name.isNotEmpty && amount > 0) {
-                          if (context.mounted) Navigator.pop(context);
+                    // Icon is fixed based on category
+                    const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final name = nameController.text.trim();
+                          final amount =
+                              double.tryParse(amountController.text) ?? 0;
+                          if (name.isNotEmpty && amount > 0) {
+                            if (context.mounted) Navigator.pop(context);
 
-                          // Update budget via API
-                          final updated = await dataService.updateBudget(
-                            userId: _userId,
-                            category: budget.category,
-                            limitAmount: amount,
-                          );
+                            // Update budget via API
+                            final updated = await dataService.updateBudget(
+                              userId: _userId,
+                              category: budget.category,
+                              limitAmount: amount,
+                            );
 
-                          if (updated != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Budget "$name" updated! ✅'),
-                                backgroundColor: AppTheme.success,
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to update budget'),
-                                backgroundColor: AppTheme.error,
-                              ),
-                            );
+                            if (updated != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Budget "$name" updated! ✅'),
+                                  backgroundColor: AppTheme.success,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to update budget'),
+                                  backgroundColor: AppTheme.error,
+                                ),
+                              );
+                            }
+                            _loadBudgets();
                           }
-                          _loadBudgets();
-                        }
-                      },
-                      child: const Text('Save Changes'),
+                        },
+                        child: const Text('Save Changes'),
+                      ),
                     ),
-                 ),
-                 ],
-               ),
+                  ],
+                ),
               ),
             );
           },
@@ -486,7 +504,10 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
   }
 
   /// Show transactions for a specific budget category
-  void _showCategoryTransactions(BuildContext context, BudgetData budget) async {
+  void _showCategoryTransactions(
+    BuildContext context,
+    BudgetData budget,
+  ) async {
     // Fetch transactions for this category
     final transactions = await DatabaseHelper().getTransactionsByCategory(
       budget.category,
@@ -503,9 +524,11 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
       ),
       builder: (context) {
         final theme = Theme.of(context);
-        final progress = budget.amount > 0 ? (budget.spent / budget.amount) : 0.0;
+        final progress = budget.amount > 0
+            ? (budget.spent / budget.amount)
+            : 0.0;
         final isOverBudget = budget.spent > budget.amount;
-        
+
         Color progressColor;
         if (progress < 0.5) {
           progressColor = AppTheme.incomeGreen;
@@ -567,16 +590,20 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                                 Text(
                                   '₹${_formatAmount(budget.spent)} of ₹${_formatAmount(budget.amount)}',
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: isOverBudget 
+                              color: isOverBudget
                                   ? AppTheme.expenseRed.withValues(alpha: 0.1)
                                   : AppTheme.incomeGreen.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
@@ -584,7 +611,9 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                             child: Text(
                               '${(progress * 100).toInt()}%',
                               style: TextStyle(
-                                color: isOverBudget ? AppTheme.expenseRed : AppTheme.incomeGreen,
+                                color: isOverBudget
+                                    ? AppTheme.expenseRed
+                                    : AppTheme.incomeGreen,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -607,7 +636,10 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                 Divider(height: 1, color: Colors.grey[200]),
                 // Transactions header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -620,7 +652,9 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                       Text(
                         'This Month',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ],
@@ -652,24 +686,38 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                           controller: scrollController,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: transactions.length,
-                          separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey[100]),
+                          separatorBuilder: (_, _) =>
+                              Divider(height: 1, color: Colors.grey[100]),
                           itemBuilder: (context, index) {
                             final tx = transactions[index];
-                            final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
-                            final description = tx['description'] as String? ?? 'Unknown';
+                            final amount =
+                                (tx['amount'] as num?)?.toDouble() ?? 0;
+                            final description =
+                                tx['description'] as String? ?? 'Unknown';
                             final date = tx['date'] as String? ?? '';
-                            final type = (tx['type'] as String? ?? '').toLowerCase();
-                            final isExpense = type == 'expense' || type == 'debit';
-                            
+                            final type = (tx['type'] as String? ?? '')
+                                .toLowerCase();
+                            final isExpense =
+                                type == 'expense' || type == 'debit';
+
                             return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 4,
+                              ),
                               leading: CircleAvatar(
-                                backgroundColor: isExpense 
+                                backgroundColor: isExpense
                                     ? AppTheme.expenseRed.withValues(alpha: 0.1)
-                                    : AppTheme.incomeGreen.withValues(alpha: 0.1),
+                                    : AppTheme.incomeGreen.withValues(
+                                        alpha: 0.1,
+                                      ),
                                 child: Icon(
-                                  isExpense ? Icons.arrow_upward : Icons.arrow_downward,
-                                  color: isExpense ? AppTheme.expenseRed : AppTheme.incomeGreen,
+                                  isExpense
+                                      ? Icons.arrow_upward
+                                      : Icons.arrow_downward,
+                                  color: isExpense
+                                      ? AppTheme.expenseRed
+                                      : AppTheme.incomeGreen,
                                   size: 20,
                                 ),
                               ),
@@ -684,14 +732,18 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
                               subtitle: Text(
                                 _formatTransactionDate(date),
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                               ),
                               trailing: Text(
                                 '${isExpense ? "-" : "+"}₹${_formatAmount(amount)}',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
-                                  color: isExpense ? AppTheme.expenseRed : AppTheme.incomeGreen,
+                                  color: isExpense
+                                      ? AppTheme.expenseRed
+                                      : AppTheme.incomeGreen,
                                 ),
                               ),
                             );
@@ -710,12 +762,29 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
     try {
       final date = DateTime.parse(dateStr);
       final now = DateTime.now();
-      if (date.year == now.year && date.month == now.month && date.day == now.day) {
+      if (date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day) {
         return 'Today';
-      } else if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
+      } else if (date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day - 1) {
         return 'Yesterday';
       }
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}';
     } catch (e) {
       return dateStr;
@@ -724,7 +793,6 @@ class _BudgetsScreenBodyState extends State<BudgetsScreenBody> {
 }
 
 // Icon mapping for budget categories
-
 
 /// Overall budget summary card
 class _OverallBudgetCard extends StatelessWidget {
@@ -919,118 +987,122 @@ class _BudgetCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: progressColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: progressColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      TransactionCategorizer.getIcon(budget.category),
+                      color: progressColor,
+                    ),
                   ),
-                  child: Icon(
-                    TransactionCategorizer.getIcon(budget.category),
-                    color: progressColor,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          budget.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '₹${_formatAmount(budget.spent)} / ₹${_formatAmount(budget.amount)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        budget.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        isOverBudget
+                            ? '-₹${_formatAmount(remaining.abs())}'
+                            : '₹${_formatAmount(remaining)}',
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
+                          color: isOverBudget
+                              ? AppTheme.expenseRed
+                              : AppTheme.incomeGreen,
                         ),
                       ),
-                      const SizedBox(height: 2),
                       Text(
-                        '₹${_formatAmount(budget.spent)} / ₹${_formatAmount(budget.amount)}',
+                        isOverBudget ? 'over budget' : 'left',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      isOverBudget
-                          ? '-₹${_formatAmount(remaining.abs())}'
-                          : '₹${_formatAmount(remaining)}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isOverBudget
-                            ? AppTheme.expenseRed
-                            : AppTheme.incomeGreen,
+                  PopupMenuButton(
+                    icon: const Icon(Icons.more_vert),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 8),
+                            Text('Edit'),
+                          ],
+                        ),
                       ),
-                    ),
-                    Text(
-                      isOverBudget ? 'over budget' : 'left',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete,
+                              size: 20,
+                              color: AppTheme.expenseRed,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Delete',
+                              style: TextStyle(color: AppTheme.expenseRed),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                PopupMenuButton(
-                  icon: const Icon(Icons.more_vert),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 20),
-                          SizedBox(width: 8),
-                          Text('Edit'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete,
-                            size: 20,
-                            color: AppTheme.expenseRed,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Delete',
-                            style: TextStyle(color: AppTheme.expenseRed),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onSelected: (value) {
-                    if (value == 'edit') onEdit();
-                    if (value == 'delete') onDelete();
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                minHeight: 8,
-                backgroundColor: WealthInTheme.gray200,
-                valueColor: AlwaysStoppedAnimation(progressColor),
+                    ],
+                    onSelected: (value) {
+                      if (value == 'edit') onEdit();
+                      if (value == 'delete') onDelete();
+                    },
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            _TransactionPreview(
-              category: budget.category,
-              onViewAll: onTap ?? () {},
-            ),
-          ],
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  minHeight: 8,
+                  backgroundColor: WealthInTheme.gray200,
+                  valueColor: AlwaysStoppedAnimation(progressColor),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _TransactionPreview(
+                category: budget.category,
+                onViewAll: onTap ?? () {},
+              ),
+            ],
           ),
         ),
       ),
@@ -1121,29 +1193,31 @@ class _TransactionPreviewState extends State<_TransactionPreview> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ..._transactions.map((tx) => Padding(
-          padding: const EdgeInsets.only(top: 4.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  tx['description'] ?? 'Transaction',
-                  style: theme.textTheme.bodySmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        ..._transactions.map(
+          (tx) => Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tx['description'] ?? 'Transaction',
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '₹${(tx['amount'] as num).abs().toStringAsFixed(0)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppTheme.expenseRed,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(width: 8),
+                Text(
+                  '₹${(tx['amount'] as num).abs().toStringAsFixed(0)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppTheme.expenseRed,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        )),
+        ),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: widget.onViewAll,

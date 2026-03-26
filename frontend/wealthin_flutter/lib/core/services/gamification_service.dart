@@ -17,7 +17,7 @@ class LevelInfo {
   final int level;
   final String title;
   final String emoji;
-  final int xpRequired;  // Cumulative XP to reach this level
+  final int xpRequired; // Cumulative XP to reach this level
   final List<int> gradientColors; // Two colors for badge gradient
 
   const LevelInfo({
@@ -30,16 +30,76 @@ class LevelInfo {
 }
 
 const List<LevelInfo> allLevels = [
-  LevelInfo(level: 1,  title: 'Novice',      emoji: '🌱', xpRequired: 0,    gradientColors: [0xFF78909C, 0xFF546E7A]),
-  LevelInfo(level: 2,  title: 'Apprentice',   emoji: '📘', xpRequired: 100,  gradientColors: [0xFF42A5F5, 0xFF1E88E5]),
-  LevelInfo(level: 3,  title: 'Tracker',      emoji: '📊', xpRequired: 300,  gradientColors: [0xFF26C6DA, 0xFF00ACC1]),
-  LevelInfo(level: 4,  title: 'Planner',      emoji: '🗺️', xpRequired: 600,  gradientColors: [0xFF66BB6A, 0xFF43A047]),
-  LevelInfo(level: 5,  title: 'Strategist',   emoji: '♟️', xpRequired: 1000, gradientColors: [0xFFAB47BC, 0xFF8E24AA]),
-  LevelInfo(level: 6,  title: 'Expert',       emoji: '🎯', xpRequired: 1500, gradientColors: [0xFFEF5350, 0xFFE53935]),
-  LevelInfo(level: 7,  title: 'Master',       emoji: '🏅', xpRequired: 2200, gradientColors: [0xFFFF7043, 0xFFF4511E]),
-  LevelInfo(level: 8,  title: 'Guru',         emoji: '🧘', xpRequired: 3000, gradientColors: [0xFFFFCA28, 0xFFFFA000]),
-  LevelInfo(level: 9,  title: 'Legend',        emoji: '⚡', xpRequired: 4000, gradientColors: [0xFFFFD54F, 0xFFFFB300]),
-  LevelInfo(level: 10, title: 'Sovereign',     emoji: '👑', xpRequired: 5500, gradientColors: [0xFFFFD700, 0xFFFF8F00]),
+  LevelInfo(
+    level: 1,
+    title: 'Novice',
+    emoji: '🌱',
+    xpRequired: 0,
+    gradientColors: [0xFF78909C, 0xFF546E7A],
+  ),
+  LevelInfo(
+    level: 2,
+    title: 'Apprentice',
+    emoji: '📘',
+    xpRequired: 100,
+    gradientColors: [0xFF42A5F5, 0xFF1E88E5],
+  ),
+  LevelInfo(
+    level: 3,
+    title: 'Tracker',
+    emoji: '📊',
+    xpRequired: 300,
+    gradientColors: [0xFF26C6DA, 0xFF00ACC1],
+  ),
+  LevelInfo(
+    level: 4,
+    title: 'Planner',
+    emoji: '🗺️',
+    xpRequired: 600,
+    gradientColors: [0xFF66BB6A, 0xFF43A047],
+  ),
+  LevelInfo(
+    level: 5,
+    title: 'Strategist',
+    emoji: '♟️',
+    xpRequired: 1000,
+    gradientColors: [0xFFAB47BC, 0xFF8E24AA],
+  ),
+  LevelInfo(
+    level: 6,
+    title: 'Expert',
+    emoji: '🎯',
+    xpRequired: 1500,
+    gradientColors: [0xFFEF5350, 0xFFE53935],
+  ),
+  LevelInfo(
+    level: 7,
+    title: 'Master',
+    emoji: '🏅',
+    xpRequired: 2200,
+    gradientColors: [0xFFFF7043, 0xFFF4511E],
+  ),
+  LevelInfo(
+    level: 8,
+    title: 'Guru',
+    emoji: '🧘',
+    xpRequired: 3000,
+    gradientColors: [0xFFFFCA28, 0xFFFFA000],
+  ),
+  LevelInfo(
+    level: 9,
+    title: 'Legend',
+    emoji: '⚡',
+    xpRequired: 4000,
+    gradientColors: [0xFFFFD54F, 0xFFFFB300],
+  ),
+  LevelInfo(
+    level: 10,
+    title: 'Sovereign',
+    emoji: '👑',
+    xpRequired: 5500,
+    gradientColors: [0xFFFFD700, 0xFFFF8F00],
+  ),
 ];
 
 LevelInfo getLevelInfo(int totalXP) {
@@ -55,17 +115,30 @@ LevelInfo getLevelInfo(int totalXP) {
 }
 
 /// Returns XP needed to reach *next* level, and current progress fraction.
-({int xpInLevel, int xpForNext, double progress, LevelInfo? nextLevel}) getLevelProgress(int totalXP) {
+({int xpInLevel, int xpForNext, double progress, LevelInfo? nextLevel})
+getLevelProgress(int totalXP) {
   final current = getLevelInfo(totalXP);
   final nextIdx = current.level; // levels are 1-indexed, so index = level
   if (nextIdx >= allLevels.length) {
-    return (xpInLevel: 0, xpForNext: 1, progress: 1.0, nextLevel: null); // Max level
+    return (
+      xpInLevel: 0,
+      xpForNext: 1,
+      progress: 1.0,
+      nextLevel: null,
+    ); // Max level
   }
   final next = allLevels[nextIdx];
   final xpInLevel = totalXP - current.xpRequired;
   final xpForNext = next.xpRequired - current.xpRequired;
-  final progress = xpForNext > 0 ? (xpInLevel / xpForNext).clamp(0.0, 1.0) : 1.0;
-  return (xpInLevel: xpInLevel, xpForNext: xpForNext, progress: progress, nextLevel: next);
+  final progress = xpForNext > 0
+      ? (xpInLevel / xpForNext).clamp(0.0, 1.0)
+      : 1.0;
+  return (
+    xpInLevel: xpInLevel,
+    xpForNext: xpForNext,
+    progress: progress,
+    nextLevel: next,
+  );
 }
 
 // ─── Achievement Tiers ───────────────────────────────────────
@@ -75,76 +148,117 @@ enum AchievementTier { bronze, silver, gold, platinum }
 extension AchievementTierExt on AchievementTier {
   String get label {
     switch (this) {
-      case AchievementTier.bronze:   return 'Bronze';
-      case AchievementTier.silver:   return 'Silver';
-      case AchievementTier.gold:     return 'Gold';
-      case AchievementTier.platinum: return 'Platinum';
+      case AchievementTier.bronze:
+        return 'Bronze';
+      case AchievementTier.silver:
+        return 'Silver';
+      case AchievementTier.gold:
+        return 'Gold';
+      case AchievementTier.platinum:
+        return 'Platinum';
     }
   }
 
   String get emoji {
     switch (this) {
-      case AchievementTier.bronze:   return '🥉';
-      case AchievementTier.silver:   return '🥈';
-      case AchievementTier.gold:     return '🥇';
-      case AchievementTier.platinum: return '💎';
+      case AchievementTier.bronze:
+        return '🥉';
+      case AchievementTier.silver:
+        return '🥈';
+      case AchievementTier.gold:
+        return '🥇';
+      case AchievementTier.platinum:
+        return '💎';
     }
   }
 
   List<int> get gradientColors {
     switch (this) {
-      case AchievementTier.bronze:   return [0xFFCD7F32, 0xFFA05A2C];
-      case AchievementTier.silver:   return [0xFFC0C0C0, 0xFF808080];
-      case AchievementTier.gold:     return [0xFFFFD700, 0xFFDAA520];
-      case AchievementTier.platinum: return [0xFFE5E4E2, 0xFF8FD8D2];
+      case AchievementTier.bronze:
+        return [0xFFCD7F32, 0xFFA05A2C];
+      case AchievementTier.silver:
+        return [0xFFC0C0C0, 0xFF808080];
+      case AchievementTier.gold:
+        return [0xFFFFD700, 0xFFDAA520];
+      case AchievementTier.platinum:
+        return [0xFFE5E4E2, 0xFF8FD8D2];
     }
   }
 
   int get sortOrder {
     switch (this) {
-      case AchievementTier.bronze:   return 0;
-      case AchievementTier.silver:   return 1;
-      case AchievementTier.gold:     return 2;
-      case AchievementTier.platinum: return 3;
+      case AchievementTier.bronze:
+        return 0;
+      case AchievementTier.silver:
+        return 1;
+      case AchievementTier.gold:
+        return 2;
+      case AchievementTier.platinum:
+        return 3;
     }
   }
 }
 
 // ─── Achievement Categories ──────────────────────────────────
 
-enum AchievementCategory { savings, tracking, goals, planning, streaks, mastery }
+enum AchievementCategory {
+  savings,
+  tracking,
+  goals,
+  planning,
+  streaks,
+  mastery,
+}
 
 extension AchievementCategoryExt on AchievementCategory {
   String get label {
     switch (this) {
-      case AchievementCategory.savings:  return 'Savings';
-      case AchievementCategory.tracking: return 'Tracking';
-      case AchievementCategory.goals:    return 'Goals';
-      case AchievementCategory.planning: return 'Planning';
-      case AchievementCategory.streaks:  return 'Streaks';
-      case AchievementCategory.mastery:  return 'Mastery';
+      case AchievementCategory.savings:
+        return 'Savings';
+      case AchievementCategory.tracking:
+        return 'Tracking';
+      case AchievementCategory.goals:
+        return 'Goals';
+      case AchievementCategory.planning:
+        return 'Planning';
+      case AchievementCategory.streaks:
+        return 'Streaks';
+      case AchievementCategory.mastery:
+        return 'Mastery';
     }
   }
 
   String get emoji {
     switch (this) {
-      case AchievementCategory.savings:  return '💰';
-      case AchievementCategory.tracking: return '📊';
-      case AchievementCategory.goals:    return '🎯';
-      case AchievementCategory.planning: return '💡';
-      case AchievementCategory.streaks:  return '🔥';
-      case AchievementCategory.mastery:  return '🏆';
+      case AchievementCategory.savings:
+        return '💰';
+      case AchievementCategory.tracking:
+        return '📊';
+      case AchievementCategory.goals:
+        return '🎯';
+      case AchievementCategory.planning:
+        return '💡';
+      case AchievementCategory.streaks:
+        return '🔥';
+      case AchievementCategory.mastery:
+        return '🏆';
     }
   }
 
   int get iconCodePoint {
     switch (this) {
-      case AchievementCategory.savings:  return 0xf04b9; // savings
-      case AchievementCategory.tracking: return 0xe070;  // analytics
-      case AchievementCategory.goals:    return 0xe157;  // flag
-      case AchievementCategory.planning: return 0xe3a2;  // lightbulb
-      case AchievementCategory.streaks:  return 0xe3e7;  // local_fire_department
-      case AchievementCategory.mastery:  return 0xe1c8;  // emoji_events
+      case AchievementCategory.savings:
+        return 0xf04b9; // savings
+      case AchievementCategory.tracking:
+        return 0xe070; // analytics
+      case AchievementCategory.goals:
+        return 0xe157; // flag
+      case AchievementCategory.planning:
+        return 0xe3a2; // lightbulb
+      case AchievementCategory.streaks:
+        return 0xe3e7; // local_fire_department
+      case AchievementCategory.mastery:
+        return 0xe1c8; // emoji_events
     }
   }
 }
@@ -536,20 +650,34 @@ class UserStats {
 
   double getStatForKey(String key) {
     switch (key) {
-      case 'transaction_count': return transactionCount.toDouble();
-      case 'savings_rate':      return savingsRate;
-      case 'goals_created':     return goalsCreated.toDouble();
-      case 'goals_completed':   return goalsCompleted.toDouble();
-      case 'budgets_created':   return budgetsCreated.toDouble();
-      case 'months_under_budget': return monthsUnderBudget.toDouble();
-      case 'ideas_evaluated':   return ideasEvaluated.toDouble();
-      case 'dprs_created':      return dprsCreated.toDouble();
-      case 'current_streak':    return currentStreak.toDouble();
-      case 'health_score':      return healthScore;
-      case 'pdfs_exported':     return pdfsExported.toDouble();
-      case 'analyses_run':      return analysesRun.toDouble();
-      case 'user_level':        return getLevelInfo(_cachedTotalXP).level.toDouble();
-      default: return 0;
+      case 'transaction_count':
+        return transactionCount.toDouble();
+      case 'savings_rate':
+        return savingsRate;
+      case 'goals_created':
+        return goalsCreated.toDouble();
+      case 'goals_completed':
+        return goalsCompleted.toDouble();
+      case 'budgets_created':
+        return budgetsCreated.toDouble();
+      case 'months_under_budget':
+        return monthsUnderBudget.toDouble();
+      case 'ideas_evaluated':
+        return ideasEvaluated.toDouble();
+      case 'dprs_created':
+        return dprsCreated.toDouble();
+      case 'current_streak':
+        return currentStreak.toDouble();
+      case 'health_score':
+        return healthScore;
+      case 'pdfs_exported':
+        return pdfsExported.toDouble();
+      case 'analyses_run':
+        return analysesRun.toDouble();
+      case 'user_level':
+        return getLevelInfo(_cachedTotalXP).level.toDouble();
+      default:
+        return 0;
     }
   }
 }
@@ -609,12 +737,14 @@ class GamificationService {
         _achievedIds.add(def.id);
         _totalXP += def.xpReward;
         _cachedTotalXP = _totalXP;
-        newlyAchieved.add(AchievementState(
-          definition: def,
-          currentValue: currentValue,
-          achieved: true,
-          achievedAt: DateTime.now(),
-        ));
+        newlyAchieved.add(
+          AchievementState(
+            definition: def,
+            currentValue: currentValue,
+            achieved: true,
+            achievedAt: DateTime.now(),
+          ),
+        );
       }
     }
 

@@ -270,8 +270,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   Widget _buildPremiumNavigationRail() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final railBg = isDark ? AppTheme.richNavy : AppTheme.lightCard;
-    final railBorder =
-        isDark ? AppTheme.royalGold.withValues(alpha: 0.18) : AppTheme.lightBorder;
+    final railBorder = isDark
+        ? AppTheme.royalGold.withValues(alpha: 0.18)
+        : AppTheme.lightBorder;
 
     return Container(
       width: 90,
@@ -298,11 +299,17 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   List<Widget> _buildRailItems() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final selectedText = isDark ? AppTheme.champagneGold : AppTheme.peacockTeal;
-    final unselectedText = isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary;
+    final unselectedText = isDark
+        ? AppTheme.silverMist
+        : AppTheme.lightTextSecondary;
 
     final items = [
       _NavItem(Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home'),
-      _NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Finance'),
+      _NavItem(
+        Icons.account_balance_wallet_outlined,
+        Icons.account_balance_wallet_rounded,
+        'Finance',
+      ),
       _NavItem(Icons.auto_awesome_outlined, Icons.auto_awesome_rounded, 'AI'),
       _NavItem(Icons.analytics_outlined, Icons.analytics_rounded, 'Analysis'),
       _NavItem(Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
@@ -321,8 +328,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             duration: const Duration(milliseconds: 250),
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.peacockTeal.withValues(alpha: 0.20) : null,
-              border: isSelected ? Border.all(color: AppTheme.royalGold.withValues(alpha: 0.30), width: 1) : null,
+              color: isSelected
+                  ? AppTheme.peacockTeal.withValues(alpha: 0.20)
+                  : null,
+              border: isSelected
+                  ? Border.all(
+                      color: AppTheme.royalGold.withValues(alpha: 0.30),
+                      width: 1,
+                    )
+                  : null,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
@@ -355,8 +369,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final compactMode = screenWidth < 390;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final navBg = isDark ? AppTheme.inkSlate : AppTheme.lightCard;
-    final navBorder =
-        isDark ? AppTheme.royalGold.withValues(alpha: 0.20) : AppTheme.lightBorder;
+    final navBorder = isDark
+        ? AppTheme.royalGold.withValues(alpha: 0.20)
+        : AppTheme.lightBorder;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -380,11 +395,41 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home', compactMode),
-            _buildNavItem(1, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Finance', compactMode),
-            _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome_rounded, 'AI', compactMode),
-            _buildNavItem(3, Icons.analytics_outlined, Icons.analytics_rounded, 'Analysis', compactMode),
-            _buildNavItem(4, Icons.person_outline_rounded, Icons.person_rounded, 'Profile', compactMode),
+            _buildNavItem(
+              0,
+              Icons.dashboard_outlined,
+              Icons.dashboard_rounded,
+              'Home',
+              compactMode,
+            ),
+            _buildNavItem(
+              1,
+              Icons.account_balance_wallet_outlined,
+              Icons.account_balance_wallet_rounded,
+              'Finance',
+              compactMode,
+            ),
+            _buildNavItem(
+              2,
+              Icons.auto_awesome_outlined,
+              Icons.auto_awesome_rounded,
+              'AI',
+              compactMode,
+            ),
+            _buildNavItem(
+              3,
+              Icons.analytics_outlined,
+              Icons.analytics_rounded,
+              'Analysis',
+              compactMode,
+            ),
+            _buildNavItem(
+              4,
+              Icons.person_outline_rounded,
+              Icons.person_rounded,
+              'Profile',
+              compactMode,
+            ),
           ],
         ),
       ),
@@ -402,7 +447,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final showLabel = isSelected && !compactMode;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final selectedText = isDark ? AppTheme.champagneGold : AppTheme.peacockTeal;
-    final unselectedText = isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary;
+    final unselectedText = isDark
+        ? AppTheme.silverMist
+        : AppTheme.lightTextSecondary;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedIndex = index),
@@ -416,18 +463,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         ),
         decoration: BoxDecoration(
           color: isSelected
-            ? (isDark
-              ? AppTheme.peacockTeal.withValues(alpha: 0.18)
-              : AppTheme.peacockTeal.withValues(alpha: 0.12))
-            : null,
+              ? (isDark
+                    ? AppTheme.peacockTeal.withValues(alpha: 0.18)
+                    : AppTheme.peacockTeal.withValues(alpha: 0.12))
+              : null,
           borderRadius: BorderRadius.circular(18),
           border: isSelected
-            ? Border.all(
-              color: isDark
-                ? AppTheme.royalGold.withValues(alpha: 0.30)
-                : AppTheme.peacockTeal.withValues(alpha: 0.25),
-              width: 1,
-            )
+              ? Border.all(
+                  color: isDark
+                      ? AppTheme.royalGold.withValues(alpha: 0.30)
+                      : AppTheme.peacockTeal.withValues(alpha: 0.25),
+                  width: 1,
+                )
               : null,
         ),
         child: Row(

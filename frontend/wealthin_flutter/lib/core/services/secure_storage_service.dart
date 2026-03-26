@@ -4,7 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Secure Storage Service for API Keys
 /// Uses Android KeyStore / iOS Keychain for encrypted storage
 class SecureStorageService {
-  static final SecureStorageService _instance = SecureStorageService._internal();
+  static final SecureStorageService _instance =
+      SecureStorageService._internal();
   factory SecureStorageService() => _instance;
   SecureStorageService._internal();
 
@@ -18,7 +19,8 @@ class SecureStorageService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
-      keyCipherAlgorithm: KeyCipherAlgorithm.RSA_ECB_OAEPwithSHA_256andMGF1Padding,
+      keyCipherAlgorithm:
+          KeyCipherAlgorithm.RSA_ECB_OAEPwithSHA_256andMGF1Padding,
       storageCipherAlgorithm: StorageCipherAlgorithm.AES_GCM_NoPadding,
     ),
     iOptions: IOSOptions(
@@ -79,8 +81,6 @@ class SecureStorageService {
       return false;
     }
   }
-
-
 
   // ==================== ZOHO ====================
 

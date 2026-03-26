@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-
 import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 
@@ -32,10 +31,8 @@ class NotificationTransactionService {
   NotificationTransactionService._internal();
 
   // Platform channels
-  static const _methodChannel =
-      MethodChannel('wealthin/notification_listener');
-  static const _eventChannel =
-      EventChannel('wealthin/notification_events');
+  static const _methodChannel = MethodChannel('wealthin/notification_listener');
+  static const _eventChannel = EventChannel('wealthin/notification_events');
 
   final DatabaseHelper _databaseHelper = DatabaseHelper();
 
@@ -53,27 +50,30 @@ class NotificationTransactionService {
   static const Map<String, _UpiBusinessRule> _knownUpiBusinessRules = {
     'amzn': _UpiBusinessRule(displayName: 'Amazon', category: 'Shopping'),
     'amazon': _UpiBusinessRule(displayName: 'Amazon', category: 'Shopping'),
-    'flipkart':
-        _UpiBusinessRule(displayName: 'Flipkart', category: 'Shopping'),
-    'zomato':
-        _UpiBusinessRule(displayName: 'Zomato', category: 'Food & Dining'),
-    'swiggy':
-        _UpiBusinessRule(displayName: 'Swiggy', category: 'Food & Dining'),
+    'flipkart': _UpiBusinessRule(displayName: 'Flipkart', category: 'Shopping'),
+    'zomato': _UpiBusinessRule(
+      displayName: 'Zomato',
+      category: 'Food & Dining',
+    ),
+    'swiggy': _UpiBusinessRule(
+      displayName: 'Swiggy',
+      category: 'Food & Dining',
+    ),
     'paytm': _UpiBusinessRule(displayName: 'Paytm', category: 'Utilities'),
-    'irctc':
-        _UpiBusinessRule(displayName: 'IRCTC', category: 'Transportation'),
-    'uber':
-        _UpiBusinessRule(displayName: 'Uber', category: 'Transportation'),
+    'irctc': _UpiBusinessRule(displayName: 'IRCTC', category: 'Transportation'),
+    'uber': _UpiBusinessRule(displayName: 'Uber', category: 'Transportation'),
     'ola': _UpiBusinessRule(displayName: 'Ola', category: 'Transportation'),
-    'rapido':
-        _UpiBusinessRule(displayName: 'Rapido', category: 'Transportation'),
-    'blinkit':
-        _UpiBusinessRule(displayName: 'Blinkit', category: 'Groceries'),
+    'rapido': _UpiBusinessRule(
+      displayName: 'Rapido',
+      category: 'Transportation',
+    ),
+    'blinkit': _UpiBusinessRule(displayName: 'Blinkit', category: 'Groceries'),
     'zepto': _UpiBusinessRule(displayName: 'Zepto', category: 'Groceries'),
-    'jiomart':
-        _UpiBusinessRule(displayName: 'JioMart', category: 'Groceries'),
-    'bigbasket':
-        _UpiBusinessRule(displayName: 'BigBasket', category: 'Groceries'),
+    'jiomart': _UpiBusinessRule(displayName: 'JioMart', category: 'Groceries'),
+    'bigbasket': _UpiBusinessRule(
+      displayName: 'BigBasket',
+      category: 'Groceries',
+    ),
   };
 
   // ────────────────────────────────────────────────────────────────────
@@ -107,7 +107,9 @@ class NotificationTransactionService {
   /// Check whether the user has enabled notification listener access.
   Future<bool> isListenerEnabled() async {
     try {
-      final result = await _methodChannel.invokeMethod<bool>('isListenerEnabled');
+      final result = await _methodChannel.invokeMethod<bool>(
+        'isListenerEnabled',
+      );
       return result ?? false;
     } catch (e) {
       debugPrint('[NotifTxn] Error checking listener status: $e');
@@ -118,8 +120,9 @@ class NotificationTransactionService {
   /// Open the system Notification Listener settings page.
   Future<bool> openListenerSettings() async {
     try {
-      final result =
-          await _methodChannel.invokeMethod<bool>('openListenerSettings');
+      final result = await _methodChannel.invokeMethod<bool>(
+        'openListenerSettings',
+      );
       return result ?? false;
     } catch (e) {
       debugPrint('[NotifTxn] Error opening listener settings: $e');
@@ -138,12 +141,14 @@ class NotificationTransactionService {
     final db = await _databaseHelper.database;
     await _warmUpiUsageCache(db);
 
-    _notificationSubscription =
-        _eventChannel.receiveBroadcastStream().listen((event) {
-      _handleNotificationEvent(event);
-    }, onError: (error) {
-      debugPrint('[NotifTxn] Event stream error: $error');
-    });
+    _notificationSubscription = _eventChannel.receiveBroadcastStream().listen(
+      (event) {
+        _handleNotificationEvent(event);
+      },
+      onError: (error) {
+        debugPrint('[NotifTxn] Event stream error: $error');
+      },
+    );
 
     debugPrint('[NotifTxn] Started listening for banking notifications');
   }
@@ -250,17 +255,19 @@ class NotificationTransactionService {
       if (amount == null || amount <= 0) return null;
 
       final upiId = _extractUpiId(body);
-      final matchedUpiName =
-          upiId == null ? null : await _resolveUpiDisplayName(upiId);
+      final matchedUpiName = upiId == null
+          ? null
+          : await _resolveUpiDisplayName(upiId);
       final businessRule = _resolveBusinessRule(upiId);
-      final upiFrequencyCount =
-          upiId == null ? 0 : (_upiUsageCount[upiId] ?? 0);
+      final upiFrequencyCount = upiId == null
+          ? 0
+          : (_upiUsageCount[upiId] ?? 0);
 
       final extractedDescription = _extractDescription(body);
       final description = matchedUpiName?.trim().isNotEmpty == true
           ? matchedUpiName!.trim()
           : (businessRule?.displayName ??
-              (upiId != null ? 'Unknown' : extractedDescription));
+                (upiId != null ? 'Unknown' : extractedDescription));
       final merchant = matchedUpiName?.trim().isNotEmpty == true
           ? matchedUpiName!.trim()
           : (businessRule?.displayName ?? (upiId ?? extractedDescription));
@@ -327,14 +334,32 @@ class NotificationTransactionService {
     final textLower = text.toLowerCase();
 
     final debitKeywords = [
-      'debited', 'debit', 'paid', 'withdrawn', 'spent', 'purchase',
-      'purchased', 'sent', 'transferred to', 'transaction at',
-      'txn at', 'txn of', 'pos txn', 'upi txn',
+      'debited',
+      'debit',
+      'paid',
+      'withdrawn',
+      'spent',
+      'purchase',
+      'purchased',
+      'sent',
+      'transferred to',
+      'transaction at',
+      'txn at',
+      'txn of',
+      'pos txn',
+      'upi txn',
     ];
 
     final creditKeywords = [
-      'credited', 'received', 'deposited', 'salary', 'sal cr',
-      'refund', 'cashback', 'interest credited', 'reward credited',
+      'credited',
+      'received',
+      'deposited',
+      'salary',
+      'sal cr',
+      'refund',
+      'cashback',
+      'interest credited',
+      'reward credited',
     ];
 
     final hasCreditCard =
@@ -347,7 +372,12 @@ class NotificationTransactionService {
       if (RegExp(r'\bcr\b').hasMatch(textLower)) return 'income';
     } else {
       final specificCredit = [
-        'credited', 'received', 'deposited', 'refund', 'cashback', 'salary',
+        'credited',
+        'received',
+        'deposited',
+        'refund',
+        'cashback',
+        'salary',
       ];
       if (specificCredit.any((kw) => textLower.contains(kw))) return 'income';
     }
@@ -421,8 +451,10 @@ class NotificationTransactionService {
           continue;
         }
         try {
-          final amountStr =
-              match.group(1)!.replaceAll(',', '').replaceAll(' ', '');
+          final amountStr = match
+              .group(1)!
+              .replaceAll(',', '')
+              .replaceAll(' ', '');
           final amount = double.parse(amountStr);
           if (balance != null && (amount - balance).abs() < 0.01) continue;
           if (amount >= 1 && amount <= 10000000) return amount;
@@ -554,8 +586,10 @@ class NotificationTransactionService {
     for (final pattern in patterns) {
       final match = pattern.firstMatch(text);
       if (match == null) continue;
-      final candidate =
-          match.group(1)?.trim().replaceAll(RegExp(r'[.,;:]$'), '');
+      final candidate = match
+          .group(1)
+          ?.trim()
+          .replaceAll(RegExp(r'[.,;:]$'), '');
       if (candidate == null || !_isLikelyUpiId(candidate)) continue;
       return candidate.toLowerCase();
     }
@@ -631,8 +665,9 @@ class NotificationTransactionService {
     final normalizedUpi = upiId.trim().toLowerCase();
     if (normalizedUpi.isEmpty) return null;
 
-    final storedName =
-        await _databaseHelper.getUpiContactMapping(normalizedUpi);
+    final storedName = await _databaseHelper.getUpiContactMapping(
+      normalizedUpi,
+    );
     if (storedName != null) return storedName;
 
     final localPart = normalizedUpi.split('@').first;
@@ -680,8 +715,7 @@ class NotificationTransactionService {
       for (final row in rows) {
         final upiFromNotes = _extractUpiFromNotes(row['notes']?.toString());
         if (upiFromNotes == null) continue;
-        _upiUsageCount.update(upiFromNotes, (v) => v + 1,
-            ifAbsent: () => 1);
+        _upiUsageCount.update(upiFromNotes, (v) => v + 1, ifAbsent: () => 1);
       }
     } catch (e) {
       debugPrint('[NotifTxn] UPI cache warm-up skipped: $e');
@@ -795,61 +829,191 @@ class NotificationTransactionService {
 
     final categories = {
       'Food & Dining': [
-        'zomato', 'swiggy', 'dominos', 'pizza', 'mcdonald', 'kfc', 'burger',
-        'restaurant', 'cafe', 'coffee', 'food', 'dining', 'eat', 'lunch',
-        'dinner', 'breakfast', 'biryani', 'starbucks', 'subway',
+        'zomato',
+        'swiggy',
+        'dominos',
+        'pizza',
+        'mcdonald',
+        'kfc',
+        'burger',
+        'restaurant',
+        'cafe',
+        'coffee',
+        'food',
+        'dining',
+        'eat',
+        'lunch',
+        'dinner',
+        'breakfast',
+        'biryani',
+        'starbucks',
+        'subway',
       ],
       'Shopping': [
-        'amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'shop', 'store',
-        'mall', 'mart', 'buy', 'purchase', 'ecommerce', 'meesho', 'jiomart',
+        'amazon',
+        'flipkart',
+        'myntra',
+        'ajio',
+        'nykaa',
+        'shop',
+        'store',
+        'mall',
+        'mart',
+        'buy',
+        'purchase',
+        'ecommerce',
+        'meesho',
+        'jiomart',
       ],
       'Transportation': [
-        'uber', 'ola', 'rapido', 'petrol', 'fuel', 'metro', 'parking', 'bus',
-        'train', 'taxi', 'cab', 'auto', 'rickshaw', 'travel', 'fastag', 'toll',
+        'uber',
+        'ola',
+        'rapido',
+        'petrol',
+        'fuel',
+        'metro',
+        'parking',
+        'bus',
+        'train',
+        'taxi',
+        'cab',
+        'auto',
+        'rickshaw',
+        'travel',
+        'fastag',
+        'toll',
       ],
       'Utilities': [
-        'electricity', 'water', 'gas', 'broadband', 'mobile', 'recharge',
-        'bill', 'payment', 'airtel', 'jio', 'vodafone', 'bsnl', 'internet',
-        'wifi', 'dth', 'tata sky',
+        'electricity',
+        'water',
+        'gas',
+        'broadband',
+        'mobile',
+        'recharge',
+        'bill',
+        'payment',
+        'airtel',
+        'jio',
+        'vodafone',
+        'bsnl',
+        'internet',
+        'wifi',
+        'dth',
+        'tata sky',
       ],
       'Entertainment': [
-        'netflix', 'prime', 'spotify', 'hotstar', 'youtube', 'movie', 'ticket',
-        'show', 'concert', 'game', 'steam', 'playstation', 'zee5', 'sony liv',
+        'netflix',
+        'prime',
+        'spotify',
+        'hotstar',
+        'youtube',
+        'movie',
+        'ticket',
+        'show',
+        'concert',
+        'game',
+        'steam',
+        'playstation',
+        'zee5',
+        'sony liv',
       ],
       'Groceries': [
-        'bigbasket', 'dmart', 'grofers', 'blinkit', 'grocery', 'supermarket',
-        'vegetables', 'fruits', 'zepto', 'dunzo', 'instamart', 'fresh',
+        'bigbasket',
+        'dmart',
+        'grofers',
+        'blinkit',
+        'grocery',
+        'supermarket',
+        'vegetables',
+        'fruits',
+        'zepto',
+        'dunzo',
+        'instamart',
+        'fresh',
       ],
       'Healthcare': [
-        'pharmacy', 'hospital', 'clinic', 'doctor', 'medicine', 'apollo',
-        'medplus', 'netmeds', '1mg', 'pharmeasy', 'health', 'medical',
+        'pharmacy',
+        'hospital',
+        'clinic',
+        'doctor',
+        'medicine',
+        'apollo',
+        'medplus',
+        'netmeds',
+        '1mg',
+        'pharmeasy',
+        'health',
+        'medical',
       ],
       'Education': [
-        'school', 'college', 'university', 'course', 'tuition', 'fees', 'exam',
-        'book', 'udemy', 'coursera', 'upgrad', 'byjus',
+        'school',
+        'college',
+        'university',
+        'course',
+        'tuition',
+        'fees',
+        'exam',
+        'book',
+        'udemy',
+        'coursera',
+        'upgrad',
+        'byjus',
       ],
       'Rent & Housing': [
-        'rent', 'maintenance', 'society', 'housing', 'lease', 'accommodation',
+        'rent',
+        'maintenance',
+        'society',
+        'housing',
+        'lease',
+        'accommodation',
       ],
       'Insurance': [
-        'insurance', 'policy', 'premium', 'lic', 'health insurance',
-        'car insurance', 'life insurance',
+        'insurance',
+        'policy',
+        'premium',
+        'lic',
+        'health insurance',
+        'car insurance',
+        'life insurance',
       ],
       'Investments': [
-        'mutual fund', 'sip', 'stock', 'equity', 'zerodha', 'groww', 'upstox',
-        'investment', 'fd', 'rd', 'ppf', 'nps', 'elss',
+        'mutual fund',
+        'sip',
+        'stock',
+        'equity',
+        'zerodha',
+        'groww',
+        'upstox',
+        'investment',
+        'fd',
+        'rd',
+        'ppf',
+        'nps',
+        'elss',
       ],
       'Salary': [
-        'salary', 'sal cr', 'sal credit', 'monthly salary', 'payroll', 'wages',
+        'salary',
+        'sal cr',
+        'sal credit',
+        'monthly salary',
+        'payroll',
+        'wages',
       ],
       'Transfer': [
-        'upi', 'imps', 'neft', 'rtgs', 'transfer', 'sent to', 'p2p',
+        'upi',
+        'imps',
+        'neft',
+        'rtgs',
+        'transfer',
+        'sent to',
+        'p2p',
       ],
     };
 
     for (final entry in categories.entries) {
-      if (entry.value
-          .any((kw) => descLower.contains(kw) || textLower.contains(kw))) {
+      if (entry.value.any(
+        (kw) => descLower.contains(kw) || textLower.contains(kw),
+      )) {
         return entry.key;
       }
     }

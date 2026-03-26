@@ -3360,7 +3360,7 @@ When the user mentions supply chain, vendors, raw materials, or logistics:
             messages.append({"role": "user", "content": query})
             print(f"[ReAct] Brainstorm mode — {len(messages)} messages (incl. {len(conversation_history or [])} history)")
         else:
-            system_prompt = _build_react_system_prompt(user_context)
+            system_prompt = _build_system_prompt(user_context)
             # Initialize conversation with system prompt
             messages = [{"role": "system", "content": system_prompt}]
             # Include conversation history so the AI has context of prior messages
@@ -3485,6 +3485,16 @@ When the user mentions supply chain, vendors, raw materials, or logistics:
                     final_response = "I completed the action but couldn't summarize it."
             else:
                 final_response = "I couldn't process your request. Please try again with a different query."
+
+        # Hard fallback: if orchestration produced a generic failure text,
+        # run one direct chat completion so the user still gets an AI answer.
+        if final_response and (
+            "couldn't process your request" in final_response.lower()
+            or "something went wrong" in final_response.lower()
+        ):
+            direct_text = _direct_chat_fallback(query, conversation_history)
+            if direct_text:
+                final_response = direct_text
         
         # Determine if action was taken
         action_taken = len(all_tool_results) > 0
@@ -3610,6 +3620,38 @@ def _clean_llm_response(text: str) -> str:
     text = text.strip()
     
     return text
+
+
+def _direct_chat_fallback(
+    query: str,
+    conversation_history: List[Dict[str, str]] = None,
+) -> Optional[str]:
+    """Direct non-ReAct fallback to keep chat functional on orchestration failures."""
+    try:
+        base_system = (
+            "You are Artha, a helpful Indian financial assistant. "
+            "Give concise, practical answers in plain language."
+        )
+
+        msgs: List[Dict[str, str]] = [{"role": "system", "content": base_system}]
+
+        if conversation_history and isinstance(conversation_history, list):
+            for msg in conversation_history[-6:]:
+                if not isinstance(msg, dict):
+                    continue
+                role = msg.get('role', 'user')
+                content = str(msg.get('content', '')).strip()
+                if role in ('user', 'assistant') and content:
+                    msgs.append({"role": role, "content": content[:500]})
+
+        msgs.append({"role": "user", "content": query[:1200]})
+        result = _call_sarvam_llm(msgs, _sarvam_api_key)
+        if result and result.get('content'):
+            return result.get('content', '').strip()
+    except Exception as e:
+        print(f"[_direct_chat_fallback] error: {e}")
+
+    return None
 
 
 
@@ -3779,12 +3821,67 @@ def _extract_json_from_text(text: str) -> Optional[dict]:
 def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[Dict[str, Any]]:
     """Call Sarvam LLM and return message content."""
     model = _sarvam_chat_model or "sarvam-m"
+
+    # Keep payload size bounded to reduce provider-side rejections
+    safe_messages = []
+    if messages:
+        trimmed = messages[-14:] if len(messages) > 14 else messages
+        for idx, msg in enumerate(trimmed):
+            role = (msg.get("role") or "user") if isinstance(msg, dict) else "user"
+            content = (msg.get("content") or "") if isinstance(msg, dict) else ""
+            if not isinstance(content, str):
+                content = str(content)
+            if role not in ("system", "user", "assistant"):
+                continue
+            # Keep system prompt richer, aggressively trim chat history
+            max_len = 6000 if role == "system" else 1500
+            safe_messages.append({"role": role, "content": content[:max_len]})
+
+    # Sarvam requires strict alternation after optional system message:
+    # system? -> user -> assistant -> user -> assistant ...
+    if safe_messages:
+        normalized = []
+        i = 0
+        if safe_messages[0].get("role") == "system":
+            normalized.append(safe_messages[0])
+            i = 1
+
+        # First non-system turn must be user.
+        while i < len(safe_messages) and safe_messages[i].get("role") == "assistant":
+            i += 1
+
+        expected_role = "user"
+        for msg in safe_messages[i:]:
+            role = msg.get("role")
+            if role not in ("user", "assistant"):
+                continue
+
+            if role != expected_role:
+                # Skip out-of-order turn to preserve valid sequence.
+                continue
+
+            normalized.append(msg)
+            expected_role = "assistant" if expected_role == "user" else "user"
+
+        # Avoid dangling assistant at end for stricter providers.
+        if normalized and normalized[-1].get("role") == "assistant":
+            normalized.pop()
+
+        safe_messages = normalized
+
+    # Final guard: ensure we still have at least one user turn.
+    if not any(m.get("role") == "user" for m in safe_messages):
+        return None
+
     try:
         if _HAS_SARVAM_SDK:
             try:
                 client = SarvamAI(api_subscription_key=api_key)
-                res = client.chat.completions(model=model, messages=messages)
-                content = res.choices[0].message.content if res and res.choices else ""
+                try:
+                    res = client.chat.completions.create(model=model, messages=safe_messages)
+                except Exception:
+                    res = client.chat.completions(model=model, messages=safe_messages)
+                content = res.choices[0].message.content if res and getattr(res, 'choices', None) else ""
                 if content:
                     return {"content": content, "model": model}
             except Exception as sdk_e:
@@ -3793,7 +3890,7 @@ def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[D
         api_url = "https://api.sarvam.ai/v1/chat/completions"
         request_body = {
             "model": model,
-            "messages": messages,
+            "messages": safe_messages,
             "temperature": 0.3,
             "max_tokens": 4096,
         }
@@ -3822,6 +3919,19 @@ def _call_sarvam_llm(messages: List[Dict[str, str]], api_key: str) -> Optional[D
             content = response_data['choices'][0]['message'].get('content', '')
             return {"content": content, "model": model}
 
+        # Compatibility fallback for alternate response envelopes
+        if isinstance(response_data, dict):
+            alt_content = response_data.get('response') or response_data.get('output_text')
+            if isinstance(alt_content, str) and alt_content.strip():
+                return {"content": alt_content, "model": model}
+
+        return None
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode('utf-8', errors='ignore')
+        except Exception:
+            err_body = ''
+        print(f"[Sarvam] HTTP {e.code}: {err_body[:400]}")
         return None
     except Exception as e:
         print(f"[Sarvam] LLM call failed: {e}")

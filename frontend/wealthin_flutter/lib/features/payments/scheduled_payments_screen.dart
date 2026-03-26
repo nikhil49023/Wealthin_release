@@ -246,7 +246,7 @@ class _ScheduledPaymentsScreenBodyState
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                        color: WealthInTheme.gray300,
+                          color: WealthInTheme.gray300,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -454,7 +454,7 @@ class _ScheduledPaymentsScreenBodyState
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                        color: WealthInTheme.gray300,
+                          color: WealthInTheme.gray300,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -873,7 +873,9 @@ class _PaymentCard extends StatelessWidget {
                         Text(
                           '₹${payment.amount.toStringAsFixed(0)} • ${_capitalizeFirst(payment.frequency)}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                       ],

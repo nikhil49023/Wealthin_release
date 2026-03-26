@@ -46,7 +46,9 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
     setState(() => _isLoading = true);
     try {
       final goals = await dataService.getGoals(_userId);
-      final savingsTx = await DatabaseHelper().getSavingsTransactions(limit: 10);
+      final savingsTx = await DatabaseHelper().getSavingsTransactions(
+        limit: 10,
+      );
       final incomeTx = await DatabaseHelper().getIncomeTransactions(limit: 10);
 
       // Calculate progress
@@ -164,22 +166,29 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                           const SizedBox(height: 12),
                           Card(
                             elevation: 1,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             child: ListView.separated(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: _savingsTransactions.length,
-                              separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey[100]),
+                              separatorBuilder: (_, _) =>
+                                  Divider(height: 1, color: Colors.grey[100]),
                               itemBuilder: (context, index) {
                                 final tx = _savingsTransactions[index];
-                                final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
-                                final description = tx['description'] as String? ?? 'Unknown';
+                                final amount =
+                                    (tx['amount'] as num?)?.toDouble() ?? 0;
+                                final description =
+                                    tx['description'] as String? ?? 'Unknown';
                                 final date = tx['date'] as String? ?? '';
-                                final category = tx['category'] as String? ?? '';
-                                
+                                final category =
+                                    tx['category'] as String? ?? '';
+
                                 return ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: AppTheme.incomeGreen.withValues(alpha: 0.1),
+                                    backgroundColor: AppTheme.incomeGreen
+                                        .withValues(alpha: 0.1),
                                     child: const Icon(
                                       Icons.savings_outlined,
                                       color: AppTheme.incomeGreen,
@@ -195,7 +204,8 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                                   subtitle: Text(
                                     category.isNotEmpty ? category : 'Savings',
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
                                     ),
                                   ),
                                   trailing: Column(
@@ -204,17 +214,20 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                                     children: [
                                       Text(
                                         '+₹${_formatAmount(amount)}',
-                                        style: theme.textTheme.bodyMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.incomeGreen,
-                                        ),
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.incomeGreen,
+                                            ),
                                       ),
                                       Text(
                                         _formatTransactionDate(date),
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          fontSize: 10,
-                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontSize: 10,
+                                              color: theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.5),
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -235,22 +248,29 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                           const SizedBox(height: 12),
                           Card(
                             elevation: 1,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             child: ListView.separated(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: _incomeTransactions.length,
-                              separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey[100]),
+                              separatorBuilder: (_, _) =>
+                                  Divider(height: 1, color: Colors.grey[100]),
                               itemBuilder: (context, index) {
                                 final tx = _incomeTransactions[index];
-                                final amount = (tx['amount'] as num?)?.toDouble() ?? 0;
-                                final description = tx['description'] as String? ?? 'Unknown';
+                                final amount =
+                                    (tx['amount'] as num?)?.toDouble() ?? 0;
+                                final description =
+                                    tx['description'] as String? ?? 'Unknown';
                                 final date = tx['date'] as String? ?? '';
-                                final category = tx['category'] as String? ?? '';
+                                final category =
+                                    tx['category'] as String? ?? '';
 
                                 return ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: AppTheme.incomeGreen.withValues(alpha: 0.1),
+                                    backgroundColor: AppTheme.incomeGreen
+                                        .withValues(alpha: 0.1),
                                     child: const Icon(
                                       Icons.trending_up,
                                       color: AppTheme.incomeGreen,
@@ -266,7 +286,8 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                                   subtitle: Text(
                                     category.isNotEmpty ? category : 'Income',
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
                                     ),
                                   ),
                                   trailing: Column(
@@ -275,17 +296,20 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                                     children: [
                                       Text(
                                         '+₹${_formatAmount(amount)}',
-                                        style: theme.textTheme.bodyMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.incomeGreen,
-                                        ),
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.incomeGreen,
+                                            ),
                                       ),
                                       Text(
                                         _formatTransactionDate(date),
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          fontSize: 10,
-                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontSize: 10,
+                                              color: theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.5),
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -300,8 +324,8 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                     ),
                   ),
                 ),
-                ),
               ),
+            ),
 
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddGoalDialog(context),
@@ -315,12 +339,29 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
     try {
       final date = DateTime.parse(dateStr);
       final now = DateTime.now();
-      if (date.year == now.year && date.month == now.month && date.day == now.day) {
+      if (date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day) {
         return 'Today';
-      } else if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
+      } else if (date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day - 1) {
         return 'Yesterday';
       }
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}';
     } catch (e) {
       return dateStr;
@@ -354,118 +395,119 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Create Savings Goal',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 20),
+                    Text(
+                      'Create Savings Goal',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Goal Name',
-                      hintText: 'e.g., Emergency Fund, Vacation, New Car',
-                      prefixIcon: Icon(Icons.flag),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Goal Name',
+                        hintText: 'e.g., Emergency Fund, Vacation, New Car',
+                        prefixIcon: Icon(Icons.flag),
+                      ),
+                      textCapitalization: TextCapitalization.words,
                     ),
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: amountController,
-                    decoration: const InputDecoration(
-                      labelText: 'Target Amount',
-                      hintText: '100000',
-                      prefixIcon: Icon(Icons.currency_rupee),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Target Amount',
+                        hintText: '100000',
+                        prefixIcon: Icon(Icons.currency_rupee),
+                      ),
+                      keyboardType: TextInputType.number,
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today),
-                    title: Text(
-                      deadline != null
-                          ? 'Deadline: ${_formatDate(deadline!)}'
-                          : 'Set Deadline (Optional)',
-                    ),
-                    trailing: deadline != null
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () =>
-                                setModalState(() => deadline = null),
-                          )
-                        : null,
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now().add(
-                          const Duration(days: 90),
-                        ),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(
-                          const Duration(days: 3650),
-                        ),
-                      );
-                      if (picked != null) {
-                        setModalState(() => deadline = picked);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final name = nameController.text.trim();
-                        final amount =
-                            double.tryParse(amountController.text) ?? 0;
-                        if (name.isNotEmpty && amount > 0) {
-                          // Create goal via API
-                          final created = await dataService.createGoal(
-                            userId: _userId,
-                            name: name,
-                            targetAmount: amount,
-                            deadline: deadline?.toIso8601String(),
-                          );
-
-                          if (context.mounted) Navigator.pop(context);
-
-                          if (created != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Goal "$name" created! 🎯'),
-                                backgroundColor: AppTheme.success,
-                              ),
-                            );
-                            _loadGoals();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to create goal'),
-                                backgroundColor: AppTheme.error,
-                              ),
-                            );
-                          }
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today),
+                      title: Text(
+                        deadline != null
+                            ? 'Deadline: ${_formatDate(deadline!)}'
+                            : 'Set Deadline (Optional)',
+                      ),
+                      trailing: deadline != null
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () =>
+                                  setModalState(() => deadline = null),
+                            )
+                          : null,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now().add(
+                            const Duration(days: 90),
+                          ),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 3650),
+                          ),
+                        );
+                        if (picked != null) {
+                          setModalState(() => deadline = picked);
                         }
                       },
-                      child: const Text('Create Goal'),
                     ),
-                 ),
-                 ],
-               ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final name = nameController.text.trim();
+                          final amount =
+                              double.tryParse(amountController.text) ?? 0;
+                          if (name.isNotEmpty && amount > 0) {
+                            // Create goal via API
+                            final created = await dataService.createGoal(
+                              userId: _userId,
+                              name: name,
+                              targetAmount: amount,
+                              deadline: deadline?.toIso8601String(),
+                            );
+
+                            if (context.mounted) Navigator.pop(context);
+
+                            if (created != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Goal "$name" created! 🎯'),
+                                  backgroundColor: AppTheme.success,
+                                ),
+                              );
+                              _loadGoals();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to create goal'),
+                                  backgroundColor: AppTheme.error,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Create Goal'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -505,116 +547,117 @@ class _GoalsScreenBodyState extends State<GoalsScreenBody> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Edit Goal',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 20),
+                    Text(
+                      'Edit Goal',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Goal Name',
-                      prefixIcon: Icon(Icons.flag),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Goal Name',
+                        prefixIcon: Icon(Icons.flag),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: amountController,
-                    decoration: const InputDecoration(
-                      labelText: 'Target Amount',
-                      prefixIcon: Icon(Icons.currency_rupee),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Target Amount',
+                        prefixIcon: Icon(Icons.currency_rupee),
+                      ),
+                      keyboardType: TextInputType.number,
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today),
-                    title: Text(
-                      deadline != null
-                          ? 'Deadline: ${_formatDate(deadline!)}'
-                          : 'Set Deadline',
-                    ),
-                    trailing: deadline != null
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () =>
-                                setModalState(() => deadline = null),
-                          )
-                        : null,
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate:
-                            deadline ??
-                            DateTime.now().add(const Duration(days: 90)),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(
-                          const Duration(days: 3650),
-                        ),
-                      );
-                      if (picked != null) {
-                        setModalState(() => deadline = picked);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final name = nameController.text.trim();
-                        final amount =
-                            double.tryParse(amountController.text) ?? 0;
-                        if (name.isNotEmpty && amount > 0) {
-                          if (context.mounted) Navigator.pop(context);
-
-                          // Update goal via API
-                          final updated = await dataService.updateGoal(
-                            userId: _userId,
-                            goalId: goal.id!,
-                            name: name,
-                            targetAmount: amount,
-                            deadline: deadline?.toIso8601String(),
-                          );
-
-                          if (updated != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Goal "$name" updated! ✅'),
-                                backgroundColor: AppTheme.success,
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to update goal'),
-                                backgroundColor: AppTheme.error,
-                              ),
-                            );
-                          }
-                          _loadGoals();
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today),
+                      title: Text(
+                        deadline != null
+                            ? 'Deadline: ${_formatDate(deadline!)}'
+                            : 'Set Deadline',
+                      ),
+                      trailing: deadline != null
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () =>
+                                  setModalState(() => deadline = null),
+                            )
+                          : null,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate:
+                              deadline ??
+                              DateTime.now().add(const Duration(days: 90)),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 3650),
+                          ),
+                        );
+                        if (picked != null) {
+                          setModalState(() => deadline = picked);
                         }
                       },
-                      child: const Text('Save Changes'),
                     ),
-                 ),
-                 ],
-               ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final name = nameController.text.trim();
+                          final amount =
+                              double.tryParse(amountController.text) ?? 0;
+                          if (name.isNotEmpty && amount > 0) {
+                            if (context.mounted) Navigator.pop(context);
+
+                            // Update goal via API
+                            final updated = await dataService.updateGoal(
+                              userId: _userId,
+                              goalId: goal.id!,
+                              name: name,
+                              targetAmount: amount,
+                              deadline: deadline?.toIso8601String(),
+                            );
+
+                            if (updated != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Goal "$name" updated! ✅'),
+                                  backgroundColor: AppTheme.success,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to update goal'),
+                                  backgroundColor: AppTheme.error,
+                                ),
+                              );
+                            }
+                            _loadGoals();
+                          }
+                        },
+                        child: const Text('Save Changes'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -923,7 +966,9 @@ class _GoalCard extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.incomeGreen.withValues(alpha: 0.1),
+                                color: AppTheme.incomeGreen.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -944,7 +989,9 @@ class _GoalCard extends StatelessWidget {
                         child: Text(
                           '₹${_formatAmount(goal.currentAmount)} / ₹${_formatAmount(goal.targetAmount)}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                       ),

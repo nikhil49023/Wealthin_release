@@ -16,7 +16,9 @@ class SmsTransactionService {
 
   /// No-op — SMS permission is no longer requested.
   Future<bool> requestPermission() async {
-    debugPrint('[SmsTransactionService] SMS scanning is disabled. Use notification listener instead.');
+    debugPrint(
+      '[SmsTransactionService] SMS scanning is disabled. Use notification listener instead.',
+    );
     return false;
   }
 

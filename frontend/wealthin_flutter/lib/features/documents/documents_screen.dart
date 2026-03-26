@@ -438,7 +438,9 @@ class _DocumentFormScreenState extends State<DocumentFormScreen> {
                           Text(
                             widget.template.description,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                         ],
@@ -534,12 +536,24 @@ class _DocumentFormScreenState extends State<DocumentFormScreen> {
     var currentGraphics = page.graphics;
     final pageSize = page.getClientSize();
 
-    final titleFont = PdfStandardFont(PdfFontFamily.helvetica, 20, style: PdfFontStyle.bold);
-    final sectionFont = PdfStandardFont(PdfFontFamily.helvetica, 12, style: PdfFontStyle.bold);
+    final titleFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      20,
+      style: PdfFontStyle.bold,
+    );
+    final sectionFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      12,
+      style: PdfFontStyle.bold,
+    );
     final bodyFont = PdfStandardFont(PdfFontFamily.helvetica, 11);
 
     double y = 24;
-    currentGraphics.drawString(widget.template.name, titleFont, bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 30));
+    currentGraphics.drawString(
+      widget.template.name,
+      titleFont,
+      bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 30),
+    );
     y += 34;
     currentGraphics.drawString(
       'Generated on: ${DateTime.now().toLocal()}',
@@ -553,15 +567,26 @@ class _DocumentFormScreenState extends State<DocumentFormScreen> {
       if (value == null) return;
       final text = value.toString().trim();
       if (text.isEmpty) return;
-      currentGraphics.drawString('$key:', sectionFont, bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 16));
+      currentGraphics.drawString(
+        '$key:',
+        sectionFont,
+        bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 16),
+      );
       y += 16;
-      currentGraphics.drawString(text, bodyFont, bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 40));
+      currentGraphics.drawString(
+        text,
+        bodyFont,
+        bounds: Rect.fromLTWH(20, y, pageSize.width - 40, 40),
+      );
       y += 28;
     }
 
     for (final entry in content.entries) {
       if (entry.value is List || entry.value is Map) {
-        drawLine(entry.key, const JsonEncoder.withIndent('  ').convert(entry.value));
+        drawLine(
+          entry.key,
+          const JsonEncoder.withIndent('  ').convert(entry.value),
+        );
       } else {
         drawLine(entry.key, entry.value);
       }

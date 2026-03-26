@@ -73,16 +73,16 @@ class _SchemesTab extends StatelessWidget {
         'categories': [
           'Shishu: Up to ₹50,000',
           'Kishore: ₹50,001 to ₹5 lakhs',
-          'Tarun: ₹5,00,001 to ₹10 lakhs'
+          'Tarun: ₹5,00,001 to ₹10 lakhs',
         ],
         'eligibility': [
           'Indian citizen',
           'Business in manufacturing, trading, or service sector',
-          'Income-generating activity'
+          'Income-generating activity',
         ],
         'interest_rate': '8-12% per annum (varies by bank)',
         'collateral': 'No collateral required',
-        'website': 'https://www.mudra.org.in'
+        'website': 'https://www.mudra.org.in',
       },
       {
         'name': 'PMEGP',
@@ -93,15 +93,15 @@ class _SchemesTab extends StatelessWidget {
             'Prime Minister Employment Generation Programme - Credit-linked subsidy',
         'subsidy': [
           'General category: 15-25% subsidy',
-          'SC/ST/OBC/Women/Minorities: 25-35% subsidy'
+          'SC/ST/OBC/Women/Minorities: 25-35% subsidy',
         ],
         'eligibility': [
           'Age 18 years and above',
           'At least 8th pass for projects above ₹10 lakhs',
-          'New enterprise only (not existing business)'
+          'New enterprise only (not existing business)',
         ],
         'margin_money': '5-10% of project cost',
-        'website': 'https://www.kviconline.gov.in/pmegp'
+        'website': 'https://www.kviconline.gov.in/pmegp',
       },
       {
         'name': 'Stand-Up India',
@@ -112,11 +112,11 @@ class _SchemesTab extends StatelessWidget {
         'eligibility': [
           'SC/ST and/or Women entrepreneur',
           'Age 18 years and above',
-          'Loan for greenfield enterprise (manufacturing, services, trading)'
+          'Loan for greenfield enterprise (manufacturing, services, trading)',
         ],
         'interest_rate': 'Base rate + 3% + tenor premium',
         'repayment': 'Up to 7 years with moratorium',
-        'website': 'https://www.standupmitra.in'
+        'website': 'https://www.standupmitra.in',
       },
       {
         'name': 'Startup India Seed Fund Scheme',
@@ -129,9 +129,9 @@ class _SchemesTab extends StatelessWidget {
         'eligibility': [
           'DPIIT recognized startup',
           'Incorporated not more than 2 years ago',
-          'Working towards innovation/development'
+          'Working towards innovation/development',
         ],
-        'website': 'https://www.startupindia.gov.in'
+        'website': 'https://www.startupindia.gov.in',
       },
       {
         'name': 'CGTMSE',
@@ -142,10 +142,10 @@ class _SchemesTab extends StatelessWidget {
             'Credit Guarantee Fund Trust for Micro and Small Enterprises - Collateral-free credit',
         'eligibility': [
           'New or existing MSME',
-          'Loan from eligible lending institution'
+          'Loan from eligible lending institution',
         ],
         'fee': '0.75-1% annual service fee',
-        'website': 'https://www.cgtmse.in'
+        'website': 'https://www.cgtmse.in',
       },
     ];
 
@@ -313,16 +313,18 @@ class _SchemeCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        ...items.map((item) => Padding(
-              padding: const EdgeInsets.only(left: 16, top: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('• ', style: TextStyle(fontSize: 16)),
-                  Expanded(child: Text(item as String)),
-                ],
-              ),
-            )),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(left: 16, top: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(fontSize: 16)),
+                Expanded(child: Text(item as String)),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -408,7 +410,8 @@ class _VerifyTabState extends State<_VerifyTab> {
             controller: _gstinController,
             hint: '29ABCDE1234F1Z5',
             label: 'GSTIN Number',
-            info: 'Format: 2 digits + 10 char PAN + 1 letter + 1 digit + 1 letter',
+            info:
+                'Format: 2 digits + 10 char PAN + 1 letter + 1 digit + 1 letter',
             onVerify: () => _showComingSoon(context, 'GSTIN Verification'),
           ),
           const SizedBox(height: 16),
@@ -476,8 +479,8 @@ class _VerifyTabState extends State<_VerifyTab> {
             Text(
               info,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
-                  ),
+                color: Colors.grey,
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -658,21 +661,22 @@ class _MSMEDirectoryTabState extends State<_MSMEDirectoryTab> {
                   Text(
                     'MSME Directory Search',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Search for registered MSMEs by location and sector.\n\nRequires Government API integration.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey,
-                        ),
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
-                    onPressed: () => _launchURL('https://udyamregistration.gov.in'),
+                    onPressed: () =>
+                        _launchURL('https://udyamregistration.gov.in'),
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('Visit UDYAM Portal'),
                     style: ElevatedButton.styleFrom(

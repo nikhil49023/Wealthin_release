@@ -82,19 +82,21 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _addWelcomeMessage() {
-    _messages.add(ChatMessage(
-      text:
-          '**Namaste!** I\'m **Artha**, your personal Indian financial advisor.\n\n'
-          'I combine ancient wealth philosophy with modern fintech intelligence. '
-          'Ask me anything about:\n'
-          '- 💰 Budgeting & savings\n'
-          '- 📈 Investments (Mutual Funds, PPF, NPS, SGB)\n'
-          '- 🏠 Loans & EMI planning\n'
-          '- 📊 Your spending patterns\n\n'
-          'I can also show you charts and tables — just ask!',
-      isUser: false,
-      timestamp: DateTime.now(),
-    ));
+    _messages.add(
+      ChatMessage(
+        text:
+            '**Namaste!** I\'m **Artha**, your personal Indian financial advisor.\n\n'
+            'I combine ancient wealth philosophy with modern fintech intelligence. '
+            'Ask me anything about:\n'
+            '- 💰 Budgeting & savings\n'
+            '- 📈 Investments (Mutual Funds, PPF, NPS, SGB)\n'
+            '- 🏠 Loans & EMI planning\n'
+            '- 📊 Your spending patterns\n\n'
+            'I can also show you charts and tables — just ask!',
+        isUser: false,
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   Future<void> _initSpeech() async {
@@ -149,7 +151,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     // Try to detect markdown table
-    final tableMatch = RegExp(r'(\|.+\|\s*\n\|[-| :]+\|\s*\n(\|.+\|\s*\n?)+)').firstMatch(rawText);
+    final tableMatch = RegExp(
+      r'(\|.+\|\s*\n\|[-| :]+\|\s*\n(\|.+\|\s*\n?)+)',
+    ).firstMatch(rawText);
     if (tableMatch != null) {
       final tableText = tableMatch.group(0)!;
       final parsed = _parseMarkdownTable(tableText);
@@ -178,7 +182,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     try {
       final lines = tableText
           .split('\n')
-          .where((l) => l.trim().isNotEmpty && !RegExp(r'^\|[-| :]+\|$').hasMatch(l.trim()))
+          .where(
+            (l) =>
+                l.trim().isNotEmpty &&
+                !RegExp(r'^\|[-| :]+\|$').hasMatch(l.trim()),
+          )
           .toList();
       return lines.map((line) {
         return line
@@ -199,11 +207,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final userId = authService.currentUserId;
 
     setState(() {
-      _messages.add(ChatMessage(
-        text: text,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        ChatMessage(
+          text: text,
+          isUser: true,
+          timestamp: DateTime.now(),
+        ),
+      );
       _isLoading = true;
     });
 
@@ -215,7 +225,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final history = _messages
         .where((m) => !m.isError)
         .take(10)
-        .map((m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text})
+        .map(
+          (m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text},
+        )
         .toList();
 
     // Inject memory context
@@ -233,20 +245,24 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       unawaited(memoryService.extractAndSave(response.response, userId));
 
       setState(() {
-        _messages.add(_parseResponse(
-          response.response,
-          response.inferenceMode ?? 'Artha',
-        ));
+        _messages.add(
+          _parseResponse(
+            response.response,
+            response.inferenceMode ?? 'Artha',
+          ),
+        );
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _messages.add(ChatMessage(
-          text: 'Error connecting to Artha. Please try again.',
-          isUser: false,
-          timestamp: DateTime.now(),
-          isError: true,
-        ));
+        _messages.add(
+          ChatMessage(
+            text: 'Error connecting to Artha. Please try again.',
+            isUser: false,
+            timestamp: DateTime.now(),
+            isError: true,
+          ),
+        );
         _isLoading = false;
       });
     }
@@ -302,7 +318,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final barBg = isDark ? AppTheme.richNavy : AppTheme.lightCard;
     final titleColor = isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary;
-    final subtitleColor = isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary;
+    final subtitleColor = isDark
+        ? AppTheme.silverMist
+        : AppTheme.lightTextSecondary;
     final statusBg = isDark
         ? AppTheme.peacockTeal.withValues(alpha: 0.15)
         : AppTheme.peacockTeal.withValues(alpha: 0.12);
@@ -354,12 +372,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           decoration: BoxDecoration(
             color: statusBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.peacockTeal.withValues(alpha: 0.30)),
+            border: Border.all(
+              color: AppTheme.peacockTeal.withValues(alpha: 0.30),
+            ),
           ),
           child: Row(
             children: [
               Container(
-                width: 6, height: 6,
+                width: 6,
+                height: 6,
                 decoration: const BoxDecoration(
                   color: AppTheme.peacockLight,
                   shape: BoxShape.circle,
@@ -369,7 +390,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               Text(
                 isCompact ? 'On' : 'Online',
                 style: GoogleFonts.dmSans(
-                  color: AppTheme.peacockLight, fontSize: 11, fontWeight: FontWeight.w600,
+                  color: AppTheme.peacockLight,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -378,12 +401,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         PopupMenuButton<String>(
           tooltip: 'Options',
           color: isDark ? AppTheme.inkSlate : AppTheme.lightCard,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           onSelected: (value) {
             if (value == 'ideas') {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const EnhancedBrainstormScreen(),
-              ));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const EnhancedBrainstormScreen(),
+                ),
+              );
             } else if (value == 'clear') {
               setState(() {
                 _messages.clear();
@@ -394,29 +421,45 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           itemBuilder: (context) => [
             PopupMenuItem(
               value: 'ideas',
-              child: Row(children: [
-                Icon(Icons.lightbulb_rounded, size: 16, color: AppTheme.royalGold),
-                const SizedBox(width: 8),
-                Text(
-                  'Ideas Mode',
-                  style: GoogleFonts.dmSans(
-                    color: isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_rounded,
+                    size: 16,
+                    color: AppTheme.royalGold,
                   ),
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Ideas Mode',
+                    style: GoogleFonts.dmSans(
+                      color: isDark
+                          ? AppTheme.pearlWhite
+                          : AppTheme.lightTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
             PopupMenuItem(
               value: 'clear',
-              child: Row(children: [
-                Icon(Icons.delete_outline_rounded, size: 16, color: AppTheme.error),
-                const SizedBox(width: 8),
-                Text(
-                  'Clear Chat',
-                  style: GoogleFonts.dmSans(
-                    color: isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.delete_outline_rounded,
+                    size: 16,
+                    color: AppTheme.error,
                   ),
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Clear Chat',
+                    style: GoogleFonts.dmSans(
+                      color: isDark
+                          ? AppTheme.pearlWhite
+                          : AppTheme.lightTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
           icon: Icon(
@@ -469,7 +512,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               bottomRight: Radius.circular(18),
               bottomLeft: Radius.circular(4),
             ),
-            border: Border.all(color: AppTheme.royalGold.withValues(alpha: 0.12)),
+            border: Border.all(
+              color: AppTheme.royalGold.withValues(alpha: 0.12),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -477,14 +522,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               return AnimatedBuilder(
                 animation: _typingController,
                 builder: (_, _) {
-                  final offset = math.sin((_typingController.value * 2 * math.pi) + (i * 1.1));
+                  final offset = math.sin(
+                    (_typingController.value * 2 * math.pi) + (i * 1.1),
+                  );
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 3),
                     width: 7,
                     height: 7 + (offset * 3),
                     decoration: BoxDecoration(
-                      color: (isDark ? AppTheme.peacockLight : AppTheme.peacockTeal)
-                          .withValues(alpha: 0.7 + offset * 0.3),
+                      color:
+                          (isDark
+                                  ? AppTheme.peacockLight
+                                  : AppTheme.peacockTeal)
+                              .withValues(alpha: 0.7 + offset * 0.3),
                       shape: BoxShape.circle,
                     ),
                   );
@@ -496,7 +546,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
   }
-
 
   Widget _buildInputBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -540,7 +589,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                   child: Icon(
                     _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                    color: _isListening ? AppTheme.royalGold : AppTheme.silverMist,
+                    color: _isListening
+                        ? AppTheme.royalGold
+                        : AppTheme.silverMist,
                     size: 20,
                   ),
                 ),
@@ -563,8 +614,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               decoration: InputDecoration(
                 hintText: 'Ask Artha anything...',
                 hintStyle: GoogleFonts.dmSans(
-                  color: (isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary)
-                      .withValues(alpha: 0.7),
+                  color:
+                      (isDark
+                              ? AppTheme.silverMist
+                              : AppTheme.lightTextSecondary)
+                          .withValues(alpha: 0.7),
                   fontSize: 15,
                 ),
                 border: InputBorder.none,
@@ -597,7 +651,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 child: Icon(
                   Icons.send_rounded,
                   color: _isLoading
-                      ? (isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary)
+                      ? (isDark
+                            ? AppTheme.silverMist
+                            : AppTheme.lightTextSecondary)
                       : AppTheme.pearlWhite,
                   size: 18,
                 ),
@@ -628,8 +684,9 @@ class _ChatBubble extends StatelessWidget {
         ),
         margin: const EdgeInsets.only(bottom: 10),
         child: Column(
-          crossAxisAlignment:
-              message.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: message.isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             _buildBubble(context),
             if (!message.isUser && message.mode.isNotEmpty)
@@ -705,7 +762,9 @@ class _AiBubble extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bubbleBg = isDark ? AppTheme.inkSlate : AppTheme.lightCard;
     final textColor = isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary;
-    final secondaryText = isDark ? AppTheme.silverMist : AppTheme.lightTextSecondary;
+    final secondaryText = isDark
+        ? AppTheme.silverMist
+        : AppTheme.lightTextSecondary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -725,42 +784,63 @@ class _AiBubble extends StatelessWidget {
         data: message.text,
         styleSheet: MarkdownStyleSheet(
           p: GoogleFonts.dmSans(
-            color: textColor, fontSize: 14.5, height: 1.55,
+            color: textColor,
+            fontSize: 14.5,
+            height: 1.55,
           ),
           h1: GoogleFonts.syne(
-            color: AppTheme.champagneGold, fontSize: 18, fontWeight: FontWeight.w700,
+            color: AppTheme.champagneGold,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
           ),
           h2: GoogleFonts.syne(
-            color: AppTheme.champagneGold, fontSize: 16, fontWeight: FontWeight.w600,
+            color: AppTheme.champagneGold,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
           h3: GoogleFonts.syne(
-            color: AppTheme.champagneGold, fontSize: 14, fontWeight: FontWeight.w600,
+            color: AppTheme.champagneGold,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
           strong: GoogleFonts.dmSans(
-            color: AppTheme.champagneGold, fontWeight: FontWeight.w700, fontSize: 14.5,
+            color: AppTheme.champagneGold,
+            fontWeight: FontWeight.w700,
+            fontSize: 14.5,
           ),
           em: GoogleFonts.dmSans(
-            color: secondaryText, fontStyle: FontStyle.italic, fontSize: 14.5,
+            color: secondaryText,
+            fontStyle: FontStyle.italic,
+            fontSize: 14.5,
           ),
           code: GoogleFonts.sourceCodePro(
             color: isDark ? AppTheme.peacockLight : AppTheme.peacockTeal,
             fontSize: 13,
-            backgroundColor: isDark ? AppTheme.deepSlate : AppTheme.lightSurface,
+            backgroundColor: isDark
+                ? AppTheme.deepSlate
+                : AppTheme.lightSurface,
           ),
           blockquote: GoogleFonts.dmSans(
-            color: secondaryText, fontSize: 14, fontStyle: FontStyle.italic,
+            color: secondaryText,
+            fontSize: 14,
+            fontStyle: FontStyle.italic,
           ),
           listBullet: GoogleFonts.dmSans(
-            color: AppTheme.peacockLight, fontSize: 14.5,
+            color: AppTheme.peacockLight,
+            fontSize: 14.5,
           ),
           blockquoteDecoration: BoxDecoration(
             color: isDark ? AppTheme.deepSlate : AppTheme.lightSurface,
-            border: Border(left: BorderSide(color: AppTheme.peacockTeal, width: 3)),
+            border: Border(
+              left: BorderSide(color: AppTheme.peacockTeal, width: 3),
+            ),
           ),
           codeblockDecoration: BoxDecoration(
             color: isDark ? AppTheme.deepSlate : AppTheme.lightSurface,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isDark ? AppTheme.inkSlate : AppTheme.lightBorder),
+            border: Border.all(
+              color: isDark ? AppTheme.inkSlate : AppTheme.lightBorder,
+            ),
           ),
         ),
       ),
@@ -825,9 +905,13 @@ class _ChartBubble extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (message.text.isNotEmpty)
-          _AiBubble(message: ChatMessage(
-            text: message.text, isUser: false, timestamp: message.timestamp,
-          )),
+          _AiBubble(
+            message: ChatMessage(
+              text: message.text,
+              isUser: false,
+              timestamp: message.timestamp,
+            ),
+          ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
@@ -835,11 +919,17 @@ class _ChartBubble extends StatelessWidget {
           decoration: BoxDecoration(
             color: isDark ? AppTheme.inkSlate : AppTheme.lightCard,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.peacockTeal.withValues(alpha: 0.25)),
+            border: Border.all(
+              color: AppTheme.peacockTeal.withValues(alpha: 0.25),
+            ),
           ),
           child: type == 'pie'
               ? _PieChartWidget(labels: labels, data: data)
-              : _BarLineChart(labels: labels, data: data, isLine: type == 'line'),
+              : _BarLineChart(
+                  labels: labels,
+                  data: data,
+                  isLine: type == 'line',
+                ),
         ),
       ],
     );
@@ -850,7 +940,11 @@ class _BarLineChart extends StatelessWidget {
   final List<String> labels;
   final List<double> data;
   final bool isLine;
-  const _BarLineChart({required this.labels, required this.data, this.isLine = false});
+  const _BarLineChart({
+    required this.labels,
+    required this.data,
+    this.isLine = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -858,78 +952,115 @@ class _BarLineChart extends StatelessWidget {
     final maxVal = data.reduce((a, b) => a > b ? a : b);
 
     if (isLine) {
-      final spots = List.generate(data.length, (i) => FlSpot(i.toDouble(), data[i]));
-      return LineChart(LineChartData(
-        gridData: FlGridData(show: true, drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) => FlLine(color: AppTheme.deepSlate, strokeWidth: 1)),
+      final spots = List.generate(
+        data.length,
+        (i) => FlSpot(i.toDouble(), data[i]),
+      );
+      return LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            getDrawingHorizontalLine: (_) =>
+                FlLine(color: AppTheme.deepSlate, strokeWidth: 1),
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (val, _) {
+                  final i = val.round();
+                  if (i < 0 || i >= labels.length)
+                    return const SizedBox.shrink();
+                  return Text(
+                    labels[i],
+                    style: GoogleFonts.dmSans(
+                      color: AppTheme.silverMist,
+                      fontSize: 10,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: AppTheme.peacockLight,
+              barWidth: 2.5,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (_, _, _, _) => FlDotCirclePainter(
+                  radius: 3,
+                  color: AppTheme.royalGold,
+                  strokeWidth: 0,
+                ),
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                color: AppTheme.peacockTeal.withValues(alpha: 0.12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return BarChart(
+      BarChartData(
+        gridData: FlGridData(show: false),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(
-            showTitles: true,
-            getTitlesWidget: (val, _) {
-              final i = val.round();
-              if (i < 0 || i >= labels.length) return const SizedBox.shrink();
-              return Text(labels[i], style: GoogleFonts.dmSans(color: AppTheme.silverMist, fontSize: 10));
-            },
-          )),
-        ),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: AppTheme.peacockLight,
-            barWidth: 2.5,
-            dotData: FlDotData(show: true, getDotPainter: (_, _, _, _) =>
-              FlDotCirclePainter(radius: 3, color: AppTheme.royalGold, strokeWidth: 0)),
-            belowBarData: BarAreaData(
-              show: true,
-              color: AppTheme.peacockTeal.withValues(alpha: 0.12),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (val, _) {
+                final i = val.round();
+                if (i < 0 || i >= labels.length) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    labels[i],
+                    style: GoogleFonts.dmSans(
+                      color: AppTheme.silverMist,
+                      fontSize: 9,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
             ),
           ),
-        ],
-      ));
-    }
-
-    return BarChart(BarChartData(
-      gridData: FlGridData(show: false),
-      titlesData: FlTitlesData(
-        leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        bottomTitles: AxisTitles(sideTitles: SideTitles(
-          showTitles: true,
-          getTitlesWidget: (val, _) {
-            final i = val.round();
-            if (i < 0 || i >= labels.length) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(labels[i],
-                style: GoogleFonts.dmSans(color: AppTheme.silverMist, fontSize: 9),
-                overflow: TextOverflow.ellipsis,
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: List.generate(
+          data.length,
+          (i) => BarChartGroupData(
+            x: i,
+            barRods: [
+              BarChartRodData(
+                toY: data[i],
+                width: 16,
+                borderRadius: BorderRadius.circular(6),
+                gradient: const LinearGradient(
+                  colors: [IndianTheme.peacockTeal, IndianTheme.peacockLight],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
               ),
-            );
-          },
-        )),
-      ),
-      borderData: FlBorderData(show: false),
-      barGroups: List.generate(data.length, (i) => BarChartGroupData(
-        x: i,
-        barRods: [BarChartRodData(
-          toY: data[i],
-          width: 16,
-          borderRadius: BorderRadius.circular(6),
-          gradient: const LinearGradient(
-            colors: [IndianTheme.peacockTeal, IndianTheme.peacockLight],
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
+            ],
           ),
-        )],
-      )),
-      maxY: maxVal * 1.2,
-    ));
+        ),
+        maxY: maxVal * 1.2,
+      ),
+    );
   }
 }
 
@@ -954,42 +1085,58 @@ class _PieChartWidget extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: PieChart(PieChartData(
-            sections: List.generate(data.length, (i) {
-              final pct = total > 0 ? data[i] / total * 100 : 0;
-              return PieChartSectionData(
-                value: data[i],
-                title: '${pct.toStringAsFixed(0)}%',
-                titleStyle: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
-                color: _colors[i % _colors.length],
-                radius: 60,
-              );
-            }),
-            sectionsSpace: 2,
-            centerSpaceRadius: 30,
-          )),
+          child: PieChart(
+            PieChartData(
+              sections: List.generate(data.length, (i) {
+                final pct = total > 0 ? data[i] / total * 100 : 0;
+                return PieChartSectionData(
+                  value: data[i],
+                  title: '${pct.toStringAsFixed(0)}%',
+                  titleStyle: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                  color: _colors[i % _colors.length],
+                  radius: 60,
+                );
+              }),
+              sectionsSpace: 2,
+              centerSpaceRadius: 30,
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(labels.length, (i) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(width: 10, height: 10,
-                  decoration: BoxDecoration(
-                    color: _colors[i % _colors.length],
-                    shape: BoxShape.circle,
-                  )),
-                const SizedBox(width: 6),
-                Text(labels[i],
-                  style: GoogleFonts.dmSans(color: AppTheme.silverMist, fontSize: 11),
-                ),
-              ],
+          children: List.generate(
+            labels.length,
+            (i) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _colors[i % _colors.length],
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    labels[i],
+                    style: GoogleFonts.dmSans(
+                      color: AppTheme.silverMist,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )),
+          ),
         ),
       ],
     );
@@ -1014,15 +1161,21 @@ class _TableBubble extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (message.text.isNotEmpty)
-          _AiBubble(message: ChatMessage(
-            text: message.text, isUser: false, timestamp: message.timestamp,
-          )),
+          _AiBubble(
+            message: ChatMessage(
+              text: message.text,
+              isUser: false,
+              timestamp: message.timestamp,
+            ),
+          ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
             color: isDark ? AppTheme.inkSlate : AppTheme.lightCard,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.royalGold.withValues(alpha: 0.15)),
+            border: Border.all(
+              color: AppTheme.royalGold.withValues(alpha: 0.15),
+            ),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
@@ -1034,24 +1187,37 @@ class _TableBubble extends StatelessWidget {
                 ),
                 headingTextStyle: GoogleFonts.dmSans(
                   color: AppTheme.champagneGold,
-                  fontSize: 12, fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
                 dataTextStyle: GoogleFonts.dmSans(
-                  color: AppTheme.pearlWhite, fontSize: 12,
+                  color: AppTheme.pearlWhite,
+                  fontSize: 12,
                 ),
                 dividerThickness: 0.5,
                 columnSpacing: 20,
                 horizontalMargin: 12,
                 dataRowMinHeight: 36,
                 dataRowMaxHeight: 48,
-                columns: headers.map((h) => DataColumn(
-                  label: Text(h),
-                )).toList(),
-                rows: dataRows.map((row) => DataRow(
-                  cells: List.generate(headers.length, (i) => DataCell(
-                    Text(i < row.length ? row[i] : ''),
-                  )),
-                )).toList(),
+                columns: headers
+                    .map(
+                      (h) => DataColumn(
+                        label: Text(h),
+                      ),
+                    )
+                    .toList(),
+                rows: dataRows
+                    .map(
+                      (row) => DataRow(
+                        cells: List.generate(
+                          headers.length,
+                          (i) => DataCell(
+                            Text(i < row.length ? row[i] : ''),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),

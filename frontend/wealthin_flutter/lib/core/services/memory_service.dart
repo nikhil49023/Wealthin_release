@@ -12,13 +12,34 @@ class MemoryService {
 
   // ─────────── Fact extraction patterns ───────────
   // These regexes pull structured facts from AI responses / user messages.
-  static final _incomeRx    = RegExp(r'(?:income|salary|earn)[^₹\d]*₹?\s*([\d,]+)', caseSensitive: false);
-  static final _expenseRx   = RegExp(r'(?:spent|expense)[^₹\d]*₹?\s*([\d,]+)', caseSensitive: false);
-  static final _savingsRx   = RegExp(r'(?:saving|save)[^₹\d%]*(?:₹?\s*([\d,]+)|(\d+)%)', caseSensitive: false);
-  static final _goalRx      = RegExp(r'(?:goal|want|planning)[^:.\n]{0,30}(?:₹?\s*([\d,]+)|(\d+)\s*(?:lakh|cr|crore))', caseSensitive: false);
-  static final _nameRx      = RegExp(r'(?:my name is|i am|call me)\s+([A-Z][a-z]+)', caseSensitive: false);
-  static final _riskRx      = RegExp(r'(?:risk[- ]?(?:profile|appetite)|i (?:am|prefer))\s*(aggressive|moderate|conservative)', caseSensitive: false);
-  static final _sipRx       = RegExp(r'sip[^₹\d]*₹?\s*([\d,]+)', caseSensitive: false);
+  static final _incomeRx = RegExp(
+    r'(?:income|salary|earn)[^₹\d]*₹?\s*([\d,]+)',
+    caseSensitive: false,
+  );
+  static final _expenseRx = RegExp(
+    r'(?:spent|expense)[^₹\d]*₹?\s*([\d,]+)',
+    caseSensitive: false,
+  );
+  static final _savingsRx = RegExp(
+    r'(?:saving|save)[^₹\d%]*(?:₹?\s*([\d,]+)|(\d+)%)',
+    caseSensitive: false,
+  );
+  static final _goalRx = RegExp(
+    r'(?:goal|want|planning)[^:.\n]{0,30}(?:₹?\s*([\d,]+)|(\d+)\s*(?:lakh|cr|crore))',
+    caseSensitive: false,
+  );
+  static final _nameRx = RegExp(
+    r'(?:my name is|i am|call me)\s+([A-Z][a-z]+)',
+    caseSensitive: false,
+  );
+  static final _riskRx = RegExp(
+    r'(?:risk[- ]?(?:profile|appetite)|i (?:am|prefer))\s*(aggressive|moderate|conservative)',
+    caseSensitive: false,
+  );
+  static final _sipRx = RegExp(
+    r'sip[^₹\d]*₹?\s*([\d,]+)',
+    caseSensitive: false,
+  );
 
   // ─────────── Public API ───────────
 
@@ -28,7 +49,12 @@ class MemoryService {
     await _ensureTable(db);
     await db.insert(
       'user_memory',
-      {'user_id': userId, 'key': key, 'value': value, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+      {
+        'user_id': userId,
+        'key': key,
+        'value': value,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     debugPrint('[Memory] Saved: $key = $value');
@@ -61,9 +87,17 @@ class MemoryService {
     final buf = StringBuffer('<memory>\n');
     // Priority ordering for most-useful facts first
     final orderedKeys = [
-      'user_name', 'monthly_income', 'monthly_expenses', 'monthly_savings',
-      'risk_profile', 'main_goal', 'sip_amount', 'occupation', 'city',
-      'preferred_language', 'family_size',
+      'user_name',
+      'monthly_income',
+      'monthly_expenses',
+      'monthly_savings',
+      'risk_profile',
+      'main_goal',
+      'sip_amount',
+      'occupation',
+      'city',
+      'preferred_language',
+      'family_size',
     ];
     for (final key in orderedKeys) {
       if (memory.containsKey(key)) {
@@ -85,34 +119,49 @@ class MemoryService {
     try {
       // Name
       final nameMatch = _nameRx.firstMatch(text);
-      if (nameMatch != null) await saveMemory(userId, 'user_name', nameMatch.group(1)!);
+      if (nameMatch != null)
+        await saveMemory(userId, 'user_name', nameMatch.group(1)!);
 
       // Income
       final incomeMatch = _incomeRx.firstMatch(text);
-      if (incomeMatch != null) await saveMemory(userId, 'monthly_income', '₹${incomeMatch.group(1)}');
+      if (incomeMatch != null)
+        await saveMemory(userId, 'monthly_income', '₹${incomeMatch.group(1)}');
 
       // Expenses
       final expMatch = _expenseRx.firstMatch(text);
-      if (expMatch != null) await saveMemory(userId, 'monthly_expenses', '₹${expMatch.group(1)}');
+      if (expMatch != null)
+        await saveMemory(userId, 'monthly_expenses', '₹${expMatch.group(1)}');
 
       // Savings
       final savMatch = _savingsRx.firstMatch(text);
       if (savMatch != null) {
         final amount = savMatch.group(1) ?? savMatch.group(2);
-        if (amount != null) await saveMemory(userId, 'monthly_savings', savMatch.group(1) != null ? '₹$amount' : '$amount%');
+        if (amount != null)
+          await saveMemory(
+            userId,
+            'monthly_savings',
+            savMatch.group(1) != null ? '₹$amount' : '$amount%',
+          );
       }
 
       // Goals
       final goalMatch = _goalRx.firstMatch(text);
-      if (goalMatch != null) await saveMemory(userId, 'main_goal', goalMatch.group(0)!.trim());
+      if (goalMatch != null)
+        await saveMemory(userId, 'main_goal', goalMatch.group(0)!.trim());
 
       // Risk profile
       final riskMatch = _riskRx.firstMatch(text);
-      if (riskMatch != null) await saveMemory(userId, 'risk_profile', riskMatch.group(1)!.toLowerCase());
+      if (riskMatch != null)
+        await saveMemory(
+          userId,
+          'risk_profile',
+          riskMatch.group(1)!.toLowerCase(),
+        );
 
       // SIP
       final sipMatch = _sipRx.firstMatch(text);
-      if (sipMatch != null) await saveMemory(userId, 'sip_amount', '₹${sipMatch.group(1)}');
+      if (sipMatch != null)
+        await saveMemory(userId, 'sip_amount', '₹${sipMatch.group(1)}');
     } catch (e) {
       debugPrint('[Memory] Extract error: $e');
     }
@@ -154,7 +203,12 @@ class MemoryService {
       'preferred_language': 'Preferred language',
       'family_size': 'Family size',
     };
-    return labels[key] ?? key.replaceAll('_', ' ').split(' ').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+    return labels[key] ??
+        key
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((w) => w[0].toUpperCase() + w.substring(1))
+            .join(' ');
   }
 }
 

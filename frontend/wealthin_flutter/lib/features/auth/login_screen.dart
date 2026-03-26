@@ -120,8 +120,11 @@ class _LoginScreenState extends State<LoginScreen>
                 gradient: IndianTheme.sunriseGradient,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.lock_reset_rounded,
-                  color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.lock_reset_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Text(
@@ -293,20 +296,22 @@ class _LoginScreenState extends State<LoginScreen>
         return Positioned(
           left: left,
           top: top,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: IndianTheme.royalGold
-                  .withValues(alpha: 0.3 + random.nextDouble() * 0.3),
-            ),
-          )
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .fadeIn(duration: 2.seconds)
-              .then()
-              .fadeOut(duration: 2.seconds)
-              .moveY(begin: 0, end: -15, duration: 4.seconds),
+          child:
+              Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: IndianTheme.royalGold.withValues(
+                        alpha: 0.3 + random.nextDouble() * 0.3,
+                      ),
+                    ),
+                  )
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .fadeIn(duration: 2.seconds)
+                  .then()
+                  .fadeOut(duration: 2.seconds)
+                  .moveY(begin: 0, end: -15, duration: 4.seconds),
         );
       }),
     );
@@ -395,10 +400,7 @@ class _LoginScreenState extends State<LoginScreen>
             size: 56,
             color: Colors.white,
           ),
-        )
-            .animate()
-            .scale(duration: 800.ms, curve: Curves.elasticOut)
-            .fadeIn(),
+        ).animate().scale(duration: 800.ms, curve: Curves.elasticOut).fadeIn(),
         const SizedBox(height: 28),
         ShaderMask(
           shaderCallback: (bounds) => LinearGradient(
@@ -519,8 +521,9 @@ class _LoginScreenState extends State<LoginScreen>
                   labelText: 'Password',
                   hintText: 'Enter your password',
                   prefixIcon: Icons.lock_outlined,
-                  suffixIcon:
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  suffixIcon: _obscurePassword
+                      ? Icons.visibility_off
+                      : Icons.visibility,
                   onSuffixTap: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
                   validator: (value) {
@@ -717,7 +720,8 @@ class _LoginScreenState extends State<LoginScreen>
             );
           },
           child: ShaderMask(
-            shaderCallback: (bounds) => IndianTheme.sunriseGradient.createShader(bounds),
+            shaderCallback: (bounds) =>
+                IndianTheme.sunriseGradient.createShader(bounds),
             child: Text(
               'Sign Up',
               style: GoogleFonts.poppins(

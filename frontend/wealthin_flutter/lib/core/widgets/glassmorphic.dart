@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import '../theme/indian_theme.dart';
 
 /// Glassmorphic UI Components
-/// Premium frosted glass effects with Indian-inspired styling
+/// Luxury frosted glass effects with vibrant Indian authentic styling
+/// Using Peach Cream, Vanilla Latte, Mint Whisper, Golden Sand, Deep Olive, Deep Purple
 
 /// Main Glassmorphic Container
 class GlassContainer extends StatelessWidget {
@@ -51,32 +53,38 @@ class GlassContainer extends StatelessWidget {
           child: Container(
             padding: padding ?? const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: gradient ??
+              gradient:
+                  gradient ??
                   LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      (tintColor ?? (isDark ? Colors.white : IndianTheme.goldShimmer))
+                      (tintColor ??
+                              (isDark ? AppTheme.peachCream : AppTheme.goldenSand))
                           .withValues(alpha: opacity),
-                      (tintColor ?? (isDark ? Colors.white : IndianTheme.champagneGold))
+                      (tintColor ??
+                              (isDark
+                                  ? AppTheme.vanillaLatte
+                                  : AppTheme.mintWhisper))
                           .withValues(alpha: opacity * 0.5),
                     ],
                   ),
               borderRadius: BorderRadius.circular(borderRadius),
               border: Border.all(
-                color: borderColor ??
+                color:
+                    borderColor ??
                     (isDark
-                        ? Colors.white.withValues(alpha: 0.2)
-                        : IndianTheme.royalGold.withValues(alpha: 0.3)),
+                        ? AppTheme.goldenSand.withValues(alpha: 0.3)
+                        : AppTheme.royalGold.withValues(alpha: 0.4)),
                 width: borderWidth,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (isDark ? Colors.black : IndianTheme.templeStone)
-                      .withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 8),
+                  color: (isDark ? AppTheme.deepPurple : AppTheme.mintWhisper)
+                      .withValues(alpha: 0.3),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
@@ -118,10 +126,10 @@ class PremiumGlassCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  IndianTheme.royalGold,
-                  IndianTheme.champagneGold,
-                  IndianTheme.saffronLight,
-                  IndianTheme.royalGold,
+                  AppTheme.goldenSand,
+                  AppTheme.peachCream,
+                  AppTheme.champagneGold,
+                  AppTheme.goldenSand,
                 ],
                 stops: [0.0, 0.3, 0.7, 1.0],
               )
@@ -214,13 +222,15 @@ class _GlassButtonState extends State<GlassButton>
               width: widget.width,
               height: widget.height,
               decoration: BoxDecoration(
-                gradient: widget.gradient ?? IndianTheme.sunriseGradient,
+                gradient: widget.gradient ?? AppTheme.sunriseGradient,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: IndianTheme.saffron.withValues(alpha: _isPressed ? 0.2 : 0.4),
-                    blurRadius: _isPressed ? 8 : 16,
-                    offset: Offset(0, _isPressed ? 4 : 8),
+                    color: AppTheme.goldenSand.withValues(
+                      alpha: _isPressed ? 0.3 : 0.5,
+                    ),
+                    blurRadius: _isPressed ? 12 : 20,
+                    offset: Offset(0, _isPressed ? 4 : 10),
                   ),
                 ],
               ),
@@ -247,8 +257,9 @@ class _GlassButtonState extends State<GlassButton>
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : Row(
@@ -313,20 +324,20 @@ class GlassNavigationBar extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  IndianTheme.marbleCream.withValues(alpha: 0.9),
-                  IndianTheme.goldShimmer.withValues(alpha: 0.8),
+                  AppTheme.peachCream.withValues(alpha: 0.95),
+                  AppTheme.vanillaLatte.withValues(alpha: 0.9),
                 ],
               ),
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: IndianTheme.royalGold.withValues(alpha: 0.4),
+                color: AppTheme.goldenSand.withValues(alpha: 0.5),
                 width: 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: IndianTheme.templeStone.withValues(alpha: 0.15),
-                  blurRadius: 20,
-                  offset: const Offset(0, -5),
+                  color: AppTheme.deepOlive.withValues(alpha: 0.2),
+                  blurRadius: 24,
+                  offset: const Offset(0, -8),
                 ),
               ],
             ),
@@ -334,7 +345,11 @@ class GlassNavigationBar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: List.generate(items.length, (index) {
                 final isSelected = index == currentIndex;
-                return _buildNavItem(items[index], isSelected, () => onTap(index));
+                return _buildNavItem(
+                  items[index],
+                  isSelected,
+                  () => onTap(index),
+                );
               }),
             ),
           ),
@@ -352,9 +367,7 @@ class GlassNavigationBar extends StatelessWidget {
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? IndianTheme.sunriseGradient
-              : null,
+          gradient: isSelected ? AppTheme.sunriseGradient : null,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -362,7 +375,7 @@ class GlassNavigationBar extends StatelessWidget {
           children: [
             Icon(
               isSelected ? item.activeIcon : item.icon,
-              color: isSelected ? Colors.white : IndianTheme.templeStone,
+              color: isSelected ? AppTheme.deepPurple : AppTheme.deepOlive,
               size: 24,
             ),
             if (isSelected) ...[
@@ -370,7 +383,7 @@ class GlassNavigationBar extends StatelessWidget {
               Text(
                 item.label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.deepPurple,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -429,14 +442,14 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  IndianTheme.saffron.withValues(alpha: 0.9),
-                  IndianTheme.saffron.withValues(alpha: 0.7),
+                  AppTheme.peachCream.withValues(alpha: 0.95),
+                  AppTheme.vanillaLatte.withValues(alpha: 0.85),
                 ],
               ),
               border: Border(
                 bottom: BorderSide(
-                  color: IndianTheme.royalGold.withValues(alpha: 0.3),
-                  width: 1,
+                  color: AppTheme.goldenSand.withValues(alpha: 0.4),
+                  width: 1.5,
                 ),
               ),
             ),
@@ -449,7 +462,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppTheme.deepOlive,
                   ),
                 ),
                 if (centerTitle) const Spacer(),
@@ -494,13 +507,16 @@ class _FloatingGlassCardState extends State<FloatingGlassCard>
       vsync: this,
     )..repeat(reverse: true);
 
-    _floatAnimation = Tween<double>(
-      begin: -widget.floatHeight,
-      end: widget.floatHeight,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    _floatAnimation =
+        Tween<double>(
+          begin: -widget.floatHeight,
+          end: widget.floatHeight,
+        ).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: Curves.easeInOut,
+          ),
+        );
   }
 
   @override
@@ -558,10 +574,15 @@ class GlassTextField extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.mintWhisper.withValues(alpha: 0.3),
+                AppTheme.peachCream.withValues(alpha: 0.2),
+              ],
+            ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: IndianTheme.royalGold.withValues(alpha: 0.3),
+              color: AppTheme.goldenSand.withValues(alpha: 0.4),
               width: 1.5,
             ),
           ),
@@ -572,24 +593,25 @@ class GlassTextField extends StatelessWidget {
             validator: validator,
             onChanged: onChanged,
             style: const TextStyle(
-              color: IndianTheme.templeGranite,
+              color: AppTheme.deepOlive,
               fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               hintText: hintText,
               labelText: labelText,
               hintStyle: TextStyle(
-                color: IndianTheme.templeStone.withValues(alpha: 0.7),
+                color: AppTheme.deepOlive.withValues(alpha: 0.6),
               ),
-              labelStyle: const TextStyle(
-                color: IndianTheme.templeStone,
+              labelStyle: TextStyle(
+                color: AppTheme.deepOlive.withValues(alpha: 0.8),
               ),
               prefixIcon: prefixIcon != null
-                  ? Icon(prefixIcon, color: IndianTheme.saffron)
+                  ? Icon(prefixIcon, color: AppTheme.goldenSand)
                   : null,
               suffixIcon: suffixIcon != null
                   ? IconButton(
-                      icon: Icon(suffixIcon, color: IndianTheme.templeStone),
+                      icon: Icon(suffixIcon, color: AppTheme.deepOlive),
                       onPressed: onSuffixTap,
                     )
                   : null,

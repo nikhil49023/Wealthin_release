@@ -35,7 +35,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
       duration: const Duration(seconds: 3),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _shimmerController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
@@ -53,7 +53,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return GestureDetector(
       onTap: widget.onTap,
       onPanUpdate: (details) {
@@ -95,7 +95,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
             ),
             boxShadow: [
               BoxShadow(
-                color: isDark 
+                color: isDark
                     ? Colors.black.withValues(alpha: 0.3)
                     : AppTheme.royalGold.withValues(alpha: 0.18),
                 blurRadius: 20,
@@ -109,13 +109,13 @@ class _InteractiveBannerState extends State<InteractiveBanner>
               children: [
                 // Animated background pattern
                 _buildAnimatedPattern(isDark),
-                
+
                 // Floating 3D elements
                 _buildFloatingElements(isDark),
-                
+
                 // Content
                 _buildContent(theme, isDark),
-                
+
                 // Shimmer overlay
                 _buildShimmerOverlay(),
               ],
@@ -160,7 +160,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
             );
           },
         ),
-        
+
         // Floating coin 2
         AnimatedBuilder(
           animation: _floatController,
@@ -176,7 +176,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
             );
           },
         ),
-        
+
         // Floating wallet
         AnimatedBuilder(
           animation: _floatController,
@@ -189,7 +189,7 @@ class _InteractiveBannerState extends State<InteractiveBanner>
             );
           },
         ),
-        
+
         // Sparkles
         ..._buildSparkles(isDark),
       ],
@@ -197,13 +197,11 @@ class _InteractiveBannerState extends State<InteractiveBanner>
   }
 
   Widget _build3DCoin(double size, bool isDark) {
-    final goldColor = isDark 
-      ? AppTheme.champagneGold
-      : AppTheme.royalGold;
-    final shadowColor = isDark 
-      ? AppTheme.mutedGold
-      : AppTheme.mutedGold.withValues(alpha: 0.9);
-    
+    final goldColor = isDark ? AppTheme.champagneGold : AppTheme.royalGold;
+    final shadowColor = isDark
+        ? AppTheme.mutedGold
+        : AppTheme.mutedGold.withValues(alpha: 0.9);
+
     return Container(
       width: size,
       height: size,
@@ -238,10 +236,10 @@ class _InteractiveBannerState extends State<InteractiveBanner>
   }
 
   Widget _build3DWallet(bool isDark) {
-    final primaryColor = isDark 
+    final primaryColor = isDark
         ? AppTheme.peacockTeal
         : AppTheme.peacockTeal.withValues(alpha: 0.85);
-    
+
     return Container(
       width: 45,
       height: 35,
@@ -301,18 +299,19 @@ class _InteractiveBannerState extends State<InteractiveBanner>
   }
 
   List<Widget> _buildSparkles(bool isDark) {
-    final sparkleColor = isDark 
-        ? Colors.white.withValues(alpha: 0.6) 
+    final sparkleColor = isDark
+        ? Colors.white.withValues(alpha: 0.6)
         : AppTheme.royalGold.withValues(alpha: 0.6);
-    
+
     return List.generate(5, (index) {
       return AnimatedBuilder(
         animation: _floatController,
         builder: (context, child) {
           final phase = index * 0.2;
-          final opacity = (sin((_floatController.value + phase) * 2 * pi) + 1) / 2;
+          final opacity =
+              (sin((_floatController.value + phase) * 2 * pi) + 1) / 2;
           final scale = 0.5 + opacity * 0.5;
-          
+
           return Positioned(
             right: 30 + index * 25.0,
             top: 30 + (index % 3) * 40.0,
@@ -341,10 +340,10 @@ class _InteractiveBannerState extends State<InteractiveBanner>
 
   Widget _buildContent(ThemeData theme, bool isDark) {
     final textColor = isDark ? AppTheme.pearlWhite : AppTheme.lightTextPrimary;
-    final subtitleColor = isDark 
-      ? AppTheme.silverMist 
-      : AppTheme.lightTextSecondary;
-    
+    final subtitleColor = isDark
+        ? AppTheme.silverMist
+        : AppTheme.lightTextSecondary;
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -354,37 +353,43 @@ class _InteractiveBannerState extends State<InteractiveBanner>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isDark 
-                      ? AppTheme.royalGold.withValues(alpha: 0.2)
-                      : AppTheme.royalGold.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppTheme.royalGold.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.auto_awesome,
-                      size: 14,
-                      color: AppTheme.royalGold,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'WealthIn',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.royalGold,
-                        letterSpacing: 0.5,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppTheme.royalGold.withValues(alpha: 0.2)
+                          : AppTheme.royalGold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppTheme.royalGold.withValues(alpha: 0.3),
                       ),
                     ),
-                  ],
-                ),
-              ).animate().fadeIn(delay: 200.ms).scale(begin: const Offset(0.8, 0.8)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          size: 14,
+                          color: AppTheme.royalGold,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'WealthIn',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.royalGold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 200.ms)
+                  .scale(begin: const Offset(0.8, 0.8)),
             ],
           ),
           const SizedBox(height: 12),
@@ -454,7 +459,7 @@ class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = isDark 
+      ..color = isDark
           ? Colors.white.withValues(alpha: 0.03)
           : const Color(0xFFD4AF37).withValues(alpha: 0.08)
       ..style = PaintingStyle.stroke
@@ -465,7 +470,7 @@ class _PatternPainter extends CustomPainter {
       final path = Path();
       final yOffset = size.height * 0.2 + i * size.height * 0.3;
       final xShift = sin(progress * 2 * pi + i) * 20;
-      
+
       path.moveTo(-20 + xShift, yOffset);
       path.quadraticBezierTo(
         size.width * 0.3 + xShift,
@@ -479,7 +484,7 @@ class _PatternPainter extends CustomPainter {
         size.width + 20 + xShift,
         yOffset + 10,
       );
-      
+
       canvas.drawPath(path, paint);
     }
   }

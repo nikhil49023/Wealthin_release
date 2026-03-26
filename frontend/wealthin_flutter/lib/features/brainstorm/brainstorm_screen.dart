@@ -198,7 +198,8 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
     try {
       // Detect if this is a simple conversational message vs. a business idea
       final lowerText = text.toLowerCase().trim();
-      final isSimpleChat = text.length < 40 && !_looksLikeBusinessIdea(lowerText);
+      final isSimpleChat =
+          text.length < 40 && !_looksLikeBusinessIdea(lowerText);
 
       if (isSimpleChat) {
         // Fast path: Use lightweight AI chat for greetings/casual messages
@@ -206,8 +207,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
           query: text,
           userId: 'user_1',
         );
-        
-        final responseText = result['response']?.toString() ?? 
+
+        final responseText =
+            result['response']?.toString() ??
             "Hey! Tell me about a business idea you'd like to explore, and I'll analyze its potential! 💡";
 
         if (mounted) {
@@ -278,7 +280,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
               _canvasItems.add(
                 _CanvasItem(
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  title: text.length > 50 ? '${text.substring(0, 47)}...' : text,
+                  title: text.length > 50
+                      ? '${text.substring(0, 47)}...'
+                      : text,
                   score: score,
                   summary: summary,
                 ),
@@ -306,8 +310,7 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
       setState(() {
         _chatMessages.add(
           _ChatMessage(
-            text:
-                "I had trouble processing that. Could you try again?",
+            text: "I had trouble processing that. Could you try again?",
             isUser: false,
             timestamp: DateTime.now(),
           ),
@@ -321,14 +324,49 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
   /// Heuristic to detect if a message looks like a business idea vs casual chat
   bool _looksLikeBusinessIdea(String text) {
     const ideaKeywords = [
-      'business', 'idea', 'startup', 'app', 'product', 'service',
-      'sell', 'market', 'customer', 'revenue', 'profit', 'invest',
-      'shop', 'store', 'platform', 'saas', 'ecommerce', 'franchise',
-      'manufacture', 'export', 'import', 'delivery', 'food',
-      'restaurant', 'cafe', 'salon', 'gym', 'tuition', 'coaching',
-      'real estate', 'rental', 'freelance', 'agency', 'consulting',
-      'clinic', 'pharmacy', 'farming', 'organic', 'solar',
-      'laundry', 'cleaning', 'transportation', 'logistics',
+      'business',
+      'idea',
+      'startup',
+      'app',
+      'product',
+      'service',
+      'sell',
+      'market',
+      'customer',
+      'revenue',
+      'profit',
+      'invest',
+      'shop',
+      'store',
+      'platform',
+      'saas',
+      'ecommerce',
+      'franchise',
+      'manufacture',
+      'export',
+      'import',
+      'delivery',
+      'food',
+      'restaurant',
+      'cafe',
+      'salon',
+      'gym',
+      'tuition',
+      'coaching',
+      'real estate',
+      'rental',
+      'freelance',
+      'agency',
+      'consulting',
+      'clinic',
+      'pharmacy',
+      'farming',
+      'organic',
+      'solar',
+      'laundry',
+      'cleaning',
+      'transportation',
+      'logistics',
     ];
     return ideaKeywords.any((kw) => text.contains(kw));
   }
@@ -761,7 +799,9 @@ class _BrainstormScreenBodyState extends State<BrainstormScreenBody> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _getScoreColor(message.score!).withValues(alpha: 0.2),
+                      color: _getScoreColor(
+                        message.score!,
+                      ).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -1408,7 +1448,9 @@ class _IdeaAnalysisCard extends StatelessWidget {
                       Text(
                         'Viability Score',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                       Text(
@@ -1588,7 +1630,9 @@ class _InfoTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -1722,7 +1766,9 @@ class _ResearchLogPanel extends StatelessWidget {
             ? Colors.black.withValues(alpha: 0.6)
             : Colors.grey.shade900.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: WealthInColors.primary.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: WealthInColors.primary.withValues(alpha: 0.3),
+        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),

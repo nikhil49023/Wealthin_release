@@ -14,7 +14,7 @@ class WealthInLogo extends StatelessWidget {
     super.key,
     this.size = 40,
     this.primaryColor = const Color(0xFF0A7070), // peacockTeal
-    this.accentColor = const Color(0xFFC9A84C),  // royalGold
+    this.accentColor = const Color(0xFFC9A84C), // royalGold
     this.showGlow = true,
   });
 
@@ -78,7 +78,7 @@ class _WealthInLogoPainter extends CustomPainter {
     canvas.drawCircle(Offset(cx, h / 2), w / 2 - w * 0.015, borderPaint);
 
     final strokeW = w * 0.065;
-    final rupeeLeft  = cx - w * 0.22;
+    final rupeeLeft = cx - w * 0.22;
     final rupeeRight = cx + w * 0.22;
 
     // ── ₹ symbol ──
@@ -118,9 +118,12 @@ class _WealthInLogoPainter extends CustomPainter {
     final archPath = Path();
     archPath.moveTo(rupeeLeft, h * 0.41);
     archPath.cubicTo(
-      rupeeLeft + (rupeeRight - rupeeLeft) * 0.3, h * 0.33, // cp1
-      rupeeLeft + (rupeeRight - rupeeLeft) * 0.7, h * 0.33, // cp2
-      rupeeRight, h * 0.41,                                   // end
+      rupeeLeft + (rupeeRight - rupeeLeft) * 0.3,
+      h * 0.33, // cp1
+      rupeeLeft + (rupeeRight - rupeeLeft) * 0.7,
+      h * 0.33, // cp2
+      rupeeRight,
+      h * 0.41, // end
     );
     canvas.drawPath(archPath, archPaint);
 
@@ -135,7 +138,11 @@ class _WealthInLogoPainter extends CustomPainter {
     final arrowY1 = h * 0.5;
     final arrowX2 = rupeeRight + w * 0.02;
     final arrowY2 = h * 0.30;
-    canvas.drawLine(Offset(arrowX1, arrowY1), Offset(arrowX2, arrowY2), arrowPaint);
+    canvas.drawLine(
+      Offset(arrowX1, arrowY1),
+      Offset(arrowX2, arrowY2),
+      arrowPaint,
+    );
 
     // Arrow head
     const headLen = 0.07;
@@ -148,14 +155,18 @@ class _WealthInLogoPainter extends CustomPainter {
 
     canvas.drawLine(
       Offset(arrowX2, arrowY2),
-      Offset(arrowX2 - w * headLen * math.cos(angle - 0.5),
-             arrowY2 - h * headLen * math.sin(angle - 0.5)),
+      Offset(
+        arrowX2 - w * headLen * math.cos(angle - 0.5),
+        arrowY2 - h * headLen * math.sin(angle - 0.5),
+      ),
       arrowHeadPaint,
     );
     canvas.drawLine(
       Offset(arrowX2, arrowY2),
-      Offset(arrowX2 - w * headLen * math.cos(angle + 0.5),
-             arrowY2 - h * headLen * math.sin(angle + 0.5)),
+      Offset(
+        arrowX2 - w * headLen * math.cos(angle + 0.5),
+        arrowY2 - h * headLen * math.sin(angle + 0.5),
+      ),
       arrowHeadPaint,
     );
   }

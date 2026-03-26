@@ -9,7 +9,7 @@ import '../../core/theme/wealthin_theme.dart';
 /// First-time setup with personal, family, occupation, and business details
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
-  
+
   const OnboardingScreen({super.key, required this.onComplete});
 
   @override
@@ -19,7 +19,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  
+
   // Form controllers
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -30,15 +30,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _businessContactController = TextEditingController();
   final _businessLocationController = TextEditingController();
   final _businessDescriptionController = TextEditingController();
-  
+
   // Family members
   int _adults = 1;
   int _children = 0;
-  
+
   // Business toggle
   bool _hasBusiness = false;
   bool _shareBusinessInfo = true;
-  
+
   // Occupation options
   final List<String> _occupationOptions = [
     'Salaried Employee',
@@ -50,9 +50,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Homemaker',
     'Other',
   ];
-  
+
   String? _selectedOccupation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -88,29 +88,47 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _businessDescriptionController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _saveProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Save personal info
     await prefs.setString('user_first_name', _firstNameController.text.trim());
     await prefs.setString('user_last_name', _lastNameController.text.trim());
     await prefs.setString('user_occupation', _selectedOccupation ?? '');
-    await prefs.setString('user_annual_income', _annualIncomeController.text.trim());
+    await prefs.setString(
+      'user_annual_income',
+      _annualIncomeController.text.trim(),
+    );
     await prefs.setInt('family_adults', _adults);
     await prefs.setInt('family_children', _children);
-    
+
     // Save business info
     await prefs.setBool('has_business', _hasBusiness);
     if (_hasBusiness) {
-      await prefs.setString('business_name', _businessNameController.text.trim());
-      await prefs.setString('business_type', _businessTypeController.text.trim());
-      await prefs.setString('business_contact', _businessContactController.text.trim());
-      await prefs.setString('business_location', _businessLocationController.text.trim());
-      await prefs.setString('business_description', _businessDescriptionController.text.trim());
+      await prefs.setString(
+        'business_name',
+        _businessNameController.text.trim(),
+      );
+      await prefs.setString(
+        'business_type',
+        _businessTypeController.text.trim(),
+      );
+      await prefs.setString(
+        'business_contact',
+        _businessContactController.text.trim(),
+      );
+      await prefs.setString(
+        'business_location',
+        _businessLocationController.text.trim(),
+      );
+      await prefs.setString(
+        'business_description',
+        _businessDescriptionController.text.trim(),
+      );
       await prefs.setBool('share_business_info', _shareBusinessInfo);
     }
-    
+
     // Mark onboarding complete
     await prefs.setBool('onboarding_complete', true);
 
@@ -122,7 +140,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'first_name': _firstNameController.text.trim(),
           'last_name': _lastNameController.text.trim(),
           'occupation': _selectedOccupation ?? '',
-          'annual_income': double.tryParse(_annualIncomeController.text.trim()) ?? 0,
+          'annual_income':
+              double.tryParse(_annualIncomeController.text.trim()) ?? 0,
           'family_adults': _adults,
           'family_children': _children,
           'has_business': _hasBusiness,
@@ -152,7 +171,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Continue anyway as local storage is primary for now
     }
   }
-  
+
   void _nextPage() {
     if (_currentPage < 3) {
       _pageController.nextPage(
@@ -161,7 +180,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
     }
   }
-  
+
   void _previousPage() {
     if (_currentPage > 0) {
       _pageController.previousPage(
@@ -170,7 +189,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
     }
   }
-  
+
   Future<void> _completeOnboarding() async {
     await _saveProfile();
     widget.onComplete();
@@ -179,7 +198,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -204,7 +223,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 }),
               ),
             ),
-            
+
             // Page content
             Expanded(
               child: PageView(
@@ -219,7 +238,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ],
               ),
             ),
-            
+
             // Navigation buttons
             Padding(
               padding: const EdgeInsets.all(20),
@@ -242,14 +261,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Expanded(
                     flex: _currentPage == 0 ? 1 : 1,
                     child: ElevatedButton(
-                      onPressed: _currentPage == 3 ? _completeOnboarding : _nextPage,
+                      onPressed: _currentPage == 3
+                          ? _completeOnboarding
+                          : _nextPage,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: Text(_currentPage == 3 ? 'Get Started' : 'Continue'),
+                      child: Text(
+                        _currentPage == 3 ? 'Get Started' : 'Continue',
+                      ),
                     ),
                   ),
                 ],
@@ -260,7 +283,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
-  
+
   Widget _buildWelcomePage(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -311,7 +334,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             textAlign: TextAlign.center,
           ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
           const SizedBox(height: 48),
-          
+
           // Feature highlights
           _buildFeatureCard(
             theme,
@@ -337,8 +360,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
-  
-  Widget _buildFeatureCard(ThemeData theme, IconData icon, String title, String subtitle) {
+
+  Widget _buildFeatureCard(
+    ThemeData theme,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -382,7 +410,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
-  
+
   Widget _buildPersonalInfoPage(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -403,7 +431,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ).animate().fadeIn(delay: 100.ms),
           const SizedBox(height: 32),
-          
+
           // First Name
           _buildTextField(
             controller: _firstNameController,
@@ -412,7 +440,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             hint: 'Enter your first name',
           ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.1),
           const SizedBox(height: 20),
-          
+
           // Last Name
           _buildTextField(
             controller: _lastNameController,
@@ -421,7 +449,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             hint: 'Enter your last name',
           ).animate().fadeIn(delay: 300.ms).slideX(begin: 0.1),
           const SizedBox(height: 20),
-          
+
           // Annual Income
           _buildTextField(
             controller: _annualIncomeController,
@@ -431,7 +459,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             keyboardType: TextInputType.number,
           ).animate().fadeIn(delay: 400.ms).slideX(begin: 0.1),
           const SizedBox(height: 16),
-          
+
           // Info note
           Container(
             padding: const EdgeInsets.all(12),
@@ -465,7 +493,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
-  
+
   Widget _buildFamilyOccupationPage(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -486,7 +514,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ).animate().fadeIn(delay: 100.ms),
           const SizedBox(height: 32),
-          
+
           // Occupation Dropdown
           Text(
             'Occupation',
@@ -510,7 +538,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onChanged: (val) => setState(() => _selectedOccupation = val),
           ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.1),
           const SizedBox(height: 32),
-          
+
           // Family Members
           Text(
             'Family Members',
@@ -519,7 +547,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Adults counter
           _buildCounterRow(
             theme,
@@ -531,7 +559,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             max: 10,
           ).animate().fadeIn(delay: 300.ms).slideX(begin: 0.1),
           const SizedBox(height: 16),
-          
+
           // Children counter
           _buildCounterRow(
             theme,
@@ -543,7 +571,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             max: 10,
           ).animate().fadeIn(delay: 400.ms).slideX(begin: 0.1),
           const SizedBox(height: 24),
-          
+
           // Summary card
           Container(
             padding: const EdgeInsets.all(16),
@@ -577,7 +605,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Text(
                         '$_adults adult${_adults > 1 ? 's' : ''}, $_children child${_children != 1 ? 'ren' : ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                     ],
@@ -590,7 +620,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
-  
+
   Widget _buildBusinessPage(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -611,7 +641,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ).animate().fadeIn(delay: 100.ms),
           const SizedBox(height: 24),
-          
+
           // Business toggle
           Container(
             padding: const EdgeInsets.all(16),
@@ -643,7 +673,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Text(
                         'Get discovered by other users',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                     ],
@@ -656,10 +688,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ],
             ),
           ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.1),
-          
+
           if (_hasBusiness) ...[
             const SizedBox(height: 24),
-            
+
             // Business Name
             _buildTextField(
               controller: _businessNameController,
@@ -668,7 +700,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               hint: 'Enter your business name',
             ).animate().fadeIn(delay: 300.ms).slideX(begin: 0.1),
             const SizedBox(height: 16),
-            
+
             // Business Type
             _buildTextField(
               controller: _businessTypeController,
@@ -677,7 +709,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               hint: 'e.g., Retail, Restaurant, Services',
             ).animate().fadeIn(delay: 350.ms).slideX(begin: 0.1),
             const SizedBox(height: 16),
-            
+
             // Contact
             _buildTextField(
               controller: _businessContactController,
@@ -687,7 +719,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               keyboardType: TextInputType.phone,
             ).animate().fadeIn(delay: 400.ms).slideX(begin: 0.1),
             const SizedBox(height: 16),
-            
+
             // Location
             _buildTextField(
               controller: _businessLocationController,
@@ -696,7 +728,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               hint: 'City, Area',
             ).animate().fadeIn(delay: 450.ms).slideX(begin: 0.1),
             const SizedBox(height: 16),
-            
+
             // Description
             _buildTextField(
               controller: _businessDescriptionController,
@@ -706,54 +738,60 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               maxLines: 3,
             ).animate().fadeIn(delay: 500.ms).slideX(begin: 0.1),
             const SizedBox(height: 20),
-            
+
             // Share info toggle
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: WealthInTheme.regalGold.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: WealthInTheme.regalGold.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: WealthInTheme.regalGold.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: WealthInTheme.regalGold.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.campaign_rounded,
-                        color: WealthInTheme.regalGold,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Promote to Other Users',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: WealthInTheme.vintageGold,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.campaign_rounded,
+                            color: WealthInTheme.regalGold,
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Promote to Other Users',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: WealthInTheme.vintageGold,
+                              ),
+                            ),
+                          ),
+                          Switch(
+                            value: _shareBusinessInfo,
+                            onChanged: (val) =>
+                                setState(() => _shareBusinessInfo = val),
+                            activeThumbColor: WealthInTheme.regalGold,
+                          ),
+                        ],
                       ),
-                      Switch(
-                        value: _shareBusinessInfo,
-                        onChanged: (val) => setState(() => _shareBusinessInfo = val),
-                        activeThumbColor: WealthInTheme.regalGold,
+                      const SizedBox(height: 8),
+                      Text(
+                        '📢 When enabled, your business details (name, type, contact, location) will be shared with other WealthIn users through the AI Chat Advisor. This can help grow your business by connecting you with potential customers!',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: WealthInTheme.vintageGold,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '📢 When enabled, your business details (name, type, contact, location) will be shared with other WealthIn users through the AI Chat Advisor. This can help grow your business by connecting you with potential customers!',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: WealthInTheme.vintageGold,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(delay: 550.ms).scale(begin: const Offset(0.95, 0.95)),
+                )
+                .animate()
+                .fadeIn(delay: 550.ms)
+                .scale(begin: const Offset(0.95, 0.95)),
           ],
-          
+
           if (!_hasBusiness) ...[
             const SizedBox(height: 48),
             Center(
@@ -785,7 +823,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
-  
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -819,7 +857,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ],
     );
   }
-  
+
   Widget _buildCounterRow(
     ThemeData theme,
     String label,

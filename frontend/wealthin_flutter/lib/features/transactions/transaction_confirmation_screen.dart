@@ -18,14 +18,20 @@ class TransactionConfirmationScreen extends StatefulWidget {
   });
 
   @override
-  State<TransactionConfirmationScreen> createState() => _TransactionConfirmationScreenState();
+  State<TransactionConfirmationScreen> createState() =>
+      _TransactionConfirmationScreenState();
 }
 
-class _TransactionConfirmationScreenState extends State<TransactionConfirmationScreen> {
+class _TransactionConfirmationScreenState
+    extends State<TransactionConfirmationScreen> {
   late List<TransactionModel> _transactions;
   final Set<int> _selectedIndices = {};
   bool _selectAll = true;
-  final _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  final _currencyFormat = NumberFormat.currency(
+    locale: 'en_IN',
+    symbol: '₹',
+    decimalDigits: 0,
+  );
 
   @override
   void initState() {
@@ -113,7 +119,9 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
               Text(
                 widget.bankName!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                  color: isDark
+                      ? WealthInColors.textSecondaryDark
+                      : WealthInColors.textSecondary,
                 ),
               ),
           ],
@@ -121,7 +129,10 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
         actions: [
           TextButton.icon(
             onPressed: _toggleSelectAll,
-            icon: Icon(_selectAll ? Icons.deselect : Icons.select_all, size: 20),
+            icon: Icon(
+              _selectAll ? Icons.deselect : Icons.select_all,
+              size: 20,
+            ),
             label: Text(_selectAll ? 'Deselect All' : 'Select All'),
           ),
         ],
@@ -136,7 +147,9 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
               color: isDark ? WealthInColors.blackCard : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark ? WealthInColors.primary.withValues(alpha: 0.2) : Colors.grey.shade200,
+                color: isDark
+                    ? WealthInColors.primary.withValues(alpha: 0.2)
+                    : Colors.grey.shade200,
               ),
             ),
             child: Row(
@@ -148,7 +161,9 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
                       Text(
                         'Selected',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
+                          color: isDark
+                              ? WealthInColors.textSecondaryDark
+                              : WealthInColors.textSecondary,
                         ),
                       ),
                       Text(
@@ -173,7 +188,11 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.arrow_upward, color: Colors.green, size: 14),
+                            Icon(
+                              Icons.arrow_upward,
+                              color: Colors.green,
+                              size: 14,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               _currencyFormat.format(_totalIncome),
@@ -186,7 +205,11 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
                         ),
                         Row(
                           children: [
-                            Icon(Icons.arrow_downward, color: Colors.red, size: 14),
+                            Icon(
+                              Icons.arrow_downward,
+                              color: Colors.red,
+                              size: 14,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               _currencyFormat.format(_totalExpense),
@@ -214,7 +237,10 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
                       children: [
                         Icon(Icons.receipt_long, size: 64, color: Colors.grey),
                         const SizedBox(height: 16),
-                        Text('No transactions found', style: theme.textTheme.bodyLarge),
+                        Text(
+                          'No transactions found',
+                          style: theme.textTheme.bodyLarge,
+                        ),
                       ],
                     ),
                   )
@@ -227,93 +253,122 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
                       final isIncome = tx.type == 'income';
 
                       return Dismissible(
-                        key: Key('tx_${tx.id ?? index}_${tx.description}'),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 16),
-                          color: Colors.red,
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        onDismissed: (_) => _deleteTransaction(index),
-                        child: Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          color: isDark ? WealthInColors.blackCard : Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? WealthInColors.primary
-                                  : (isDark ? Colors.white12 : Colors.grey.shade200),
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => _toggleSelection(index),
-                            onLongPress: () => _editTransaction(index),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  // Checkbox
-                                  Checkbox(
-                                    value: isSelected,
-                                    onChanged: (_) => _toggleSelection(index),
-                                    activeColor: WealthInColors.primary,
-                                  ),
-                                  // Category Icon
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: (isIncome ? Colors.green : Colors.red).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      _getCategoryIcon(tx.category),
-                                      color: isIncome ? Colors.green : Colors.red,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  // Details
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          tx.description,
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '${tx.category} • ${DateFormat('dd MMM').format(tx.date)}',
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: isDark ? WealthInColors.textSecondaryDark : WealthInColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Amount
-                                  Text(
-                                    '${isIncome ? '+' : '-'}${_currencyFormat.format(tx.amount)}',
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      color: isIncome ? Colors.green : Colors.red,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                            key: Key('tx_${tx.id ?? index}_${tx.description}'),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 16),
+                              color: Colors.red,
+                              child: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
                               ),
                             ),
-                          ),
-                        ),
-                      ).animate(delay: (index * 30).ms).fadeIn().slideX(begin: 0.05, end: 0);
+                            onDismissed: (_) => _deleteTransaction(index),
+                            child: Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              color: isDark
+                                  ? WealthInColors.blackCard
+                                  : Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                  color: isSelected
+                                      ? WealthInColors.primary
+                                      : (isDark
+                                            ? Colors.white12
+                                            : Colors.grey.shade200),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => _toggleSelection(index),
+                                onLongPress: () => _editTransaction(index),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      // Checkbox
+                                      Checkbox(
+                                        value: isSelected,
+                                        onChanged: (_) =>
+                                            _toggleSelection(index),
+                                        activeColor: WealthInColors.primary,
+                                      ),
+                                      // Category Icon
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color:
+                                              (isIncome
+                                                      ? Colors.green
+                                                      : Colors.red)
+                                                  .withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          _getCategoryIcon(tx.category),
+                                          color: isIncome
+                                              ? Colors.green
+                                              : Colors.red,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // Details
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              tx.description,
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${tx.category} • ${DateFormat('dd MMM').format(tx.date)}',
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    color: isDark
+                                                        ? WealthInColors
+                                                              .textSecondaryDark
+                                                        : WealthInColors
+                                                              .textSecondary,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // Amount
+                                      Text(
+                                        '${isIncome ? '+' : '-'}${_currencyFormat.format(tx.amount)}',
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(
+                                              color: isIncome
+                                                  ? Colors.green
+                                                  : Colors.red,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                          .animate(delay: (index * 30).ms)
+                          .fadeIn()
+                          .slideX(begin: 0.05, end: 0);
                     },
                   ),
           ),
@@ -342,7 +397,10 @@ class _TransactionConfirmationScreenState extends State<TransactionConfirmationS
                   ),
                   child: Text(
                     'Confirm ${_selectedIndices.length} Transactions',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -401,15 +459,27 @@ class _EditTransactionDialogState extends State<_EditTransactionDialog> {
   late String _type;
 
   final _categories = [
-    'Food', 'Transport', 'Shopping', 'Utilities', 'Entertainment',
-    'Medical', 'Education', 'Groceries', 'Housing', 'Other',
+    'Food',
+    'Transport',
+    'Shopping',
+    'Utilities',
+    'Entertainment',
+    'Medical',
+    'Education',
+    'Groceries',
+    'Housing',
+    'Other',
   ];
 
   @override
   void initState() {
     super.initState();
-    _descController = TextEditingController(text: widget.transaction.description);
-    _amountController = TextEditingController(text: widget.transaction.amount.toString());
+    _descController = TextEditingController(
+      text: widget.transaction.description,
+    );
+    _amountController = TextEditingController(
+      text: widget.transaction.amount.toString(),
+    );
     _category = widget.transaction.category;
     _type = widget.transaction.type;
   }
@@ -424,7 +494,7 @@ class _EditTransactionDialogState extends State<_EditTransactionDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return AlertDialog(
       title: const Text('Edit Transaction'),
       content: SingleChildScrollView(
@@ -450,12 +520,16 @@ class _EditTransactionDialogState extends State<_EditTransactionDialog> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              initialValue: _categories.contains(_category) ? _category : 'Other',
+              initialValue: _categories.contains(_category)
+                  ? _category
+                  : 'Other',
               decoration: const InputDecoration(
                 labelText: 'Category',
                 border: OutlineInputBorder(),
               ),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              items: _categories
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
               onChanged: (v) => setState(() => _category = v ?? 'Other'),
             ),
             const SizedBox(height: 16),
@@ -477,7 +551,9 @@ class _EditTransactionDialogState extends State<_EditTransactionDialog> {
         ),
         FilledButton(
           onPressed: () {
-            final amount = double.tryParse(_amountController.text) ?? widget.transaction.amount;
+            final amount =
+                double.tryParse(_amountController.text) ??
+                widget.transaction.amount;
             final updated = TransactionModel(
               id: widget.transaction.id,
               amount: amount,

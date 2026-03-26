@@ -4,7 +4,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/services/financial_calculator.dart';
 import '../../core/theme/wealthin_theme.dart';
 
-
 /// Investment Calculator Screen
 /// Provides SIP, FD, EMI, RD calculators with visual results
 class InvestmentCalculatorScreen extends StatefulWidget {
@@ -92,7 +91,6 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
     setState(() => _isCalculating = false);
   }
 
-
   Future<void> _calculateFD() async {
     setState(() => _isCalculating = true);
     try {
@@ -112,7 +110,6 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
     }
     setState(() => _isCalculating = false);
   }
-
 
   Future<void> _calculateEMI() async {
     setState(() => _isCalculating = true);
@@ -135,7 +132,6 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
     setState(() => _isCalculating = false);
   }
 
-
   Future<void> _calculateRD() async {
     setState(() => _isCalculating = true);
     try {
@@ -155,7 +151,6 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
     }
     setState(() => _isCalculating = false);
   }
-
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

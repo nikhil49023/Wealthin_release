@@ -256,7 +256,11 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
   Widget _buildTipRow(ThemeData theme, IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+        Icon(
+          icon,
+          size: 14,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+        ),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -353,7 +357,9 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.15),
+                    color: theme.colorScheme.primaryContainer.withValues(
+                      alpha: 0.15,
+                    ),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: theme.colorScheme.primary.withValues(alpha: 0.2),
@@ -364,7 +370,11 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.tips_and_updates, size: 16, color: theme.colorScheme.primary),
+                          Icon(
+                            Icons.tips_and_updates,
+                            size: 16,
+                            color: theme.colorScheme.primary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'Tips for best results',
@@ -376,9 +386,17 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      _buildTipRow(theme, Icons.picture_as_pdf, 'PDF: Max 5 pages, selectable text works best'),
+                      _buildTipRow(
+                        theme,
+                        Icons.picture_as_pdf,
+                        'PDF: Max 5 pages, selectable text works best',
+                      ),
                       const SizedBox(height: 4),
-                      _buildTipRow(theme, Icons.image, 'Image: Clear photo, good lighting, no blur'),
+                      _buildTipRow(
+                        theme,
+                        Icons.image,
+                        'Image: Clear photo, good lighting, no blur',
+                      ),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(8),
@@ -403,7 +421,9 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                               style: TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 11,
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
                                 height: 1.5,
                               ),
                             ),
@@ -716,16 +736,17 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                                       transactions: savedTransactions,
                                     )
                                     .then((syncResult) {
-                                  final budgetsUpdated =
-                                      syncResult['categories_synced'] ?? 0;
-                                  debugPrint(
-                                    '[Import] Auto-synced to $budgetsUpdated budgets',
-                                  );
-                                }).catchError((e) {
-                                  debugPrint(
-                                    '[Import] Budget sync error (non-critical): $e',
-                                  );
-                                });
+                                      final budgetsUpdated =
+                                          syncResult['categories_synced'] ?? 0;
+                                      debugPrint(
+                                        '[Import] Auto-synced to $budgetsUpdated budgets',
+                                      );
+                                    })
+                                    .catchError((e) {
+                                      debugPrint(
+                                        '[Import] Budget sync error (non-critical): $e',
+                                      );
+                                    });
 
                                 // Analysis snapshot (fire and forget)
                                 () async {
@@ -736,23 +757,21 @@ class _ImportTransactionsDialogState extends State<ImportTransactionsDialog> {
                                         .getHealthScore(userId);
 
                                     if (dashData != null) {
-                                      await dataService
-                                          .saveAnalysisSnapshot(
-                                            userId: userId,
-                                            totalIncome: dashData.totalIncome,
-                                            totalExpense: dashData.totalExpense,
-                                            savingsRate: dashData.savingsRate,
-                                            healthScore:
-                                                healthScore?.totalScore ?? 0,
-                                            categoryBreakdown: dashData
-                                                .categoryBreakdown
-                                                .map(
-                                                  (k, v) =>
-                                                      MapEntry(k, v.toDouble()),
-                                                ),
-                                            insights:
-                                                healthScore?.insights ?? [],
-                                          );
+                                      await dataService.saveAnalysisSnapshot(
+                                        userId: userId,
+                                        totalIncome: dashData.totalIncome,
+                                        totalExpense: dashData.totalExpense,
+                                        savingsRate: dashData.savingsRate,
+                                        healthScore:
+                                            healthScore?.totalScore ?? 0,
+                                        categoryBreakdown: dashData
+                                            .categoryBreakdown
+                                            .map(
+                                              (k, v) =>
+                                                  MapEntry(k, v.toDouble()),
+                                            ),
+                                        insights: healthScore?.insights ?? [],
+                                      );
                                       debugPrint(
                                         '[Import] Analysis snapshot triggered',
                                       );

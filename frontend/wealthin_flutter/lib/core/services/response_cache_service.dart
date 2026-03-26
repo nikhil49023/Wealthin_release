@@ -15,7 +15,8 @@ import 'package:crypto/crypto.dart';
 /// - TTL: 1 hour for most queries, 5 min for time-sensitive
 /// - Invalidate on user context change
 class ResponseCacheService {
-  static final ResponseCacheService _instance = ResponseCacheService._internal();
+  static final ResponseCacheService _instance =
+      ResponseCacheService._internal();
   factory ResponseCacheService() => _instance;
   ResponseCacheService._internal();
 
@@ -47,7 +48,9 @@ class ResponseCacheService {
     }
 
     _hits++;
-    debugPrint('[ResponseCache] HIT: ${query.substring(0, query.length < 30 ? query.length : 30)}...');
+    debugPrint(
+      '[ResponseCache] HIT: ${query.substring(0, query.length < 30 ? query.length : 30)}...',
+    );
     return cached.response;
   }
 
@@ -62,7 +65,8 @@ class ResponseCacheService {
     final key = _generateKey(query, context);
 
     // Determine TTL
-    final cacheTTL = ttl ?? (isTimeSensitive ? TIME_SENSITIVE_TTL : DEFAULT_TTL);
+    final cacheTTL =
+        ttl ?? (isTimeSensitive ? TIME_SENSITIVE_TTL : DEFAULT_TTL);
 
     // Evict oldest if cache is full
     if (_cache.length >= MAX_CACHE_SIZE) {
@@ -76,7 +80,9 @@ class ResponseCacheService {
       ttl: cacheTTL,
     );
 
-    debugPrint('[ResponseCache] SET: ${query.substring(0, query.length < 30 ? query.length : 30)}...');
+    debugPrint(
+      '[ResponseCache] SET: ${query.substring(0, query.length < 30 ? query.length : 30)}...',
+    );
   }
 
   /// Generate cache key from query and context
@@ -136,14 +142,18 @@ class ResponseCacheService {
     }
 
     if (expiredKeys.isNotEmpty) {
-      debugPrint('[ResponseCache] Cleared ${expiredKeys.length} expired entries');
+      debugPrint(
+        '[ResponseCache] Cleared ${expiredKeys.length} expired entries',
+      );
     }
   }
 
   /// Get cache statistics
   Map<String, dynamic> getStats() {
     final total = _hits + _misses;
-    final hitRate = total > 0 ? (_hits / total * 100).toStringAsFixed(1) : '0.0';
+    final hitRate = total > 0
+        ? (_hits / total * 100).toStringAsFixed(1)
+        : '0.0';
 
     return {
       'cache_size': _cache.length,

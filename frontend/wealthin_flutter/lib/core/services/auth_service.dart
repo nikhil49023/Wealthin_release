@@ -59,7 +59,9 @@ class AuthService extends ChangeNotifier {
       if (refreshedUser != null && !refreshedUser.emailVerified) {
         try {
           await refreshedUser.sendEmailVerification();
-          debugPrint('[AuthService] Verification email sent to ${refreshedUser.email}');
+          debugPrint(
+            '[AuthService] Verification email sent to ${refreshedUser.email}',
+          );
         } catch (e) {
           debugPrint('[AuthService] Failed to send verification email: $e');
         }
@@ -78,7 +80,8 @@ class AuthService extends ChangeNotifier {
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
         // Web Client ID from Firebase Console (for proper Android OAuth)
-        clientId: '1078484188114-i9ljp9s8clrumn6jmiv6p7fui81h4c8a.apps.googleusercontent.com',
+        clientId:
+            '1078484188114-i9ljp9s8clrumn6jmiv6p7fui81h4c8a.apps.googleusercontent.com',
         scopes: ['email', 'profile'],
       );
 
@@ -90,16 +93,21 @@ class AuthService extends ChangeNotifier {
         throw 'Google Sign In was cancelled';
       }
 
-      debugPrint('[AuthService] Google Sign-In successful: ${googleUser.email}');
+      debugPrint(
+        '[AuthService] Google Sign-In successful: ${googleUser.email}',
+      );
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-      debugPrint('[AuthService] Firebase auth successful for ${userCredential.user?.email}');
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      debugPrint(
+        '[AuthService] Firebase auth successful for ${userCredential.user?.email}',
+      );
       return userCredential;
     } on FirebaseAuthException catch (e) {
       debugPrint('[AuthService] Firebase auth error: ${e.code} - ${e.message}');
@@ -117,11 +125,11 @@ class AuthService extends ChangeNotifier {
     String? displayName,
   }) async {
     try {
-      final credential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
 
       // Update display name if provided
       if (displayName != null && credential.user != null) {
